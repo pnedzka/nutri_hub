@@ -1,15 +1,14 @@
 import { ChevronRight, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { AppTile } from '../apps';
 
 /** One tile: the whole card is the link. Our apps open in the same tab, the intranet in a new one. */
 export function AppCard({ app }: { app: AppTile }) {
   const Icon = app.icon;
-  return (
-    <a
-      href={app.url}
-      {...(app.newTab ? { target: '_blank', rel: 'noreferrer' } : {})}
-      className="group flex items-start gap-4 h-full min-h-11 bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 transition-colors hover:border-[#CC1F1F]/40 active:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2"
-    >
+  const className =
+    'group flex items-start gap-4 h-full min-h-11 bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 transition-colors hover:border-[#CC1F1F]/40 active:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2';
+  const body = (
+    <>
       <span className="shrink-0 h-11 w-11 rounded-lg bg-[#CC1F1F]/10 text-[#CC1F1F] flex items-center justify-center" aria-hidden="true">
         <Icon size={22} />
       </span>
@@ -26,6 +25,18 @@ export function AppCard({ app }: { app: AppTile }) {
         {app.newTab ? <ExternalLink size={16} /> : <ChevronRight size={18} />}
       </span>
       {app.newTab && <span className="sr-only">(opens in a new tab)</span>}
+    </>
+  );
+  if (app.url.startsWith('/')) {
+    return (
+      <Link to={app.url} className={className}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <a href={app.url} {...(app.newTab ? { target: '_blank', rel: 'noreferrer' } : {})} className={className}>
+      {body}
     </a>
   );
 }

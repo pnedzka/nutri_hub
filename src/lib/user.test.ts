@@ -16,16 +16,17 @@ describe('toRole', () => {
 
 describe('toAppUser', () => {
   it('takes the name and role from the profile', () => {
-    expect(toAppUser(authUser(), { full_name: 'Anna Kowalska', role: 'admin' })).toEqual({
+    expect(toAppUser(authUser(), { full_name: 'Anna Kowalska', role: 'admin', apps: ['owner-lookup', 'x'] })).toEqual({
       id: 'u1',
       email: 'anna.kowalska@nutripartners.co',
       name: 'Anna Kowalska',
       role: 'admin',
+      apps: ['owner-lookup'],
     });
   });
 
   it('falls back to the sign-in metadata, and to a user without a profile', () => {
-    expect(toAppUser(authUser({ full_name: 'Anna K.' }), null)).toMatchObject({ name: 'Anna K.', role: 'user' });
+    expect(toAppUser(authUser({ full_name: 'Anna K.' }), null)).toMatchObject({ name: 'Anna K.', role: 'user', apps: [] });
     expect(toAppUser(authUser(), { full_name: '  ' })).toMatchObject({ name: null, role: 'user' });
   });
 });
