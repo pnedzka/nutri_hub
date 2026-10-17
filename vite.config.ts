@@ -7,7 +7,7 @@ export default defineConfig({
   // The Supabase integration on Vercel names the public variables NEXT_PUBLIC_SUPABASE_*.
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'api/**/*.test.ts', 'shared/**/*.test.ts'],
     environment: 'node',
   },
 })

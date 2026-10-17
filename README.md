@@ -2,26 +2,38 @@
 
 Adres: **https://nutripartners.vercel.app** (projekt Vercel `nutripartners`, zespół `nutri-partners`).
 
-Strona startowa dla pracowników Nutri Partners. Po zalogowaniu widać kafelki wszystkich aplikacji firmy, a admini widzą dodatkowo sekcję „Administration”. Interfejs jest po angielsku, wygląd taki sam jak w pozostałych aplikacjach.
+Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania kontami** wspólnej bazy użytkowników. Po zalogowaniu każdy widzi kafelki aplikacji, do których ma dostęp; admini widzą dodatkowo sekcję „Administration”. Interfejs jest po angielsku, wygląd taki sam jak w pozostałych aplikacjach.
 
 ## Funkcje
 
-- **Logowanie e-mailem i hasłem** do wspólnej bazy użytkowników (Supabase neutralizatora). „Forgot your password?” prowadzi do neutralizatora.
+- **Logowanie e-mailem i hasłem** do wspólnej bazy użytkowników (Supabase neutralizatora). „Forgot password?” wysyła link do ustawienia nowego hasła.
 - **Rola przy użytkowniku:** w nagłówku plakietka **Admin** albo **User** (`profiles.role`).
 - **Kafelki „Your apps”** (wszyscy):
   - Document neutralizer: https://nutridocumentation-nxdi.vercel.app
   - E-mail signature generator: https://nutri-signatures.vercel.app
   - HubSpot owner lookup: https://whoisowner.vercel.app
   - Intranet: https://intranet.nutripartners.co, w nowej karcie, z plakietką „Separate sign-in” (własna baza kont)
-- **Kafelek „User management”** (tylko Admin): zakładka Użytkownicy w neutralizatorze (`/admin/uzytkownicy`).
+- **Kafelki według uprawnień:** user widzi tylko aplikacje z `profiles.apps`, admin wszystkie. Bez żadnej aplikacji widać komunikat „You don't have access to any apps yet”.
+- **User management** (`/users`, tylko Admin):
+  - nowe konto: e-mail, imię i nazwisko, rola, **aplikacje** (pola wyboru), zaproszenie e-mailem albo hasło startowe;
+  - lista kont: zmiana imienia (ołówek), roli i **aplikacji** (ołówek przy aplikacjach → pola wyboru → Save), ponowne wysłanie zaproszenia albo linku do resetu, nowe hasło, usunięcie konta bez dokumentów;
+  - admin ma zawsze wszystkie aplikacje; Intranet w uprawnieniach decyduje tylko o widoczności kafelka (osobne logowanie).
+- **Linki z e-maili** (zaproszenie 24 h, reset hasła 1 h) otwierają centrum: ustawiasz hasło i od razu jesteś zalogowany.
 - Nasze aplikacje otwierają się w tej samej karcie. Logo i przycisk „All apps” („Wszystkie aplikacje”) w ich nagłówkach prowadzą z powrotem tutaj.
 - **Stare linki wyszukiwania:** `nutripartners.vercel.app/?q=…` (dawniej HubSpot owner lookup) przekierowują na `whoisowner.vercel.app/?q=…`.
 
 Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady RLS w Supabase.
 
+## Uprawnienia do aplikacji
+
+- Kolumna `profiles.apps` (`text[]`) w Supabase neutralizatora: identyfikatory z `shared/access.ts` (`neutralizer`, `signatures`, `owner-lookup`, `intranet`). Admin (`role = 'admin'`) ma dostęp do wszystkiego.
+- **Każda aplikacja sprawdza dostęp sama** (neutralizator, generator stopek, owner lookup); centrum tylko ukrywa kafelki.
+- Konta sprzed wprowadzenia uprawnień dostały wszystkie aplikacje; nowe konto ma tylko te, które zaznaczy admin.
+- Zmienia je tylko serwer centrum (klucz secret); RLS pozwala zalogowanemu tylko czytać własny profil.
+
 ## Dodawanie aplikacji
 
-Wszystkie kafelki są w `src/apps.ts`. Nowa aplikacja to jeden wpis:
+Kafelki są w `src/apps.ts`, a identyfikatory aplikacji w `shared/access.ts` (`APP_IDS`, `APP_NAMES`). Nowa aplikacja to identyfikator w `shared/access.ts`, jeden wpis w `src/apps.ts` i sprawdzenie `profiles.apps` w samej aplikacji:
 
 ```ts
 {
@@ -30,7 +42,7 @@ Wszystkie kafelki są w `src/apps.ts`. Nowa aplikacja to jeden wpis:
   description: 'Weekly pipeline reports.',
   url: 'https://crm-reports.vercel.app',
   icon: BarChart3,                         // ikona z lucide-react
-  audience: 'everyone',                    // albo 'admin': sekcja „Administration”
+  audience: 'app',                         // według uprawnień; 'admin': sekcja „Administration”
   newTab: true,                            // tylko dla aplikacji spoza naszej bazy kont
   note: 'Separate sign-in',                // opcjonalna plakietka
 },
@@ -40,8 +52,9 @@ Potem `npm test`, PR do `main`, a Vercel wdroży zmianę. W nowej aplikacji wart
 
 ## Logowanie
 
-- **Ta sama baza Supabase co Neutralizacja dokumentów** (`https://edzjkumjutffodfpasmf.supabase.co`). Konta zakłada się, zaprasza i resetuje tylko w neutralizatorze.
-- Centrum **nie ma serwera** (brak katalogu `api/`). Imię i rolę czyta w przeglądarce z tabeli `profiles`, jako zalogowana osoba. RLS zwraca tylko jej własny wiersz. Wystarczy klucz publiczny (anon).
+- **Ta sama baza Supabase co Neutralizacja dokumentów** (`https://edzjkumjutffodfpasmf.supabase.co`). Konta zakłada się, zaprasza i resetuje tylko tutaj, w centrum (User management).
+- Imię, rolę i aplikacje przeglądarka czyta z tabeli `profiles` jako zalogowana osoba (RLS: własny wiersz, klucz anon).
+- Zarządzanie kontami robi serwer centrum (`api/`): `api/admin/users.ts`, `api/auth/accept.ts` (link z e-maila), `api/auth/recover.ts` („Forgot password?”). Używa klucza secret Supabase i wysyła e-maile przez Resend.
 - Brak wiersza w `profiles` albo inna wartość niż `'admin'` oznacza rolę User.
 - **Wspólnego logowania jeszcze nie ma.** Sesja Supabase jest przypisana do domeny, a każda aplikacja ma własną `*.vercel.app`, więc w każdej loguje się osobno.
   - Tokenów nie przekazujemy w linku. Supabase wymienia refresh token przy każdym odświeżeniu, więc dwie aplikacje z kopią tej samej sesji wylogowałyby się nawzajem.
@@ -54,7 +67,9 @@ Potem `npm test`, PR do `main`, a Vercel wdroży zmianę. W nowej aplikacji wart
 3. **Settings → Environment Variables** (wszystkie środowiska):
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://edzjkumjutffodfpasmf.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = klucz anon projektu neutralizatora
-   - opcjonalnie `VITE_ACCOUNT_APP_URL`, gdy neutralizator zmieni adres
+   - `SUPABASE_SECRET_KEY` = klucz secret (service role) tego samego projektu, **tylko serwer**
+   - `RESEND_API_KEY` = klucz Resend do e-maili z zaproszeniami i resetem hasła
+   - opcjonalnie `MAIL_FROM` (domyślnie `Nutri APEX <no-reply@nutripartners.co>`) i `APP_URL` (adres w linkach z e-maili)
 4. Settings → Domains: `nutripartners.vercel.app`.
 5. Deployment Protection: Vercel Authentication tylko dla preview.
 

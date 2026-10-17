@@ -1,36 +1,37 @@
 import { describe, expect, it } from 'vitest';
+import { APP_IDS } from '../shared/access';
 import { APPS, sectionsFor } from './apps';
 
-const ids = (role: 'admin' | 'user') => sectionsFor(role).map((s) => [s.title, s.apps.map((a) => a.id)]);
+const ids = (user: Parameters<typeof sectionsFor>[0]) => sectionsFor(user).map((s) => [s.title, s.apps.map((a) => a.id)]);
 
 describe('sectionsFor', () => {
-  it('shows a user the apps for everyone only', () => {
-    expect(ids('user')).toEqual([['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'intranet']]]);
+  it('shows a user only the apps they may use', () => {
+    expect(ids({ role: 'user', apps: ['neutralizer', 'intranet'] })).toEqual([['Your apps', ['neutralizer', 'intranet']]]);
   });
 
-  it('adds the Administration section for an admin', () => {
-    expect(ids('admin')).toEqual([
+  it('shows nothing to a user without apps', () => {
+    expect(ids({ role: 'user', apps: [] })).toEqual([]);
+  });
+
+  it('shows an admin every app and the Administration section', () => {
+    expect(ids({ role: 'admin', apps: [] })).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'intranet']],
       ['Administration', ['users']],
     ]);
   });
-
-  it('leaves out empty sections', () => {
-    expect(sectionsFor('admin', APPS.filter((a) => a.audience === 'everyone')).map((s) => s.title)).toEqual(['Your apps']);
-  });
 });
 
 describe('APPS', () => {
-  it('has unique ids and https addresses', () => {
+  it('has a tile for every app id', () => {
+    expect(APPS.filter((a) => a.audience === 'app').map((a) => a.id)).toEqual([...APP_IDS]);
+  });
+
+  it('has unique ids, https addresses or hub paths', () => {
     expect(new Set(APPS.map((a) => a.id)).size).toBe(APPS.length);
-    for (const app of APPS) expect(new URL(app.url).protocol).toBe('https:');
+    for (const app of APPS) expect(app.url.startsWith('/') || new URL(app.url).protocol === 'https:').toBe(true);
   });
 
   it('opens only the intranet in a new tab', () => {
     expect(APPS.filter((a) => a.newTab).map((a) => a.id)).toEqual(['intranet']);
-  });
-
-  it('links user management to the Users tab of the neutralizer', () => {
-    expect(APPS.find((a) => a.id === 'users')?.url).toBe('https://nutridocumentation-nxdi.vercel.app/admin/uzytkownicy');
   });
 });

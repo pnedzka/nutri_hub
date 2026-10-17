@@ -9,13 +9,19 @@ export function HomePage() {
   const user = useAuth((s) => s.user);
   if (!user) return null;
   const name = firstName(user);
+  const sections = sectionsFor(user);
   return (
     <div className="space-y-8 sm:space-y-10">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{name ? `Hello, ${name}` : 'Hello'}</h1>
         <p className="text-sm text-gray-500 mt-1">Choose an app to get started.</p>
       </div>
-      {sectionsFor(user.role).map((section) => (
+      {sections.length === 0 && (
+        <p className="rounded-xl border border-gray-100 bg-white px-5 py-4 text-sm text-gray-600 shadow-sm">
+          You don't have access to any apps yet. Ask your administrator to give you access.
+        </p>
+      )}
+      {sections.map((section) => (
         <section key={section.title} aria-labelledby={sectionId(section.title)}>
           <h2 id={sectionId(section.title)} className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
             {section.title}

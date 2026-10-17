@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { LogOut, User as UserIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { RoleBadge } from './RoleBadge';
 
@@ -10,7 +11,9 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="bg-white border-b border-gray-100 sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="max-w-[1400px] mx-auto safe-x sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <img src="/logo.png" alt="Nutri Partners" width={150} height={29} className="shrink-0 w-[130px] h-auto sm:w-[150px]" />
+            <Link to="/" className="shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F]" title="All apps">
+              <img src="/logo.png" alt="Nutri Partners apps" width={150} height={29} className="w-[130px] h-auto sm:w-[150px]" />
+            </Link>
             <span className="hidden md:block h-5 w-px bg-gray-200" aria-hidden="true" />
             <span className="hidden md:block text-sm font-medium text-gray-500 truncate">Apps</span>
           </div>
@@ -32,7 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 w-full max-w-5xl mx-auto safe-x sm:px-6 py-6 sm:py-12 safe-bottom">{children}</main>
+      <main className="flex-1 w-full max-w-6xl mx-auto safe-x sm:px-6 py-6 sm:py-12 safe-bottom">{children}</main>
     </div>
   );
 }
