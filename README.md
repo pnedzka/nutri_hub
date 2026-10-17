@@ -67,7 +67,7 @@ Potem `npm test`, PR do `main`, a Vercel wdroży zmianę. W nowej aplikacji wart
 3. **Settings → Environment Variables** (wszystkie środowiska):
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://edzjkumjutffodfpasmf.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = klucz anon projektu neutralizatora
-   - `SUPABASE_SECRET_KEY` = klucz secret (service role) tego samego projektu, **tylko serwer**
+   - `SUPABASE_SECRET_KEY` = klucz secret (service role) tego samego projektu, **tylko serwer** (Supabase → Project Settings → API Keys → **Secret keys**, prefiks `sb_secret_`; nie klucz publishable `sb_publishable_` ani anon, z nimi serwer nie widzi żadnych kont i zwraca 503)
    - `RESEND_API_KEY` = klucz Resend do e-maili z zaproszeniami i resetem hasła
    - opcjonalnie `MAIL_FROM` (domyślnie `Nutri APEX <no-reply@nutripartners.co>`) i `APP_URL` (adres w linkach z e-maili)
 4. Settings → Domains: `nutripartners.vercel.app`.
