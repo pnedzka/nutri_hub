@@ -31,5 +31,5 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 ## Praca z repo
 
 - `npm test` (vitest), `npm run lint`, `npm run build`. Wszystko musi przejść przed pushem.
-- Zmiany idą przez PR do `main` (squash merge). Vercel wdraża `main` automatycznie.
+- Środowiska (od 18.10.2026): `develop` = dev (baza Supabase `nutri-dev`, zmienne Preview), `main` = produkcja. PR-y idą do `develop` (squash). Na produkcję tylko na polecenie właściciela: PR `develop` → `main` scalany merge commitem. Szczegóły w README, sekcja „Środowiska”.
 - Sandbox Claude Code nie łączy się z supabase.co ani *.vercel.app. Używaj narzędzi MCP: Supabase, Vercel.

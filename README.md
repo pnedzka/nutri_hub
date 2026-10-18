@@ -60,6 +60,24 @@ Potem `npm test`, PR do `main`, a Vercel wdroży zmianę. W nowej aplikacji wart
   - Tokenów nie przekazujemy w linku. Supabase wymienia refresh token przy każdym odświeżeniu, więc dwie aplikacje z kopią tej samej sesji wylogowałyby się nawzajem.
   - Docelowo: jedna domena z podścieżkami (Vercel Microfrontends) albo subdomeny firmowe i cookie na domenie nadrzędnej.
 
+## Środowiska: dev i produkcja
+
+| | Produkcja | Dev |
+| --- | --- | --- |
+| Gałąź | `main` | `develop` (i gałęzie PR-ów) |
+| Adres | https://nutripartners.vercel.app | https://nutripartners-git-develop-nutri-partners.vercel.app (tylko po zalogowaniu do Vercela) |
+| Baza Supabase | `nutri-documentation` (`edzjkumjutffodfpasmf`) | `nutri-dev` (`xmcwvpgtaxlpswxghuqq`), osobne konta testowe |
+| Zmienne w Vercelu | Production | Preview |
+
+W Preview kafelki prowadzą do wersji dev aplikacji (`VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL`), przeglądarka używa `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, a serwer `SUPABASE_URL` i `SUPABASE_SECRET_KEY` bazy dev. Konta testowe zakłada się w User management wersji dev.
+
+1. **Praca:** gałąź od `develop` i PR do `develop` (squash). Każdy PR ma własny podgląd; po scaleniu zmiana jest pod stałym adresem dev.
+2. **Wydanie na produkcję** (na polecenie właściciela): PR `develop` → `main`, scalany **merge commitem**, nie squashem, żeby gałęzie się nie rozjechały. Vercel wdraża `main` w ok. minutę. Cofnięcie: Vercel → Deployments → poprzednie wdrożenie → Instant Rollback.
+3. **Zmiany schematu bazy:** najpierw na `nutri-dev`, przy wydaniu ta sama zmiana na produkcji, przed scaleniem do `main`. Pełny schemat: `db/schema.sql` w `nutri_documentation`.
+4. **Pilna poprawka:** PR do `main`, potem `main` scalić do `develop`.
+
+Darmowa baza dev usypia się po 7 dniach bez użycia. Wybudzenie: Supabase → projekt `nutri-dev` → Restore (ok. minuty).
+
 ## Wdrożenie (Vercel)
 
 1. Usuń domenę `nutripartners.vercel.app` z projektu `whoisowner`: Settings → Domains → Remove.
