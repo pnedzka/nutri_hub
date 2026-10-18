@@ -23,8 +23,14 @@ export interface AppTile {
   note?: string;
 }
 
-export const OWNER_LOOKUP_URL = 'https://whoisowner.vercel.app';
-export const NEUTRALIZER_URL = 'https://nutridocumentation-nxdi.vercel.app';
+// Production addresses by default. Preview deployments (the develop branch and pull requests) point the tiles at the
+// apps' develop deployments with VITE_NEUTRALIZER_URL, VITE_SIGNATURES_URL and VITE_OWNER_LOOKUP_URL.
+const env = import.meta.env;
+const address = (value: string | undefined, fallback: string) => (value || fallback).replace(/\/+$/, '');
+
+export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoisowner.vercel.app');
+export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
+export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
 
 /** Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). */
 export const APPS: AppTile[] = [
@@ -40,7 +46,7 @@ export const APPS: AppTile[] = [
     id: 'signatures',
     name: 'E-mail signature generator',
     description: 'Create your Nutri Partners e-mail signature.',
-    url: 'https://nutri-signatures.vercel.app',
+    url: SIGNATURES_URL,
     icon: PenLine,
     audience: 'app',
   },
