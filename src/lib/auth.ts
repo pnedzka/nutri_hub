@@ -44,6 +44,11 @@ async function openLink(): Promise<string | null> {
 }
 const linkVerification = authLink && authLink.kind !== 'error' && (authLink.tokenHash || authLink.linkToken) ? openLink() : null;
 
+// Signing out in one of our apps ends at /logout: the hub signs out too, otherwise it would sign the person straight
+// back in to the app (lib/sso.ts). The app has already ended the session everywhere; this clears the hub's copy.
+const loggingOut = supabase && window.location.pathname === '/logout' ? supabase.auth.signOut({ scope: 'local' }) : null;
+if (loggingOut) window.history.replaceState(null, '', '/');
+
 // Sign-in for the shared user base. Accounts are created, invited and reset here, in the hub (Users).
 export const useAuth = create<AuthState>((set, get) => {
   async function loadUser(session: Session | null) {
@@ -99,6 +104,8 @@ export const useAuth = create<AuthState>((set, get) => {
           if (error) set({ passwordSetup: null, linkError: error });
           listen();
         });
+      } else if (loggingOut) {
+        void loggingOut.finally(listen);
       } else {
         listen();
       }

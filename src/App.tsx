@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
 import { SetupPage } from './pages/SetupPage';
+import { SsoPage } from './pages/SsoPage';
 import { UsersPage } from './pages/UsersPage';
 
 function Spinner() {
@@ -38,6 +39,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
+          <Route path="/sso" element={<SsoPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

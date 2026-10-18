@@ -56,9 +56,13 @@ Potem `npm test`, PR do `main`, a Vercel wdroży zmianę. W nowej aplikacji wart
 - Imię, rolę i aplikacje przeglądarka czyta z tabeli `profiles` jako zalogowana osoba (RLS: własny wiersz, klucz anon).
 - Zarządzanie kontami robi serwer centrum (`api/`): `api/admin/users.ts`, `api/auth/accept.ts` (link z e-maila), `api/auth/recover.ts` („Forgot password?”). Używa klucza secret Supabase i wysyła e-maile przez Resend.
 - Brak wiersza w `profiles` albo inna wartość niż `'admin'` oznacza rolę User.
-- **Wspólnego logowania jeszcze nie ma.** Sesja Supabase jest przypisana do domeny, a każda aplikacja ma własną `*.vercel.app`, więc w każdej loguje się osobno.
-  - Tokenów nie przekazujemy w linku. Supabase wymienia refresh token przy każdym odświeżeniu, więc dwie aplikacje z kopią tej samej sesji wylogowałyby się nawzajem.
-  - Docelowo: jedna domena z podścieżkami (Vercel Microfrontends) albo subdomeny firmowe i cookie na domenie nadrzędnej.
+- **Jedno logowanie (od 18.10.2026).** Każda aplikacja ma własną `*.vercel.app`, a sesja Supabase jest przypisana do domeny, więc centrum wpuszcza do aplikacji jednorazowym tokenem:
+  1. Kafelek prowadzi do `/sso?app=…` (`src/pages/SsoPage.tsx`, `src/lib/sso.ts`). Aplikacja bez sesji też tam odsyła, z `to` (strona w aplikacji) i `back` (jej adres).
+  2. Centrum (po zalogowaniu, jeśli trzeba) sprawdza dostęp i prosi `POST /api/sso` o jednorazowy token Supabase (`generateLink` typu `magiclink`, bez e-maila).
+  3. Otwiera aplikację z tokenem we fragmencie adresu (`#sso=…`, nie trafia do serwerów). Aplikacja od razu usuwa go z adresu i zakłada **własną** sesję (`verifyOtp`), więc rotacja refresh tokenów nie wylogowuje innych aplikacji.
+  - Token trafia tylko pod skonfigurowane adresy aplikacji (`VITE_*_URL`). W Preview także na podglądy PR-ów pasujące do `VITE_SSO_PREVIEW_ORIGINS` (wyrażenie regularne na całe origin).
+  - Wylogowanie w aplikacji (globalne `signOut`) kończy się na `/logout` centrum, które też się wylogowuje. Inaczej centrum od razu zalogowałoby z powrotem.
+  - Aplikacja chroni się przed pętlą: drugi powrót do centrum w ciągu minuty albo nieudany token pokazuje jej własny formularz logowania.
 
 ## Środowiska: dev i produkcja
 

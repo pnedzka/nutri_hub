@@ -1,8 +1,12 @@
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { AppTile } from '../apps';
+import { isSsoApp } from '../lib/sso';
 
-/** One tile: the whole card is the link. Our apps open in the same tab, the intranet in a new one. */
+/**
+ * One tile: the whole card is the link. Our apps open in the same tab, through /sso so the person is signed in
+ * there already; the intranet (own accounts) opens in a new tab.
+ */
 export function AppCard({ app }: { app: AppTile }) {
   const Icon = app.icon;
   const className =
@@ -27,9 +31,10 @@ export function AppCard({ app }: { app: AppTile }) {
       {app.newTab && <span className="sr-only">(opens in a new tab)</span>}
     </>
   );
-  if (app.url.startsWith('/')) {
+  const path = app.url.startsWith('/') ? app.url : isSsoApp(app.id) ? `/sso?${new URLSearchParams({ app: app.id })}` : null;
+  if (path) {
     return (
-      <Link to={app.url} className={className}>
+      <Link to={path} className={className}>
         {body}
       </Link>
     );
