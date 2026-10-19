@@ -78,7 +78,7 @@ Właściciel chce zbudować nowy intranet jako naszą aplikację (wspólne konta
 - **Zakres pierwszej wersji:** tylko **urlopy** i **newsy**. Reszty starego intranetu nie przenosimy; nowe moduły mogą dojść później. Migracji nie ma: startujemy od zera, salda wpisuje admin.
 - **Urlopy:**
   - pracownik składa wniosek; akceptuje albo odrzuca **jego przełożony lub dowolny admin**, a admin może też wpisać urlop za pracownika;
-  - przełożony to nowe pole w profilu (np. `profiles.manager_id`), ustawiane w User management w centrum;
+  - przełożonego i wymiar urlopu ustawiają admini w samym intranecie (Leave → Employees, tabela `leave_settings`), nie w User management: centrum nie wymaga zmian dla urlopów (decyzja z 19.10.2026);
   - saldo w **dniach, z połówkami**; weekendy i święta ustawowe się nie liczą; niewykorzystane dni przechodzą na następny rok;
   - **liczbę dni ustawia admin osobno dla każdego pracownika** (roczny wymiar i saldo startowe);
   - rodzaje: wypoczynkowy, na żądanie (4 dni w roku, wliczane do wypoczynkowego), okolicznościowy, opieka nad dzieckiem (2 dni), bezpłatny, L4 (wpisuje tylko admin, nie zmniejsza salda);
