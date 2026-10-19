@@ -70,13 +70,25 @@ Właściciel chce zbudować nowy intranet jako naszą aplikację (wspólne konta
 
 - **Stan obecny:** kafelek `intranet` w `src/apps.ts` ma `newTab: true` i `note: 'Separate sign-in'`. Identyfikator `intranet` jest już w `profiles.apps`; konta sprzed 17.10.2026 mają go przypisanego.
 - **Propozycja:** zachować identyfikator `intranet`, bo uprawnienia są już nadane. Przy wydaniu zmienić kafelek: nowy adres, bez `newTab` i `note`, wpis w `APP_URLS`.
-- **Do ustalenia z właścicielem na starcie:**
-  - co jest w obecnym intranecie i co przenieść;
-  - nazwa repo, projektu Vercel i adres;
-  - kto edytuje treści (admini czy wszyscy);
-  - gdzie trzymać dane: tabele w bazie Supabase, a pliki w Storage albo Vercel Blob. Schemat wspólnej bazy jest w `nutri_documentation/db/schema.sql`;
-  - język interfejsu (pozostałe aplikacje są po angielsku, stopki po polsku);
-  - kiedy wyłączyć stary intranet.
+
+### Ustalenia (19.10.2026)
+
+- **Nazwa:** repo `pnedzka/nutri_intranet`, projekt Vercel `nutri-intranet`, adres https://nutri-intranet.vercel.app. Interfejs po angielsku.
+- **Dane:** tabele we wspólnej bazie Supabase (dev: `nutri-dev`), pliki w Supabase Storage (podpisane linki, RLS). Schemat wspólnej bazy jest w `nutri_documentation/db/schema.sql`.
+- **Zakres pierwszej wersji:** tylko **urlopy** i **newsy**. Reszty starego intranetu nie przenosimy; nowe moduły mogą dojść później. Migracji nie ma: startujemy od zera, salda wpisuje admin.
+- **Urlopy:**
+  - pracownik składa wniosek; akceptuje albo odrzuca **jego przełożony lub dowolny admin**, a admin może też wpisać urlop za pracownika;
+  - przełożony to nowe pole w profilu (np. `profiles.manager_id`), ustawiane w User management w centrum;
+  - saldo w **dniach, z połówkami**; weekendy i święta ustawowe się nie liczą; niewykorzystane dni przechodzą na następny rok;
+  - **liczbę dni ustawia admin osobno dla każdego pracownika** (roczny wymiar i saldo startowe);
+  - rodzaje: wypoczynkowy, na żądanie (4 dni w roku, wliczane do wypoczynkowego), okolicznościowy, opieka nad dzieckiem (2 dni), bezpłatny, L4 (wpisuje tylko admin, nie zmniejsza salda);
+  - kalendarz nieobecności widzą wszyscy, ale tylko jako „nieobecny”; rodzaj urlopu widzi pracownik, jego przełożony i admini.
+  - E-maile (Resend): o nowym wniosku do przełożonego i adminów, o decyzji do pracownika.
+- **Newsy:** blog o wydarzeniach w firmie i powitaniach nowych osób; wpis z galerią zdjęć, komentarzami i polubieniami.
+  - Publikują admini i **wybrani redaktorzy**: nowe uprawnienie nadawane w User management w centrum.
+  - Komentują i lajkują wszyscy z dostępem do intranetu. Autor może edytować i usunąć swój komentarz, admini mogą zrobić z każdym komentarzem wszystko.
+  - Nowy news: e-mail do wszystkich z dostępem do intranetu, z linkiem do wpisu.
+- **Do ustalenia:** kiedy wyłączyć stary intranet i czy przepiąć na nowy adres `intranet.nutripartners.co`.
 
 ## Środowiska: dev i produkcja (od 18.10.2026)
 
