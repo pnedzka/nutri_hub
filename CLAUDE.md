@@ -94,8 +94,8 @@ Decyzje właściciela: osobna baza dev, wersje dev widzi tylko on, na produkcję
   - wszystkie 4 projekty: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (klucz publishable `nutri-dev`), `SUPABASE_URL`;
   - centrum i neutralizator: `SUPABASE_SECRET_KEY` (klucz tajny `nutri-dev`, wpisuje go właściciel);
   - whoisowner i stopki: `SUPABASE_ANON_KEY`;
-  - linki między aplikacjami: `VITE_HUB_URL` (neutralizator, whoisowner, stopki) → centrum dev; w centrum `VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL` → aplikacje dev;
-  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures)-[a-z0-9-]+-nutri-partners\.vercel\.app` (jedno logowanie wraca też na podglądy PR-ów aplikacji);
+  - linki między aplikacjami: `VITE_HUB_URL` (neutralizator, whoisowner, stopki) → centrum dev; w centrum `VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL`, `VITE_INTRANET_URL` → aplikacje dev (`VITE_INTRANET_URL` tylko w Preview do wydania nowego intranetu; bez niej kafelek prowadzi do starego);
+  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures|nutri-intranet)-[a-z0-9-]+-nutri-partners\.vercel\.app` (jedno logowanie wraca też na podglądy PR-ów aplikacji);
   - neutralizator: `ANTHROPIC_API_KEY` także w Preview; whoisowner: HubSpot i Claude mają te same klucze w obu środowiskach (HubSpot tylko do odczytu);
   - stopki: `BLOB_READ_WRITE_TOKEN` tylko w Production i Development, więc w dev zapisane stopki zostają w przeglądarce i nie zmieniają wspólnej listy zespołu.
   - Nowa zmienna o różnych wartościach w dev i na produkcji: dodać osobno dla Production i dla Preview. Zmienne działają od następnego wdrożenia.
