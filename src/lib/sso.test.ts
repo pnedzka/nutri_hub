@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ssoTarget, withToken } from './sso';
 
 const PREVIEWS = 'https://(nutridocumentation-nxdi|whoisowner|nutri-signatures)-[a-z0-9-]+-nutri-partners\\.vercel\\.app';
@@ -9,7 +9,7 @@ describe('ssoTarget', () => {
     expect(ssoTarget('neutralizer', null, null, undefined)?.url.href).toBe('https://nutridocumentation-nxdi.vercel.app/');
   });
 
-  it('refuses unknown apps and the intranet', () => {
+  it('refuses unknown apps and the old intranet', () => {
     expect(ssoTarget('intranet', '/', null, undefined)).toBeNull();
     expect(ssoTarget('evil', '/', null, undefined)).toBeNull();
     expect(ssoTarget(null, '/', null, undefined)).toBeNull();
@@ -26,6 +26,23 @@ describe('ssoTarget', () => {
     expect(ssoTarget('owner-lookup', '/', back, PREVIEWS)?.url.origin).toBe(back);
     expect(ssoTarget('owner-lookup', '/', back, undefined)?.url.origin).toBe('https://whoisowner.vercel.app');
     expect(ssoTarget('owner-lookup', '/', 'https://evil-nutri-partners.vercel.app.example.com', PREVIEWS)?.url.origin).toBe('https://whoisowner.vercel.app');
+  });
+});
+
+describe('the new intranet (VITE_INTRANET_URL, previews only until its release)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('signs people in to it from its tile, in the same tab', async () => {
+    vi.stubEnv('VITE_INTRANET_URL', 'https://nutri-intranet-git-develop-nutri-partners.vercel.app/');
+    vi.resetModules();
+    const { APPS } = await import('../apps');
+    const sso = await import('./sso');
+    expect(APPS.find((a) => a.id === 'intranet')).toMatchObject({ url: 'https://nutri-intranet-git-develop-nutri-partners.vercel.app' });
+    expect(APPS.find((a) => a.id === 'intranet')?.newTab).toBeUndefined();
+    expect(sso.ssoTarget('intranet', '/news', null, undefined)?.url.href).toBe('https://nutri-intranet-git-develop-nutri-partners.vercel.app/news');
   });
 });
 

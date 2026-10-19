@@ -12,7 +12,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - Document neutralizer: https://nutridocumentation-nxdi.vercel.app
   - E-mail signature generator: https://nutri-signatures.vercel.app
   - HubSpot owner lookup: https://whoisowner.vercel.app
-  - Intranet: https://intranet.nutripartners.co, w nowej karcie, z plakietką „Separate sign-in” (własna baza kont)
+  - Intranet: https://intranet.nutripartners.co, w nowej karcie, z plakietką „Separate sign-in” (własna baza kont). Gdy ustawiona jest `VITE_INTRANET_URL` (do wydania nowego intranetu tylko w Preview), kafelek prowadzi do nowego intranetu (`pnedzka/nutri_intranet`) przez jedno logowanie, w tej samej karcie
 - **Kafelki według uprawnień:** user widzi tylko aplikacje z `profiles.apps`, admin wszystkie. Bez żadnej aplikacji widać komunikat „You don't have access to any apps yet”.
 - **User management** (`/users`, tylko Admin):
   - nowe konto: e-mail, imię i nazwisko, rola, **aplikacje** (pola wyboru), zaproszenie e-mailem albo hasło startowe;
@@ -79,7 +79,7 @@ Potem `npm test` i PR do `develop`; na produkcję zmiana trafia z najbliższym w
 | Baza Supabase | `nutri-documentation` (`edzjkumjutffodfpasmf`) | `nutri-dev` (`xmcwvpgtaxlpswxghuqq`), osobne konta testowe |
 | Zmienne w Vercelu | Production | Preview |
 
-W Preview kafelki prowadzą do wersji dev aplikacji (`VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL`), przeglądarka używa `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, a serwer `SUPABASE_URL` i `SUPABASE_SECRET_KEY` bazy dev. Konta testowe zakłada się w User management wersji dev.
+W Preview kafelki prowadzą do wersji dev aplikacji (`VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL`, `VITE_INTRANET_URL`), przeglądarka używa `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, a serwer `SUPABASE_URL` i `SUPABASE_SECRET_KEY` bazy dev. Konta testowe zakłada się w User management wersji dev.
 
 1. **Praca:** gałąź od `develop` i PR do `develop` (squash). Każdy PR ma własny podgląd; po scaleniu zmiana jest pod stałym adresem dev.
 2. **Wydanie na produkcję** (na polecenie właściciela): PR `develop` → `main`, scalany **merge commitem**, nie squashem, żeby gałęzie się nie rozjechały. Vercel wdraża `main` w ok. minutę. Cofnięcie: Vercel → Deployments → poprzednie wdrożenie → Instant Rollback.
