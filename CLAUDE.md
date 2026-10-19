@@ -12,7 +12,7 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 | Document neutralizer | https://nutridocumentation-nxdi.vercel.app | https://nutridocumentation-nxdi-git-develop-nutri-partners.vercel.app | `nutri_documentation-nxdi` (`prj_cqi64Tsx7I1JsNnzjulk1CEbYVXd`) | `pnedzka/nutri_documentation` |
 | E-mail signature generator (UI po polsku) | https://nutri-signatures.vercel.app | https://nutri-signatures-git-develop-nutri-partners.vercel.app | `nutri-signatures` (`prj_yF2TYN35jQ7vcQz4wqabpjxFs43E`) | `pnedzka/nutri_signatures` |
 | HubSpot owner lookup | https://whoisowner.vercel.app | https://whoisowner-git-develop-nutri-partners.vercel.app | `whoisowner` (`prj_Zp4K089NIbc4GOG49fLII8V6DjaW`) | `pnedzka/nutripartners` |
-| Intranet (osobna baza kont, nie zmieniamy) | https://intranet.nutripartners.co | – | poza Vercelem | – |
+| Intranet (obecny, osobna baza kont; zastąpi go nowy intranet, zob. niżej) | https://intranet.nutripartners.co | – | poza Vercelem | – |
 
 `nutri-partners` to prywatne konto Vercel właściciela (plan Hobby), nie zespół. Projekt `nutri-partners1/nutripartners` to duplikat na innym koncie Vercel, poza naszym dostępem; buduje się z `pnedzka/nutripartners`, ale niczego nie blokuje.
 
@@ -30,6 +30,53 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
   - Nie przekazywać samej sesji (access/refresh token) w linku: rotacja refresh tokenów wylogowałaby obie aplikacje.
   - Wylogowanie w aplikacji prowadzi do `/logout` centrum. Preview: `VITE_SSO_PREVIEW_ORIGINS` pozwala wracać na podglądy PR-ów.
 - Design: Vite + React 19 + Tailwind v4 + TypeScript, `lucide-react`, `zustand`. Inter, tło `#F5F5F5`, tekst `#1A1A1A`, marka `#CC1F1F`, białe karty `border-gray-100`. Na telefonach pola dotykowe ≥ 44 px, `.safe-x`, `.safe-bottom`, pola 16 px.
+
+## Stan (19.10.2026)
+
+Wszystko jest na produkcji i działa (właściciel potwierdził): centrum z User management i uprawnieniami, środowiska dev i produkcja, jedno logowanie we wszystkich trzech aplikacjach. Pracownicy dostali wiadomość o centrum i o HubSpot owner lookup.
+
+## Nowa aplikacja: checklista
+
+Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Vercela w `api/`, logowanie przez centrum.
+
+1. **Repo** `pnedzka/<nazwa>` zakłada właściciel na GitHubie i dodaje do sesji Claude Code. Gałęzie: `main` (produkcja) i `develop` (dev).
+2. **Kod z whoisowner:**
+   - logowanie: `src/lib/supabase.ts`, `src/lib/auth.ts`, `src/lib/sso.ts`, `src/lib/api.ts`, `api/_lib/auth.ts`, `api/_lib/supabase.ts`, `api/_lib/http.ts`;
+   - wygląd: `src/components/` (`Layout`, `Card`, `Button`, `Input`, `Toasts`), `src/lib/toast.ts`, `src/index.css`, `public/logo.png`;
+   - konfiguracja: `vercel.json` (`framework: vite`, region `fra1`, rewrite SPA), `eslint.config.js`, `tsconfig*.json`, `vite.config.ts`.
+   - Zmienić `APP_ID` w `src/lib/sso.ts` i `api/_lib/auth.ts` na identyfikator nowej aplikacji.
+3. **Projekt Vercel** zakłada właściciel w panelu, bo MCP nie może (403). Ustawienia:
+   - import repo, Production Branch `main`;
+   - Deployment Protection: Vercel Authentication, „Only Preview Deployments”.
+4. **Zmienne środowiskowe:**
+   - Production: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` (baza produkcyjna).
+   - Preview: te same zmienne z wartościami `nutri-dev`, plus `VITE_HUB_URL` → centrum dev.
+   - Klucz tajny Supabase dodawać tylko wtedy, gdy serwer aplikacji naprawdę go potrzebuje.
+5. **Centrum (to repo):**
+   - identyfikator w `shared/access.ts` (`APP_IDS`, `APP_NAMES`);
+   - kafelek w `src/apps.ts`, adres z `VITE_<APP>_URL` z domyślnym adresem produkcyjnym;
+   - adres w `APP_URLS` (`src/lib/sso.ts`), żeby kafelek przechodził przez jedno logowanie;
+   - w Preview centrum: `VITE_<APP>_URL` → adres dev aplikacji, a nazwę projektu dopisać do `VITE_SSO_PREVIEW_ORIGINS`.
+6. **Dostęp:** w User management (dev i produkcja) zaznaczyć nową aplikację wybranym osobom. Admin ma dostęp automatycznie.
+7. **Dokumentacja:**
+   - wiersz w tabeli „Aplikacje” wyżej i w README centrum;
+   - `CLAUDE.md` i `README.md` w nowym repo (wzór: `nutri_signatures/CLAUDE.md`);
+   - w nagłówku aplikacji logo i „All apps” prowadzą do `HUB_URL`.
+8. **Pierwsze wdrożenie `develop`:** jeśli `develop` jest na tym samym commicie co `main`, Vercel go nie wdroży. Wtedy użyć `create_deployment` (zob. „Pułapki”).
+
+## Następny projekt: nowy intranet
+
+Właściciel chce zbudować nowy intranet jako naszą aplikację (wspólne konta, jedno logowanie), zamiast obecnego https://intranet.nutripartners.co.
+
+- **Stan obecny:** kafelek `intranet` w `src/apps.ts` ma `newTab: true` i `note: 'Separate sign-in'`. Identyfikator `intranet` jest już w `profiles.apps`; konta sprzed 17.10.2026 mają go przypisanego.
+- **Propozycja:** zachować identyfikator `intranet`, bo uprawnienia są już nadane. Przy wydaniu zmienić kafelek: nowy adres, bez `newTab` i `note`, wpis w `APP_URLS`.
+- **Do ustalenia z właścicielem na starcie:**
+  - co jest w obecnym intranecie i co przenieść;
+  - nazwa repo, projektu Vercel i adres;
+  - kto edytuje treści (admini czy wszyscy);
+  - gdzie trzymać dane: tabele w bazie Supabase, a pliki w Storage albo Vercel Blob. Schemat wspólnej bazy jest w `nutri_documentation/db/schema.sql`;
+  - język interfejsu (pozostałe aplikacje są po angielsku, stopki po polsku);
+  - kiedy wyłączyć stary intranet.
 
 ## Środowiska: dev i produkcja (od 18.10.2026)
 

@@ -33,7 +33,13 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 
 ## Dodawanie aplikacji
 
-Kafelki są w `src/apps.ts`, a identyfikatory aplikacji w `shared/access.ts` (`APP_IDS`, `APP_NAMES`). Nowa aplikacja to identyfikator w `shared/access.ts`, jeden wpis w `src/apps.ts` i sprawdzenie `profiles.apps` w samej aplikacji:
+Kafelki są w `src/apps.ts`, a identyfikatory aplikacji w `shared/access.ts` (`APP_IDS`, `APP_NAMES`). Nowa aplikacja w centrum wymaga:
+- identyfikatora w `shared/access.ts`;
+- wpisu w `src/apps.ts`;
+- adresu w `APP_URLS` (`src/lib/sso.ts`), jeśli korzysta z jednego logowania;
+- sprawdzenia `profiles.apps` w samej aplikacji.
+
+Pełna lista kroków (repo, projekt Vercel, zmienne dev i produkcji) jest w `CLAUDE.md`, w sekcji „Nowa aplikacja: checklista”. Przykładowy wpis:
 
 ```ts
 {
@@ -48,7 +54,7 @@ Kafelki są w `src/apps.ts`, a identyfikatory aplikacji w `shared/access.ts` (`A
 },
 ```
 
-Potem `npm test`, PR do `main`, a Vercel wdroży zmianę. W nowej aplikacji warto dodać w nagłówku link do centrum, tak jak w pozostałych.
+Potem `npm test` i PR do `develop`; na produkcję zmiana trafia z najbliższym wydaniem (zob. „Środowiska”). W nagłówku nowej aplikacji logo i „All apps” prowadzą do centrum, tak jak w pozostałych.
 
 ## Logowanie
 
