@@ -13,8 +13,8 @@ export function POST(request: Request): Promise<Response> {
   return handle(async () => {
     const profile = await requireUser(request);
     const body = await readJson<{ app?: unknown }>(request);
-    // The intranet has its own accounts.
-    if (!isAppId(body.app) || body.app === 'intranet') throw new HttpError(400, 'Unknown app.');
+    // The old intranet has its own accounts; the new one (VITE_INTRANET_URL, previews until its release) uses ours.
+    if (!isAppId(body.app) || (body.app === 'intranet' && !process.env.VITE_INTRANET_URL)) throw new HttpError(400, 'Unknown app.');
     if (!canUse(profile, body.app)) throw new HttpError(403, `You don't have access to ${APP_NAMES[body.app]}. Ask your administrator.`);
 
     // The account's own address, not the copy in `profiles`, so the token can only sign in this account.

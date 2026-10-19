@@ -15,7 +15,7 @@ export interface AppTile {
    */
   audience: 'app' | 'admin';
   /**
-   * Opens in a new tab: apps outside our user base (the intranet). Our own apps open in the same tab and link back
+   * Opens in a new tab: apps outside our user base (the old intranet). Our own apps open in the same tab and link back
    * to the hub from their header.
    */
   newTab?: boolean;
@@ -31,6 +31,11 @@ const address = (value: string | undefined, fallback: string) => (value || fallb
 export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoisowner.vercel.app');
 export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
 export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
+/**
+ * The new intranet (nutri_intranet: our user base, one sign-in). Only previews set VITE_INTRANET_URL until its
+ * release; without it the tile opens the old intranet, which has its own accounts.
+ */
+export const INTRANET_URL: string | null = env.VITE_INTRANET_URL ? address(env.VITE_INTRANET_URL, '') : null;
 
 /** Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). */
 export const APPS: AppTile[] = [
@@ -62,11 +67,9 @@ export const APPS: AppTile[] = [
     id: 'intranet',
     name: 'Intranet',
     description: 'The company intranet.',
-    url: 'https://intranet.nutripartners.co',
     icon: Building2,
     audience: 'app',
-    newTab: true,
-    note: 'Separate sign-in',
+    ...(INTRANET_URL ? { url: INTRANET_URL } : { url: 'https://intranet.nutripartners.co', newTab: true, note: 'Separate sign-in' }),
   },
   {
     id: 'users',
