@@ -79,16 +79,16 @@ Właściciel chce zbudować nowy intranet jako naszą aplikację (wspólne konta
 - **Urlopy:**
   - pracownik składa wniosek; akceptuje albo odrzuca **jego przełożony lub dowolny admin**, a admin może też wpisać urlop za pracownika;
   - przełożony to nowe pole w profilu (np. `profiles.manager_id`), ustawiane w User management w centrum;
-  - saldo w **dniach, z połówkami**; weekendy i święta ustawowe się nie liczą; niewykorzystane dni przechodzą na następny rok; roczny wymiar ustawia admin;
+  - saldo w **dniach, z połówkami**; weekendy i święta ustawowe się nie liczą; niewykorzystane dni przechodzą na następny rok;
+  - **liczbę dni ustawia admin osobno dla każdego pracownika** (roczny wymiar i saldo startowe);
+  - rodzaje: wypoczynkowy, na żądanie (4 dni w roku, wliczane do wypoczynkowego), okolicznościowy, opieka nad dzieckiem (2 dni), bezpłatny, L4 (wpisuje tylko admin, nie zmniejsza salda);
   - kalendarz nieobecności widzą wszyscy, ale tylko jako „nieobecny”; rodzaj urlopu widzi pracownik, jego przełożony i admini.
+  - E-maile (Resend): o nowym wniosku do przełożonego i adminów, o decyzji do pracownika.
 - **Newsy:** blog o wydarzeniach w firmie i powitaniach nowych osób; wpis z galerią zdjęć, komentarzami i polubieniami.
   - Publikują admini i **wybrani redaktorzy**: nowe uprawnienie nadawane w User management w centrum.
-  - Komentują i lajkują wszyscy z dostępem do intranetu.
-- **Do ustalenia:**
-  - rodzaje urlopów (np. wypoczynkowy, na żądanie, okolicznościowy, opieka nad dzieckiem, bezpłatny, L4);
-  - powiadomienia e-mail (Resend) o wnioskach i decyzjach oraz o nowych newsach;
-  - moderacja komentarzy;
-  - kiedy wyłączyć stary intranet i czy przepiąć na nowy adres `intranet.nutripartners.co`.
+  - Komentują i lajkują wszyscy z dostępem do intranetu. Autor może edytować i usunąć swój komentarz, admini mogą zrobić z każdym komentarzem wszystko.
+  - Nowy news: e-mail do wszystkich z dostępem do intranetu, z linkiem do wpisu.
+- **Do ustalenia:** kiedy wyłączyć stary intranet i czy przepiąć na nowy adres `intranet.nutripartners.co`.
 
 ## Środowiska: dev i produkcja (od 18.10.2026)
 
