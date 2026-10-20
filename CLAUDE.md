@@ -37,6 +37,8 @@ Na produkcji i działa (właściciel potwierdził): centrum z User management i 
 
 **News i Leave wydane na produkcję 20.10.2026** (PR #17): tabele i bucket założone w bazie produkcyjnej, wszystkie konta z `intranet` (13) dostały `news` i `leave`. Automatyczne code review działa we wszystkich czterech repo.
 
+**Monitoring wydany na produkcję 20.10.2026** (PR #24 centrum i wydania 3 aplikacji): Sentry we wszystkich 4 aplikacjach, `/api/health` + UptimeRobot, czytelne błędy klucza serwera w centrum (zob. „Monitorowanie”).
+
 ## Nowa aplikacja: checklista
 
 Funkcja dla pracowników może też być **modułem centrum**, jak News i Leave (zob. „Moduły centrum”): ścieżka w `src/App.tsx`, kafelek z `url` ze ścieżką, API w `api/` (limit funkcji!), identyfikator w `shared/access.ts`. Wtedy punkty 1–4 i 8 odpadają. Poniżej osobna aplikacja.
@@ -90,12 +92,18 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
   - Nowy news: e-mail do wszystkich z dostępem do News (bez autora), z linkiem do wpisu.
 - **Do ustalenia:** kiedy wyłączyć stary intranet (kafelek `intranet`) i czy przepiąć adres `intranet.nutripartners.co` na centrum.
 
-## Monitorowanie (od 20.10.2026)
+## Monitorowanie (od 20.10.2026, na produkcji we wszystkich 4 aplikacjach)
 
 Po awarii z 20.10.2026 (w Production centrum był klucz `nutri-dev`, pracownicy widzieli „Your session has expired”, zgłosili to po ok. 2,5 h):
-- **Sentry** (organizacja `nutri-partners`, projekt `nutri-apps`, region EU, plan Developer; jeden projekt dla 4 aplikacji, tag `app`; e-mail przy każdym nowym błędzie): `SENTRY_DSN` + `VITE_SENTRY_DSN` w Production i Preview każdego projektu Vercel. Na serwerze zamiast `console.error` używać `logError(where, error, details?)` z `api/_lib/monitoring.ts`; `handle()` zgłasza resztę i czeka na wysłanie (`flushErrors`). SDK `@sentry/node` bez domyślnych integracji (krótki cold start).
-- **`/api/health`** centrum (funkcja `api/sso.ts`, GET, rewrite w `vercel.json`, bo limit 12 funkcji) + monitor UptimeRobot co 5 min z alertem e-mail. Opis w README („Monitorowanie i błędy”).
-- Diagnoza bez Sentry: logi Supabase (`edge_logs`: `request.sb.apikey.apikey.prefix` i `.error` pokazują, jakim kluczem łączy się serwer).
+- **Sentry:** organizacja `nutri-partners`, projekt `nutri-apps`, region EU (`https://de.sentry.io`), plan Developer (5000 błędów/mies.), tylko Error monitoring (bez replay i tracingu). Jeden projekt dla 4 aplikacji, tag `app` (`hub`, `neutralizer`, `owner-lookup`, `signatures`), `side` (`browser`, `server`), `where`, środowisko `production`/`preview`. E-mail do właściciela przy każdym nowym błędzie. Repozytoria nie są podpięte do Sentry (decyzja właściciela).
+  - Zmienne `SENTRY_DSN` + `VITE_SENTRY_DSN` (ten sam DSN, nie jest sekretem) są w Production i Preview wszystkich 4 projektów Vercel.
+  - Kod: na serwerze zamiast `console.error` używać `logError(where, error, details?)` z `api/_lib/monitoring.ts`; `handle()` zgłasza resztę i czeka na wysłanie (`flushErrors`); w stopkach handlery opakowuje `monitored()`. SDK `@sentry/node` bez domyślnych integracji (krótki cold start).
+  - Prywatność: bez ciasteczek, nagłówków, treści żądań, query i fragmentu adresu (`#sso=…`); w neutralizatorze bez treści dokumentów, w whoisowner bez treści wyszukiwań. Nowe zgłoszenia pisać tak samo.
+  - **Claude ma konektor Sentry (MCP)**: `search_issues` / `search_errors` z `organizationSlug: nutri-partners`, `regionUrl: https://de.sentry.io`. Przy zgłoszeniu problemu zacząć od nierozwiązanych błędów w Sentry.
+  - Test: `GET /api/health?test=sentry` na centrum dev (poza produkcją) wysyła błąd testowy; potem oznaczyć go w Sentry jako rozwiązany.
+- **`/api/health`** centrum (funkcja `api/sso.ts`, GET, rewrite w `vercel.json`, bo limit 12 funkcji): Supabase Auth i baza kluczem serwera, klucz Resend. 200 albo 503 z `checks`. Opis w README („Monitorowanie i błędy”).
+- **UptimeRobot** (konto właściciela, plan darmowy): monitor HTTP `https://nutripartners.vercel.app/api/health` co 5 min, alert e-mail. Inne aplikacje nie mają monitorów (opcjonalnie: ich strony główne).
+- Diagnoza bez Sentry: logi Supabase (`edge_logs`: `request.sb.apikey.apikey.prefix` i `.error` pokazują, jakim kluczem łączy się serwer; `bad_checksum`/`invalid` = zły klucz). Logi runtime Vercela dla centrum są dla MCP niedostępne (403), tak jak `web_fetch_vercel_url`, więc `/api/health` sprawdza właściciel w przeglądarce.
 
 ## Środowiska: dev i produkcja (od 18.10.2026)
 
@@ -117,6 +125,7 @@ Decyzje właściciela: osobna baza dev, wersje dev widzi tylko on, na produkcję
   - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures)-[a-z0-9-]+-nutri-partners\.vercel\.app` (wpis `nutri-intranet` jest zbędny) (jedno logowanie wraca też na podglądy PR-ów aplikacji);
   - neutralizator: `ANTHROPIC_API_KEY` także w Preview; whoisowner: HubSpot i Claude mają te same klucze w obu środowiskach (HubSpot tylko do odczytu);
   - stopki: `BLOB_READ_WRITE_TOKEN` tylko w Production i Development, więc w dev zapisane stopki zostają w przeglądarce i nie zmieniają wspólnej listy zespołu.
+  - wszystkie 4 projekty: `SENTRY_DSN`, `VITE_SENTRY_DSN` (ten sam DSN w Production i Preview);
   - Nowa zmienna o różnych wartościach w dev i na produkcji: dodać osobno dla Production i dla Preview. Zmienne działają od następnego wdrożenia.
 
 ### Procedura
