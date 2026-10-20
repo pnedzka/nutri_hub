@@ -35,7 +35,7 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 
 Na produkcji i działa (właściciel potwierdził): centrum z User management i uprawnieniami, środowiska dev i produkcja, jedno logowanie we wszystkich trzech aplikacjach. Pracownicy dostali wiadomość o centrum i o HubSpot owner lookup.
 
-W budowie na dev: moduły News i Leave (zob. „Moduły centrum”).
+**News i Leave wydane na produkcję 20.10.2026** (PR #17): tabele i bucket założone w bazie produkcyjnej, wszystkie konta z `intranet` (13) dostały `news` i `leave`. Automatyczne code review działa we wszystkich czterech repo.
 
 ## Nowa aplikacja: checklista
 
@@ -75,8 +75,8 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
 - **Układ:** ekrany `src/pages/news/`, `src/pages/leave/` (trasy `/news/*`, `/leave/*` w `src/App.tsx`, `AppOnly`), API `api/news/`, `api/leave/`, reguły z testami `shared/leave.ts`, `shared/news.ts`, typy `shared/leaveApi.ts`, `shared/newsApi.ts`.
   - Serwer: `requireApp(request, 'news' | 'leave')` (`api/_lib/auth.ts`), ludzie modułu `appPeople()` (`api/_lib/people.ts`), uprawnienia w `api/_lib/leave.ts` (`canDecide`, `seesType`) i `api/_lib/news.ts` (`isEditor`, `canEditPost`, `canEditComment`, `canDeleteComment`), e-maile `api/_lib/notify.ts` (`sendMail`, `sendToEach`: Resend batch, osobna wiadomość dla każdego).
   - **Plan Hobby: 12 funkcji**, jest 11 (`api/admin/users`, `auth/accept`, `auth/recover`, `sso`, `leave/index` (GET, POST, PATCH = decyzje), `leave/calendar`, `leave/employees`, `news/index`, `news/post` (GET, PUT, DELETE, POST = polubienia i komentarze), `news/upload`, `news/editors`). Nowe endpointy łączyć w istniejących plikach.
-- **Dane:** `db/schema.sql` tego repo: `leave_settings`, `leave_allowances`, `leave_requests`, `news_editors`, `news_posts`, `news_comments`, `news_likes`, prywatny bucket Storage `intranet` (nazwa zostaje). RLS bez polityk: czyta i zapisuje tylko serwer centrum (`db()`, klucz secret). Na `nutri-dev` zastosowane; na produkcji przy wydaniu, razem z nadaniem uprawnień.
-- **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z `intranet` dostają oba (`update` na początku `db/schema.sql`; dev: zrobione 20.10.2026). `/api/sso` nie wydaje tokenów dla `news`, `leave` ani `intranet`.
+- **Dane:** `db/schema.sql` tego repo: `leave_settings`, `leave_allowances`, `leave_requests`, `news_editors`, `news_posts`, `news_comments`, `news_likes`, prywatny bucket Storage `intranet` (nazwa zostaje). RLS bez polityk: czyta i zapisuje tylko serwer centrum (`db()`, klucz secret). Zastosowane na `nutri-dev` i na produkcji (20.10.2026, migracja `hub_news_leave_modules`).
+- **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z `intranet` dostają oba (`update` na początku `db/schema.sql`; dev i produkcja: zrobione 20.10.2026). `/api/sso` nie wydaje tokenów dla `news`, `leave` ani `intranet`.
 - **Urlopy:**
   - pracownik składa wniosek; akceptuje albo odrzuca **jego przełożony lub dowolny admin**, a admin może też wpisać urlop za pracownika;
   - przełożonego, roczny wymiar i saldo startowe ustawiają admini w module (Leave → Employees, tabela `leave_settings`), nie w User management (decyzja z 19.10.2026);
@@ -89,6 +89,13 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
   - Komentują i lajkują wszyscy z dostępem do News. Autor edytuje i usuwa swój komentarz, admin usuwa każdy.
   - Nowy news: e-mail do wszystkich z dostępem do News (bez autora), z linkiem do wpisu.
 - **Do ustalenia:** kiedy wyłączyć stary intranet (kafelek `intranet`) i czy przepiąć adres `intranet.nutripartners.co` na centrum.
+
+## Monitorowanie (od 20.10.2026)
+
+Po awarii z 20.10.2026 (w Production centrum był klucz `nutri-dev`, pracownicy widzieli „Your session has expired”, zgłosili to po ok. 2,5 h):
+- **Sentry** (organizacja `nutri-partners`, projekt `nutri-apps`, region EU, plan Developer; jeden projekt dla 4 aplikacji, tag `app`; e-mail przy każdym nowym błędzie): `SENTRY_DSN` + `VITE_SENTRY_DSN` w Production i Preview każdego projektu Vercel. Na serwerze zamiast `console.error` używać `logError(where, error, details?)` z `api/_lib/monitoring.ts`; `handle()` zgłasza resztę i czeka na wysłanie (`flushErrors`). SDK `@sentry/node` bez domyślnych integracji (krótki cold start).
+- **`/api/health`** centrum (funkcja `api/sso.ts`, GET, rewrite w `vercel.json`, bo limit 12 funkcji) + monitor UptimeRobot co 5 min z alertem e-mail. Opis w README („Monitorowanie i błędy”).
+- Diagnoza bez Sentry: logi Supabase (`edge_logs`: `request.sb.apikey.apikey.prefix` i `.error` pokazują, jakim kluczem łączy się serwer).
 
 ## Środowiska: dev i produkcja (od 18.10.2026)
 

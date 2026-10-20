@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 import { EXPIRED_LINK } from '../../shared/authLink.ts';
-import { api } from './api';
+import { api, onSessionRejected } from './api';
+import { setMonitoringUser } from './monitoring';
 import { authLink, supabase } from './supabase';
 import { toAppUser, type AppUser, type Profile } from './user';
 
@@ -14,7 +15,7 @@ interface AuthState {
   error: string | null;
   /** Opened from an invitation or password-reset e-mail: the user must set a password before using the hub. */
   passwordSetup: 'invite' | 'recovery' | null;
-  /** Why the e-mail link did not work, shown on the login screen. */
+  /** Shown on the login screen: why the e-mail link did not work, or that the session has ended. */
   linkError: string | null;
   init: () => () => void;
   signIn: (email: string, password: string) => Promise<void>;
@@ -56,6 +57,7 @@ export const useAuth = create<AuthState>((set, get) => {
       // The link carried no usable session (already used or expired).
       if (get().passwordSetup) set({ passwordSetup: null, linkError: EXPIRED_LINK });
       set({ status: 'signedOut', session: null, user: null });
+      setMonitoringUser(null);
       return;
     }
     // Token refreshes fire this again: keep the user we already have.
@@ -71,8 +73,17 @@ export const useAuth = create<AuthState>((set, get) => {
       set({ status: 'error', error: `Could not load your profile: ${error.message}` });
       return;
     }
-    set({ status: 'signedIn', user: toAppUser(session.user, data as Profile | null), error: null });
+    const user = toAppUser(session.user, data as Profile | null);
+    set({ status: 'signedIn', user, error: null });
+    setMonitoringUser(user);
   }
+
+  // The server no longer accepts the session (e.g. signed out on another device): drop the local copy, which shows
+  // the login screen, instead of leaving the person signed in with nothing working.
+  onSessionRejected((message) => {
+    set({ linkError: message });
+    void supabase?.auth.signOut({ scope: 'local' });
+  });
 
   return {
     status: 'loading',

@@ -46,7 +46,7 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 
 - **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, e-maile w `api/_lib/notify.ts`.
 - **Dane:** tabele `leave_*` i `news_*` oraz prywatny bucket Storage `intranet` (`db/schema.sql`). Mają RLS bez polityk: czyta i zapisuje je tylko serwer centrum kluczem secret, po sprawdzeniu dostępu (`requireApp` w `api/_lib/auth.ts`).
-- **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z uprawnieniem `intranet` dostały oba (`db/schema.sql`; w dev zrobione 20.10.2026, na produkcji przy wydaniu).
+- **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z uprawnieniem `intranet` dostały oba (`db/schema.sql`; w dev i na produkcji zrobione 20.10.2026).
 - **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 11. Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`).
 
 ## Uprawnienia do aplikacji
@@ -125,6 +125,15 @@ Darmowa baza dev usypia się po 7 dniach bez użycia. Wybudzenie: Supabase → p
    - opcjonalnie `MAIL_FROM` (domyślnie `Nutri APEX <no-reply@nutripartners.co>`) i `APP_URL` (adres w linkach z e-maili)
 4. Settings → Domains: `nutripartners.vercel.app`.
 5. Deployment Protection: Vercel Authentication tylko dla preview.
+
+## Monitorowanie i błędy
+
+- **Sentry** zbiera błędy wszystkich czterech aplikacji (przeglądarka i serwer) w jednym projekcie. Tagi: `app` (`hub`, `neutralizer`, `owner-lookup`, `signatures`), `side` (`browser`, `server`), `where` (miejsce w kodzie), środowisko (`production`, `preview`). Przy nowym rodzaju błędu Sentry wysyła e-mail.
+  - Zmienne: `SENTRY_DSN` (serwer) i `VITE_SENTRY_DSN` (przeglądarka), ta sama wartość, w Production i Preview. Bez nich nic nie jest wysyłane.
+  - Serwer: `api/_lib/monitoring.ts` (`logError` zamiast `console.error`; `handle` zgłasza nieoczekiwane błędy i odpowiedzi 5xx). Przeglądarka: `src/lib/monitoring.ts`.
+  - Do Sentry nie trafiają ciasteczka, nagłówki, treść żądań ani fragment adresu (`#sso=…`, linki z e-maili). Osobę opisuje id konta i e-mail.
+- **`GET /api/health`** sprawdza, czy serwer centrum łączy się z Supabase (Auth i baza) swoim kluczem i czy jest klucz Resend. Odpowiada 200 albo 503 z listą `checks` (bez szczegółów). Monitor (UptimeRobot) wywołuje go co 5 minut i wysyła alert, gdy odpowiedź nie jest 200.
+  - Test Sentry poza produkcją: `/api/health?test=sentry` wysyła błąd testowy.
 
 ## Praca lokalna
 

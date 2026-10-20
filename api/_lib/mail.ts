@@ -4,6 +4,7 @@
 import { APP_NAMES, type AppId } from '../../shared/access.js';
 import { LINK_VALIDITY_HOURS, type AccountLinkKind } from './accountLinks.js';
 import { HttpError } from './http.js';
+import { logError } from './monitoring.js';
 
 const FROM = () => process.env.MAIL_FROM?.trim() || 'Nutri APEX <no-reply@nutripartners.co>';
 const SYSTEM = 'Nutri Partners apps';
@@ -113,12 +114,12 @@ export async function sendAccountMail(mail: AccountMail): Promise<void> {
       body: JSON.stringify({ from: FROM(), to: [mail.email], subject, html, text, tags: [{ name: 'type', value: mail.kind }] }),
     });
   } catch (error) {
-    console.error('[mail] network', error);
+    logError('mail', error);
     throw new HttpError(502, 'Could not connect to the mail server. Try again.');
   }
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    console.error('[mail] resend', res.status, detail);
+    logError('mail', new Error(`Resend answered ${res.status}`), { detail });
     throw new HttpError(502, `The mail server rejected the message (${res.status}). Try again later.`);
   }
 }
