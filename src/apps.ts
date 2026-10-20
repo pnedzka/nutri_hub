@@ -1,4 +1,4 @@
-import { Building2, FileText, PenLine, UserSearch, Users, type LucideIcon } from 'lucide-react';
+import { Building2, CalendarDays, FileText, Newspaper, PenLine, UserSearch, Users, type LucideIcon } from 'lucide-react';
 import { canUse, type AppId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
@@ -15,7 +15,7 @@ export interface AppTile {
    */
   audience: 'app' | 'admin';
   /**
-   * Opens in a new tab: apps outside our user base (the old intranet). Our own apps open in the same tab and link back
+   * Opens in a new tab: apps outside our user base (the intranet). Our own apps open in the same tab and link back
    * to the hub from their header.
    */
   newTab?: boolean;
@@ -31,13 +31,11 @@ const address = (value: string | undefined, fallback: string) => (value || fallb
 export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoisowner.vercel.app');
 export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
 export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
-/**
- * The new intranet (nutri_intranet: our user base, one sign-in). Only previews set VITE_INTRANET_URL until its
- * release; without it the tile opens the old intranet, which has its own accounts.
- */
-export const INTRANET_URL: string | null = env.VITE_INTRANET_URL ? address(env.VITE_INTRANET_URL, '') : null;
 
-/** Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). */
+/**
+ * Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). News and Leave are
+ * modules of the hub itself (paths), the others separate apps reached through one sign-in.
+ */
 export const APPS: AppTile[] = [
   {
     id: 'neutralizer',
@@ -64,12 +62,30 @@ export const APPS: AppTile[] = [
     audience: 'app',
   },
   {
+    id: 'news',
+    name: 'News',
+    description: 'Company events and welcomes, with photos, comments and likes.',
+    url: '/news',
+    icon: Newspaper,
+    audience: 'app',
+  },
+  {
+    id: 'leave',
+    name: 'Leave',
+    description: "Leave requests, your balance and the team's absence calendar.",
+    url: '/leave',
+    icon: CalendarDays,
+    audience: 'app',
+  },
+  {
     id: 'intranet',
     name: 'Intranet',
     description: 'The company intranet.',
+    url: 'https://intranet.nutripartners.co',
     icon: Building2,
     audience: 'app',
-    ...(INTRANET_URL ? { url: INTRANET_URL } : { url: 'https://intranet.nutripartners.co', newTab: true, note: 'Separate sign-in' }),
+    newTab: true,
+    note: 'Separate sign-in',
   },
   {
     id: 'users',

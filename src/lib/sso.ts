@@ -1,16 +1,14 @@
 import type { AppId } from '../../shared/access.ts';
-import { INTRANET_URL, NEUTRALIZER_URL, OWNER_LOOKUP_URL, SIGNATURES_URL } from '../apps';
+import { NEUTRALIZER_URL, OWNER_LOOKUP_URL, SIGNATURES_URL } from '../apps';
 
 // One sign-in for all our apps: an app without a session sends the person to /sso?app=…&to=…&back=…, and the
 // tiles link there too. The hub (signing the person in first if needed) gets a one-time token from /api/sso and
-// opens the app with it in the address (#sso=…). The old intranet has its own accounts: the intranet joins only
-// when VITE_INTRANET_URL points at the new one.
+// opens the app with it in the address (#sso=…). The intranet has its own accounts.
 
 const APP_URLS: Partial<Record<AppId, string>> = {
   neutralizer: NEUTRALIZER_URL,
   signatures: SIGNATURES_URL,
   'owner-lookup': OWNER_LOOKUP_URL,
-  ...(INTRANET_URL ? { intranet: INTRANET_URL } : {}),
 };
 
 export const isSsoApp = (id: string): id is AppId => id in APP_URLS;

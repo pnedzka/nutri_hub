@@ -5,6 +5,7 @@ describe('toApps', () => {
   it('keeps known apps once, in a fixed order', () => {
     expect(toApps(['intranet', 'neutralizer', 'intranet', 'crm', 7])).toEqual(['neutralizer', 'intranet']);
     expect(toApps(null)).toEqual([]);
+    expect(toApps(['leave', 'news', 'owner-lookup'])).toEqual(['owner-lookup', 'news', 'leave']);
   });
 });
 
