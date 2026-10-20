@@ -93,7 +93,7 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
 ## Monitorowanie (od 20.10.2026)
 
 Po awarii z 20.10.2026 (w Production centrum był klucz `nutri-dev`, pracownicy widzieli „Your session has expired”, zgłosili to po ok. 2,5 h):
-- **Sentry** (jeden projekt dla 4 aplikacji, tag `app`): `SENTRY_DSN` + `VITE_SENTRY_DSN` w Production i Preview każdego projektu Vercel. Na serwerze zamiast `console.error` używać `logError(where, error, details?)` z `api/_lib/monitoring.ts`; `handle()` zgłasza resztę i czeka na wysłanie (`flushErrors`). SDK `@sentry/node` bez domyślnych integracji (krótki cold start).
+- **Sentry** (organizacja `nutri-partners`, projekt `nutri-apps`, region EU, plan Developer; jeden projekt dla 4 aplikacji, tag `app`; e-mail przy każdym nowym błędzie): `SENTRY_DSN` + `VITE_SENTRY_DSN` w Production i Preview każdego projektu Vercel. Na serwerze zamiast `console.error` używać `logError(where, error, details?)` z `api/_lib/monitoring.ts`; `handle()` zgłasza resztę i czeka na wysłanie (`flushErrors`). SDK `@sentry/node` bez domyślnych integracji (krótki cold start).
 - **`/api/health`** centrum (funkcja `api/sso.ts`, GET, rewrite w `vercel.json`, bo limit 12 funkcji) + monitor UptimeRobot co 5 min z alertem e-mail. Opis w README („Monitorowanie i błędy”).
 - Diagnoza bez Sentry: logi Supabase (`edge_logs`: `request.sb.apikey.apikey.prefix` i `.error` pokazują, jakim kluczem łączy się serwer).
 
