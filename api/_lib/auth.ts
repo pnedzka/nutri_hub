@@ -1,6 +1,7 @@
 import { APP_NAMES, canUse, toApps, type AppId, type Role } from '../../shared/access.js';
 import { HttpError } from './http.js';
 import { db } from './supabase.js';
+import { logError } from './monitoring.js';
 
 export interface Profile {
   id: string;
@@ -40,7 +41,7 @@ export async function requireUser(request: Request): Promise<Profile> {
   const { data, error } = await db().auth.getUser(token);
   const problem = error ? serverAuthProblem(error) : null;
   if (problem) {
-    console.error('Supabase Auth did not verify the session:', error!.status, error!.code, error!.message);
+    logError('auth.getUser', error, { status: error!.status, code: error!.code });
     throw new HttpError(
       503,
       problem === 'key'

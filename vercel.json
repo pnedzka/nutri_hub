@@ -6,6 +6,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/health",
+      "destination": "/api/sso"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

@@ -17,6 +17,7 @@ import { HttpError, appUrl, handle, json, readJson } from '../_lib/http.js';
 import { createInvitedUser, issueAccountLink } from '../_lib/accountLinks.js';
 import { sendAccountMail } from '../_lib/mail.js';
 import { db } from '../_lib/supabase.js';
+import { logError } from '../_lib/monitoring.js';
 
 const MIN_PASSWORD = 10;
 
@@ -82,7 +83,7 @@ export function POST(request: Request): Promise<Response> {
     if (created.error || !created.user) {
       const error = created.error as { code?: string; message?: string } | null;
       if (error && (error.code === 'email_exists' || /already/i.test(error.message ?? ''))) throw new HttpError(400, 'A user with this address already exists.');
-      console.error('[users] create', error);
+      logError('users.create', error);
       throw new HttpError(400, 'Could not create the account.');
     }
     const profile: Profile = { id: created.user.id, email, full_name: fullName, role: role(body.role), apps: toApps(body.apps) };
@@ -191,7 +192,7 @@ export function DELETE(request: Request): Promise<Response> {
     // The profile and the account's e-mail links are deleted with the account (foreign keys with ON DELETE CASCADE).
     const { error } = await db().auth.admin.deleteUser(body.id);
     if (error) {
-      console.error('[users] delete', error);
+      logError('users.delete', error);
       throw new HttpError(500, 'Could not delete the account.');
     }
     console.info('[users] deleted', found.user.email, 'by', admin.email);

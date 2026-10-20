@@ -1,3 +1,5 @@
+import { flushErrors, hasLoggedErrors, logError } from './monitoring.js';
+
 export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -14,14 +16,22 @@ export class HttpError extends Error {
   }
 }
 
-/** Runs a handler and turns thrown errors into JSON responses. */
+/**
+ * Runs a handler and turns thrown errors into JSON responses. Unexpected errors and our own 5xx errors are logged
+ * (and sent to Sentry), unless the code that threw already logged the details.
+ */
 export async function handle(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
   } catch (error) {
-    if (error instanceof HttpError) return json({ error: error.message }, error.status);
-    console.error(error);
+    if (error instanceof HttpError) {
+      if (error.status >= 500 && !hasLoggedErrors()) logError('http', error, { status: error.status });
+      return json({ error: error.message }, error.status);
+    }
+    logError('http', error);
     return json({ error: 'An unexpected server error occurred.' }, 500);
+  } finally {
+    await flushErrors();
   }
 }
 

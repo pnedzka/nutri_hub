@@ -6,6 +6,7 @@ import type { NewsPostInput, ShownImage } from '../../shared/newsApi.js';
 import type { AppUser } from './auth.js';
 import { HttpError } from './http.js';
 import { db } from './supabase.js';
+import { logError } from './monitoring.js';
 
 export const BUCKET = 'intranet';
 const LINK_SECONDS = 60 * 60;
@@ -48,7 +49,7 @@ export async function signImages(images: NewsImage[]): Promise<ShownImage[]> {
 export async function removeImages(paths: string[]): Promise<void> {
   if (!paths.length) return;
   const { error } = await db().storage.from(BUCKET).remove(paths);
-  if (error) console.error('[news] remove images', error);
+  if (error) logError('news.removeImages', error);
 }
 
 /** Columns of news_posts the API reads. */

@@ -1,6 +1,8 @@
 // Notifications of the hub's modules (Leave, News), sent through the Resend API like the account e-mails (mail.ts: same
 // sender, Nutri APEX, and layout). Without RESEND_API_KEY nothing is sent: the data is saved and people see it in the hub.
 
+import { logError } from './monitoring.js';
+
 const FROM = () => process.env.MAIL_FROM?.trim() || 'Nutri APEX <no-reply@nutripartners.co>';
 const ACCENT = '#a50029';
 const COMPANY = 'Nutri Partners Sp. z o.o. · Prof. Ludwika Chmaja 6 str., 35-021 Rzeszów, Poland';
@@ -65,7 +67,7 @@ export async function sendMail(mail: NoticeMail, tag = 'leave'): Promise<boolean
   const key = process.env.RESEND_API_KEY;
   const to = [...new Set(mail.to.filter(Boolean))];
   if (!key || !to.length) {
-    if (!key) console.warn('[mail] RESEND_API_KEY is missing; not sent:', mail.subject);
+    if (!key) logError('mail', new Error('RESEND_API_KEY is missing; e-mail not sent'), { subject: mail.subject });
     return false;
   }
   const { html, text } = renderMail(mail);
@@ -76,12 +78,12 @@ export async function sendMail(mail: NoticeMail, tag = 'leave'): Promise<boolean
       body: JSON.stringify({ from: FROM(), to, subject: mail.subject, html, text, tags: [{ name: 'type', value: tag }] }),
     });
     if (!res.ok) {
-      console.error('[mail] resend', res.status, await res.text().catch(() => ''));
+      logError('mail', new Error(`Resend answered ${res.status}`), { detail: await res.text().catch(() => '') });
       return false;
     }
     return true;
   } catch (error) {
-    console.error('[mail] network', error);
+    logError('mail', error);
     return false;
   }
 }
@@ -94,7 +96,7 @@ export async function sendToEach(recipients: string[], mail: Omit<NoticeMail, 't
   const key = process.env.RESEND_API_KEY;
   const to = [...new Set(recipients.filter(Boolean))];
   if (!key || !to.length) {
-    if (!key) console.warn('[mail] RESEND_API_KEY is missing; not sent:', mail.subject);
+    if (!key) logError('mail', new Error('RESEND_API_KEY is missing; e-mail not sent'), { subject: mail.subject });
     return 0;
   }
   const { html, text } = renderMail({ ...mail, to });
@@ -108,9 +110,9 @@ export async function sendToEach(recipients: string[], mail: Omit<NoticeMail, 't
         body: JSON.stringify(chunk.map((address) => ({ from: FROM(), to: [address], subject: mail.subject, html, text, tags: [{ name: 'type', value: tag }] }))),
       });
       if (res.ok) sent += chunk.length;
-      else console.error('[mail] resend batch', res.status, await res.text().catch(() => ''));
+      else logError('mail', new Error(`Resend answered ${res.status} (batch)`), { detail: await res.text().catch(() => '') });
     } catch (error) {
-      console.error('[mail] network', error);
+      logError('mail', error);
     }
   }
   return sent;
