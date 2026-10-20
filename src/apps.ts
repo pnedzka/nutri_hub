@@ -1,4 +1,4 @@
-import { Building2, FileText, PenLine, UserSearch, Users, type LucideIcon } from 'lucide-react';
+import { Building2, CalendarDays, FileText, Newspaper, PenLine, UserSearch, Users, type LucideIcon } from 'lucide-react';
 import { canUse, type AppId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
@@ -32,7 +32,10 @@ export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoi
 export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
 export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
 
-/** Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). */
+/**
+ * Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). News and Leave are
+ * modules of the hub itself (paths), the others separate apps reached through one sign-in.
+ */
 export const APPS: AppTile[] = [
   {
     id: 'neutralizer',
@@ -56,6 +59,22 @@ export const APPS: AppTile[] = [
     description: 'Find out who owns a company or contact in HubSpot.',
     url: OWNER_LOOKUP_URL,
     icon: UserSearch,
+    audience: 'app',
+  },
+  {
+    id: 'news',
+    name: 'News',
+    description: 'Company events and welcomes, with photos, comments and likes.',
+    url: '/news',
+    icon: Newspaper,
+    audience: 'app',
+  },
+  {
+    id: 'leave',
+    name: 'Leave',
+    description: "Leave requests, your balance and the team's absence calendar.",
+    url: '/leave',
+    icon: CalendarDays,
     audience: 'app',
   },
   {

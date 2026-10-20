@@ -4,17 +4,19 @@
 // use and passes it to the app in the address (#sso=…, see src/lib/sso.ts); the app turns it into its own session
 // with verifyOtp (type magiclink). generateLink sends no e-mail.
 
-import { APP_NAMES, canUse, isAppId } from '../shared/access.js';
+import { APP_NAMES, canUse, isAppId, type AppId } from '../shared/access.js';
 import { requireUser } from './_lib/auth.js';
 import { HttpError, handle, json, readJson } from './_lib/http.js';
 import { db } from './_lib/supabase.js';
+
+const HUB_OWN: AppId[] = ['intranet', 'news', 'leave'];
 
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
     const profile = await requireUser(request);
     const body = await readJson<{ app?: unknown }>(request);
-    // The intranet has its own accounts.
-    if (!isAppId(body.app) || body.app === 'intranet') throw new HttpError(400, 'Unknown app.');
+    // The old intranet has its own accounts; News and Leave are parts of the hub and need no token.
+    if (!isAppId(body.app) || HUB_OWN.includes(body.app)) throw new HttpError(400, 'Unknown app.');
     if (!canUse(profile, body.app)) throw new HttpError(403, `You don't have access to ${APP_NAMES[body.app]}. Ask your administrator.`);
 
     // The account's own address, not the copy in `profiles`, so the token can only sign in this account.
