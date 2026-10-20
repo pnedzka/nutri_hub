@@ -13,9 +13,14 @@ describe('sectionsFor', () => {
     expect(ids({ role: 'user', apps: [] })).toEqual([]);
   });
 
+  it('shows News and Leave, modules of the hub, as paths inside it', () => {
+    expect(ids({ role: 'user', apps: ['leave', 'news'] })).toEqual([['Your apps', ['news', 'leave']]]);
+    expect(APPS.filter((a) => a.id === 'news' || a.id === 'leave').map((a) => a.url)).toEqual(['/news', '/leave']);
+  });
+
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'intranet']],
       ['Administration', ['users']],
     ]);
   });

@@ -12,17 +12,17 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 | Document neutralizer | https://nutridocumentation-nxdi.vercel.app | https://nutridocumentation-nxdi-git-develop-nutri-partners.vercel.app | `nutri_documentation-nxdi` (`prj_cqi64Tsx7I1JsNnzjulk1CEbYVXd`) | `pnedzka/nutri_documentation` |
 | E-mail signature generator (UI po polsku) | https://nutri-signatures.vercel.app | https://nutri-signatures-git-develop-nutri-partners.vercel.app | `nutri-signatures` (`prj_yF2TYN35jQ7vcQz4wqabpjxFs43E`) | `pnedzka/nutri_signatures` |
 | HubSpot owner lookup | https://whoisowner.vercel.app | https://whoisowner-git-develop-nutri-partners.vercel.app | `whoisowner` (`prj_Zp4K089NIbc4GOG49fLII8V6DjaW`) | `pnedzka/nutripartners` |
-| Intranet (obecny, osobna baza kont; zastąpi go nowy intranet, zob. niżej) | https://intranet.nutripartners.co | – | poza Vercelem | – |
+| Intranet (stary, osobna baza kont; docelowo zastąpi go samo centrum, zob. „Moduły centrum”) | https://intranet.nutripartners.co | – | poza Vercelem | – |
 
 `nutri-partners` to prywatne konto Vercel właściciela (plan Hobby), nie zespół. Projekt `nutri-partners1/nutripartners` to duplikat na innym koncie Vercel, poza naszym dostępem; buduje się z `pnedzka/nutripartners`, ale niczego nie blokuje.
 
 ## Ustalenia
 
-- Kafelki są w `src/apps.ts` (`audience: 'app' | 'admin'`, `newTab` tylko dla intranetu). Nowa aplikacja to jeden wpis.
+- Kafelki są w `src/apps.ts` (`audience: 'app' | 'admin'`, `newTab` tylko dla starego intranetu). Nowa aplikacja to jeden wpis; moduł centrum ma `url` ze ścieżką (`/news`, `/leave`).
 - **Zarządzanie kontami jest tylko w centrum** (`/users`, decyzja z 17.10.2026): zakładanie, zaproszenia, reset haseł, role, imiona i **uprawnienia do aplikacji**. Neutralizator już tego nie ma.
-- Uprawnienia: `profiles.apps text[]` (`shared/access.ts`: `neutralizer`, `signatures`, `owner-lookup`, `intranet`). Admin ma wszystko. Każda aplikacja sprawdza dostęp sama; Intranet to tylko widoczność kafelka. Konta sprzed zmiany dostały wszystkie aplikacje, domyślna wartość kolumny to `'{}'`.
+- Uprawnienia: `profiles.apps text[]` (`shared/access.ts`: `neutralizer`, `signatures`, `owner-lookup`, `news`, `leave`, `intranet`). Admin ma wszystko. Każda aplikacja sprawdza dostęp sama (News i Leave: `requireApp` w `api/_lib/auth.ts`); Intranet to tylko widoczność kafelka starego intranetu. Konta sprzed zmiany dostały wszystkie aplikacje, domyślna wartość kolumny to `'{}'`.
 - Serwer centrum (`api/`) używa `SUPABASE_SECRET_KEY` i `RESEND_API_KEY`. Linki z e-maili prowadzą do centrum.
-- Nasze aplikacje otwierają się w tej samej karcie. W ich nagłówkach logo i „All apps” prowadzą z powrotem (`HUB_URL` / `VITE_HUB_URL`). Intranet otwiera się w nowej karcie.
+- Nasze aplikacje otwierają się w tej samej karcie. W ich nagłówkach logo i „All apps” prowadzą z powrotem (`HUB_URL` / `VITE_HUB_URL`). Stary intranet otwiera się w nowej karcie.
 - `/?q=…` przekierowuje na whoisowner (`src/lib/legacy.ts`), bo dawniej ta domena należała do owner lookup.
 - Logowanie: wspólna baza Supabase neutralizatora (`https://edzjkumjutffodfpasmf.supabase.co`; w dev `nutri-dev`, zob. „Środowiska”), hasło (`signInWithPassword`) tylko w centrum; aplikacje dostają sesję z centrum (niżej).
   - Rola i aplikacje: `profiles.role`, `profiles.apps`, czytane w przeglądarce (RLS: własny wiersz). Zmienia je tylko serwer centrum.
@@ -31,11 +31,15 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
   - Wylogowanie w aplikacji prowadzi do `/logout` centrum. Preview: `VITE_SSO_PREVIEW_ORIGINS` pozwala wracać na podglądy PR-ów.
 - Design: Vite + React 19 + Tailwind v4 + TypeScript, `lucide-react`, `zustand`. Inter, tło `#F5F5F5`, tekst `#1A1A1A`, marka `#CC1F1F`, białe karty `border-gray-100`. Na telefonach pola dotykowe ≥ 44 px, `.safe-x`, `.safe-bottom`, pola 16 px.
 
-## Stan (19.10.2026)
+## Stan (20.10.2026)
 
-Wszystko jest na produkcji i działa (właściciel potwierdził): centrum z User management i uprawnieniami, środowiska dev i produkcja, jedno logowanie we wszystkich trzech aplikacjach. Pracownicy dostali wiadomość o centrum i o HubSpot owner lookup.
+Na produkcji i działa (właściciel potwierdził): centrum z User management i uprawnieniami, środowiska dev i produkcja, jedno logowanie we wszystkich trzech aplikacjach. Pracownicy dostali wiadomość o centrum i o HubSpot owner lookup.
+
+W budowie na dev: moduły News i Leave (zob. „Moduły centrum”).
 
 ## Nowa aplikacja: checklista
+
+Funkcja dla pracowników może też być **modułem centrum**, jak News i Leave (zob. „Moduły centrum”): ścieżka w `src/App.tsx`, kafelek z `url` ze ścieżką, API w `api/` (limit funkcji!), identyfikator w `shared/access.ts`. Wtedy punkty 1–4 i 8 odpadają. Poniżej osobna aplikacja.
 
 Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Vercela w `api/`, logowanie przez centrum.
 
@@ -64,31 +68,27 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
    - w nagłówku aplikacji logo i „All apps” prowadzą do `HUB_URL`.
 8. **Pierwsze wdrożenie `develop`:** jeśli `develop` jest na tym samym commicie co `main`, Vercel go nie wdroży. Wtedy użyć `create_deployment` (zob. „Pułapki”).
 
-## Następny projekt: nowy intranet
+## Moduły centrum: News i Leave (od 20.10.2026)
 
-Właściciel chce zbudować nowy intranet jako naszą aplikację (wspólne konta, jedno logowanie), zamiast obecnego https://intranet.nutripartners.co.
+**Decyzja właściciela (20.10.2026):** zamiast osobnej aplikacji intranetu (`pnedzka/nutri_intranet`, projekt Vercel `nutri-intranet`) kolejne funkcje są **modułami samego centrum**: kafelki News i Leave, działające jak pozostałe, z osobnymi uprawnieniami. Centrum docelowo staje się intranetem. Kod przeniesiono z `nutri_intranet` (PR-y #3 i #4 tamtego repo); tamto repo i projekt Vercel są do archiwizacji.
 
-- **Stan obecny:** kafelek `intranet` w `src/apps.ts` ma `newTab: true` i `note: 'Separate sign-in'`. Identyfikator `intranet` jest już w `profiles.apps`; konta sprzed 17.10.2026 mają go przypisanego.
-- **Propozycja:** zachować identyfikator `intranet`, bo uprawnienia są już nadane. Przy wydaniu zmienić kafelek: nowy adres, bez `newTab` i `note`, wpis w `APP_URLS`.
-
-### Ustalenia (19.10.2026)
-
-- **Nazwa:** repo `pnedzka/nutri_intranet`, projekt Vercel `nutri-intranet`, adres https://nutri-intranet.vercel.app. Interfejs po angielsku.
-- **Dane:** tabele we wspólnej bazie Supabase (dev: `nutri-dev`), pliki w Supabase Storage (podpisane linki, RLS). Schemat wspólnej bazy jest w `nutri_documentation/db/schema.sql`.
-- **Zakres pierwszej wersji:** tylko **urlopy** i **newsy**. Reszty starego intranetu nie przenosimy; nowe moduły mogą dojść później. Migracji nie ma: startujemy od zera, salda wpisuje admin.
+- **Układ:** ekrany `src/pages/news/`, `src/pages/leave/` (trasy `/news/*`, `/leave/*` w `src/App.tsx`, `AppOnly`), API `api/news/`, `api/leave/`, reguły z testami `shared/leave.ts`, `shared/news.ts`, typy `shared/leaveApi.ts`, `shared/newsApi.ts`.
+  - Serwer: `requireApp(request, 'news' | 'leave')` (`api/_lib/auth.ts`), ludzie modułu `appPeople()` (`api/_lib/people.ts`), uprawnienia w `api/_lib/leave.ts` (`canDecide`, `seesType`) i `api/_lib/news.ts` (`isEditor`, `canEditPost`, `canEditComment`, `canDeleteComment`), e-maile `api/_lib/notify.ts` (`sendMail`, `sendToEach`: Resend batch, osobna wiadomość dla każdego).
+  - **Plan Hobby: 12 funkcji**, jest 11 (`api/admin/users`, `auth/accept`, `auth/recover`, `sso`, `leave/index` (GET, POST, PATCH = decyzje), `leave/calendar`, `leave/employees`, `news/index`, `news/post` (GET, PUT, DELETE, POST = polubienia i komentarze), `news/upload`, `news/editors`). Nowe endpointy łączyć w istniejących plikach.
+- **Dane:** `db/schema.sql` tego repo: `leave_settings`, `leave_allowances`, `leave_requests`, `news_editors`, `news_posts`, `news_comments`, `news_likes`, prywatny bucket Storage `intranet` (nazwa zostaje). RLS bez polityk: czyta i zapisuje tylko serwer centrum (`db()`, klucz secret). Na `nutri-dev` zastosowane; na produkcji przy wydaniu, razem z nadaniem uprawnień.
+- **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z `intranet` dostają oba (`update` na początku `db/schema.sql`; dev: zrobione 20.10.2026). `/api/sso` nie wydaje tokenów dla `news`, `leave` ani `intranet`.
 - **Urlopy:**
   - pracownik składa wniosek; akceptuje albo odrzuca **jego przełożony lub dowolny admin**, a admin może też wpisać urlop za pracownika;
-  - przełożonego i wymiar urlopu ustawiają admini w samym intranecie (Leave → Employees, tabela `leave_settings`), nie w User management: centrum nie wymaga zmian dla urlopów (decyzja z 19.10.2026);
-  - saldo w **dniach, z połówkami**; weekendy i święta ustawowe się nie liczą; niewykorzystane dni przechodzą na następny rok;
-  - **liczbę dni ustawia admin osobno dla każdego pracownika** (roczny wymiar i saldo startowe);
+  - przełożonego, roczny wymiar i saldo startowe ustawiają admini w module (Leave → Employees, tabela `leave_settings`), nie w User management (decyzja z 19.10.2026);
+  - saldo w **dniach, z połówkami**; weekendy i święta ustawowe się nie liczą; niewykorzystane dni przechodzą na następny rok; liczbę dni ustawia admin osobno dla każdego pracownika;
   - rodzaje: wypoczynkowy, na żądanie (4 dni w roku, wliczane do wypoczynkowego), okolicznościowy, opieka nad dzieckiem (2 dni), bezpłatny, L4 (wpisuje tylko admin, nie zmniejsza salda);
-  - kalendarz nieobecności widzą wszyscy, ale tylko jako „nieobecny”; rodzaj urlopu widzi pracownik, jego przełożony i admini.
-  - E-maile (Resend): o nowym wniosku do przełożonego i adminów, o decyzji do pracownika.
-- **Newsy:** blog o wydarzeniach w firmie i powitaniach nowych osób; wpis z galerią zdjęć, komentarzami i polubieniami.
-  - Publikują admini i **wybrani redaktorzy**: nowe uprawnienie nadawane w User management w centrum.
-  - Komentują i lajkują wszyscy z dostępem do intranetu. Autor może edytować i usunąć swój komentarz, admini mogą zrobić z każdym komentarzem wszystko.
-  - Nowy news: e-mail do wszystkich z dostępem do intranetu, z linkiem do wpisu.
-- **Do ustalenia:** kiedy wyłączyć stary intranet i czy przepiąć na nowy adres `intranet.nutripartners.co`.
+  - kalendarz nieobecności widzą wszyscy z dostępem do Leave, ale tylko jako „nieobecny”; rodzaj urlopu widzi pracownik, jego przełożony i admini;
+  - e-maile: o nowym wniosku do przełożonego i adminów, o decyzji do pracownika.
+- **Newsy:** blog o wydarzeniach w firmie i powitaniach nowych osób; wpis z galerią zdjęć (do 30, zmniejszane w przeglądarce do 2000 px), komentarzami i polubieniami.
+  - Publikują admini i **wybrani redaktorzy**; redaktorów wybierają admini w module (News → Editors, tabela `news_editors`), nie w User management (decyzja z 19.10.2026).
+  - Komentują i lajkują wszyscy z dostępem do News. Autor edytuje i usuwa swój komentarz, admin usuwa każdy.
+  - Nowy news: e-mail do wszystkich z dostępem do News (bez autora), z linkiem do wpisu.
+- **Do ustalenia:** kiedy wyłączyć stary intranet (kafelek `intranet`) i czy przepiąć adres `intranet.nutripartners.co` na centrum.
 
 ## Środowiska: dev i produkcja (od 18.10.2026)
 
@@ -106,8 +106,8 @@ Decyzje właściciela: osobna baza dev, wersje dev widzi tylko on, na produkcję
   - wszystkie 4 projekty: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (klucz publishable `nutri-dev`), `SUPABASE_URL`;
   - centrum i neutralizator: `SUPABASE_SECRET_KEY` (klucz tajny `nutri-dev`, wpisuje go właściciel);
   - whoisowner i stopki: `SUPABASE_ANON_KEY`;
-  - linki między aplikacjami: `VITE_HUB_URL` (neutralizator, whoisowner, stopki) → centrum dev; w centrum `VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL`, `VITE_INTRANET_URL` → aplikacje dev (`VITE_INTRANET_URL` tylko w Preview do wydania nowego intranetu; bez niej kafelek prowadzi do starego);
-  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures|nutri-intranet)-[a-z0-9-]+-nutri-partners\.vercel\.app` (jedno logowanie wraca też na podglądy PR-ów aplikacji);
+  - linki między aplikacjami: `VITE_HUB_URL` (neutralizator, whoisowner, stopki) → centrum dev; w centrum `VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL` → aplikacje dev (`VITE_INTRANET_URL` z czasów `nutri_intranet` nie jest już czytana; do usunięcia);
+  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures)-[a-z0-9-]+-nutri-partners\.vercel\.app` (wpis `nutri-intranet` jest zbędny) (jedno logowanie wraca też na podglądy PR-ów aplikacji);
   - neutralizator: `ANTHROPIC_API_KEY` także w Preview; whoisowner: HubSpot i Claude mają te same klucze w obu środowiskach (HubSpot tylko do odczytu);
   - stopki: `BLOB_READ_WRITE_TOKEN` tylko w Production i Development, więc w dev zapisane stopki zostają w przeglądarce i nie zmieniają wspólnej listy zespołu.
   - Nowa zmienna o różnych wartościach w dev i na produkcji: dodać osobno dla Production i dla Preview. Zmienne działają od następnego wdrożenia.
