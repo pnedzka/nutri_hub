@@ -36,11 +36,15 @@ export async function allSettings(): Promise<Map<string, LeaveSettings>> {
   return new Map((data ?? []).map((row) => [String(row.user_id), toSettings(row)]));
 }
 
-/** Writes the yearly allowance for every year from the start year to `year` that has none yet. */
+/**
+ * Writes the yearly allowance for every year from the start year to `year` that has none yet, but never for a year
+ * that has not started: until then the balance uses `annualDays`, so a later change of it still applies there.
+ */
 async function ensureAllowances(userId: string, settings: LeaveSettings, year: number): Promise<void> {
-  if (year < settings.startYear) return;
+  const last = Math.min(year, Number(todayInPoland().slice(0, 4)));
+  if (last < settings.startYear) return;
   const rows = [];
-  for (let y = settings.startYear; y <= year; y++) rows.push({ user_id: userId, year: y, days: settings.annualDays });
+  for (let y = settings.startYear; y <= last; y++) rows.push({ user_id: userId, year: y, days: settings.annualDays });
   const { error } = await db().from('leave_allowances').upsert(rows, { onConflict: 'user_id,year', ignoreDuplicates: true });
   if (error) throw error;
 }
