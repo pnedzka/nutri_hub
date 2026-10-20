@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Check, Mail, Pencil, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { APP_IDS, APP_NAMES, type AppId, type Role } from '../../shared/access.ts';
+import { available } from '../apps';
 import { Button } from '../components/Button';
 import { Card, CardBody, CardHeader } from '../components/Card';
 import { Input } from '../components/Input';
@@ -96,7 +97,7 @@ function AppPicker({ value, onChange, admin, disabled }: { value: AppId[]; onCha
   return (
     <fieldset className="space-y-1" disabled={disabled}>
       <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Apps</legend>
-      {APP_IDS.map((id) => (
+      {APP_IDS.filter((id) => available(id)).map((id) => (
         <label key={id} className="flex items-center gap-2 min-h-8 pointer-coarse:min-h-11 text-sm text-gray-700">
           <input type="checkbox" checked={admin || value.includes(id)} disabled={admin} onChange={(e) => toggle(id, e.target.checked)} />
           {APP_NAMES[id]}
@@ -142,7 +143,7 @@ function UserApps({ user, onSave }: { user: UserRow; onSave: (apps: AppId[]) => 
   return (
     <div className="flex flex-wrap items-center gap-1">
       {user.apps.length === 0 && <span className="text-xs text-amber-700">No apps</span>}
-      {user.apps.map((id) => (
+      {user.apps.filter((id) => available(id)).map((id) => (
         <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{APP_NAMES[id]}</span>
       ))}
       <button

@@ -24,6 +24,20 @@ export function toApps(value: unknown): AppId[] {
   return APP_IDS.filter((id) => given.has(id));
 }
 
+/**
+ * Hub modules still in development (decision of 20.10.2026): they work only where VITE_HUB_MODULES lists them
+ * (Preview: "news,leave"). On production the variable is not set, so their tiles, pages and choices in User
+ * management are hidden and their API answers 404. Releasing a module: add it to VITE_HUB_MODULES in Production,
+ * or remove it from this list.
+ */
+export const DEV_MODULES: readonly AppId[] = ['news', 'leave'];
+
+/** Whether an app is switched on; `enabledModules` is the value of VITE_HUB_MODULES (module ids, comma-separated). */
+export function isAvailable(app: AppId, enabledModules: string | undefined): boolean {
+  if (!DEV_MODULES.includes(app)) return true;
+  return (enabledModules ?? '').split(',').map((id) => id.trim()).includes(app);
+}
+
 export function canUse(person: { role: Role; apps: readonly string[] }, app: AppId): boolean {
   return person.role === 'admin' || person.apps.includes(app);
 }

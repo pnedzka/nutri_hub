@@ -28,6 +28,8 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 
 ## Moduły: News i Leave
 
+**Tylko w dev (decyzja z 20.10.2026).** Moduły w budowie są włączone zmienną `VITE_HUB_MODULES` (`news,leave`, tylko w Preview i Development). Bez niej, czyli na produkcji, kafelki, strony i wybór w User management są ukryte, a API modułów odpowiada 404. Lista modułów w budowie jest w `shared/access.ts` (`DEV_MODULES`). Wydanie modułu: dodać go do `VITE_HUB_MODULES` w Production (i wdrożyć ponownie) albo usunąć z `DEV_MODULES`.
+
 - **Leave (urlopy):**
   - **My leave:** saldo urlopu wypoczynkowego (przeniesione z poprzednich lat, przyznane na ten rok, wykorzystane, czekające), formularz wniosku z podglądem liczby dni roboczych i lista własnych wniosków (oczekujące można anulować).
   - **Approvals:** wnioski do zatwierdzenia dla przełożonego i adminów, z saldem pracownika i komentarzem do decyzji.

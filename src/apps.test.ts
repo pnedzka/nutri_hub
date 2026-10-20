@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { APP_IDS } from '../shared/access';
 import { APPS, sectionsFor } from './apps';
 
-const ids = (user: Parameters<typeof sectionsFor>[0]) => sectionsFor(user).map((s) => [s.title, s.apps.map((a) => a.id)]);
+const MODULES = 'news,leave';
+const ids = (user: Parameters<typeof sectionsFor>[0], modules: string | undefined = MODULES) =>
+  sectionsFor(user, APPS, modules).map((s) => [s.title, s.apps.map((a) => a.id)]);
 
 describe('sectionsFor', () => {
   it('shows a user only the apps they may use', () => {
@@ -16,6 +18,14 @@ describe('sectionsFor', () => {
   it('shows News and Leave, modules of the hub, as paths inside it', () => {
     expect(ids({ role: 'user', apps: ['leave', 'news'] })).toEqual([['Your apps', ['news', 'leave']]]);
     expect(APPS.filter((a) => a.id === 'news' || a.id === 'leave').map((a) => a.url)).toEqual(['/news', '/leave']);
+  });
+
+  it('hides News and Leave where VITE_HUB_MODULES does not list them (production)', () => {
+    expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'intranet']],
+      ['Administration', ['users']],
+    ]);
+    expect(ids({ role: 'user', apps: ['news', 'leave', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news']]]);
   });
 
   it('shows an admin every app and the Administration section', () => {

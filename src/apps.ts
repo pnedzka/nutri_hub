@@ -1,5 +1,5 @@
 import { Building2, CalendarDays, FileText, Newspaper, PenLine, UserSearch, Users, type LucideIcon } from 'lucide-react';
-import { canUse, type AppId } from '../shared/access.ts';
+import { canUse, isAvailable, type AppId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
 export interface AppTile {
@@ -31,6 +31,9 @@ const address = (value: string | undefined, fallback: string) => (value || fallb
 export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoisowner.vercel.app');
 export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
 export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
+
+/** Whether an app is switched on here: News and Leave only where VITE_HUB_MODULES lists them (shared/access.ts). */
+export const available = (id: AppId, enabledModules: string | undefined = env.VITE_HUB_MODULES) => isAvailable(id, enabledModules);
 
 /**
  * Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). News and Leave are
@@ -103,9 +106,16 @@ export interface AppSection {
 }
 
 /** The tiles a person sees, in sections; admins also get "Administration". Empty sections are left out. */
-export function sectionsFor(user: Pick<AppUser, 'role' | 'apps'>, apps: AppTile[] = APPS): AppSection[] {
+export function sectionsFor(
+  user: Pick<AppUser, 'role' | 'apps'>,
+  apps: AppTile[] = APPS,
+  enabledModules: string | undefined = env.VITE_HUB_MODULES,
+): AppSection[] {
   const sections: AppSection[] = [
-    { title: 'Your apps', apps: apps.filter((a) => a.audience === 'app' && a.id !== 'users' && canUse(user, a.id)) },
+    {
+      title: 'Your apps',
+      apps: apps.filter((a) => a.audience === 'app' && a.id !== 'users' && available(a.id, enabledModules) && canUse(user, a.id)),
+    },
   ];
   if (user.role === 'admin') sections.push({ title: 'Administration', apps: apps.filter((a) => a.audience === 'admin') });
   return sections.filter((s) => s.apps.length > 0);
