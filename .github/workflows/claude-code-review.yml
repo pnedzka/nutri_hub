@@ -2,8 +2,8 @@
 # Needs the repository secret ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions) and the Claude GitHub App
 # installed on this repository. Comments appear on the PR; they never block merging.
 #
-# Draft PRs are skipped: the review runs when a PR is marked "Ready for review". Release PRs (develop → main) are
-# skipped too, their changes were reviewed on the way into develop.
+# Draft PRs are skipped: the review runs when a PR is marked "Ready for review". Release PRs (develop → main) and
+# sync PRs (main → develop) are skipped too: their changes were reviewed on the way in.
 name: Claude Code Review
 
 on:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   review:
-    if: github.event.pull_request.draft == false && github.head_ref != 'develop'
+    if: github.event.pull_request.draft == false && github.head_ref != 'develop' && github.head_ref != 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
