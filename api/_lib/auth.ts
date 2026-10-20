@@ -22,11 +22,32 @@ export function toProfile(row: Record<string, unknown>): Profile {
   };
 }
 
+/**
+ * Why Supabase Auth did not confirm a session, when the session is not to blame: the API gateway rejected the hub's
+ * own SUPABASE_SECRET_KEY (401 "Invalid API key", e.g. the key of the other environment), or Auth did not answer.
+ * Signing in again fixes neither. Anything else (expired token, signed out, account removed) ends the session.
+ */
+export function serverAuthProblem(error: { status?: number; code?: string; message?: string }): 'key' | 'unavailable' | null {
+  if (error.status === 401 && /api.?key/i.test(`${error.code ?? ''} ${error.message ?? ''}`)) return 'key';
+  if (!error.status || error.status >= 500) return 'unavailable';
+  return null;
+}
+
 /** The signed-in user (from the Supabase access token in the Authorization header) and their profile. */
 export async function requireUser(request: Request): Promise<Profile> {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) throw new HttpError(401, 'Please sign in.');
   const { data, error } = await db().auth.getUser(token);
+  const problem = error ? serverAuthProblem(error) : null;
+  if (problem) {
+    console.error('Supabase Auth did not verify the session:', error!.status, error!.code, error!.message);
+    throw new HttpError(
+      503,
+      problem === 'key'
+        ? 'Server configuration problem: the user database rejected the hub\'s key. Tell your administrator.'
+        : 'The sign-in service is not responding. Try again in a moment.',
+    );
+  }
   if (error || !data.user) throw new HttpError(401, 'Your session has expired. Please sign in again.');
   const { data: row, error: readError } = await db().from('profiles').select(PROFILE_COLUMNS).eq('id', data.user.id).maybeSingle();
   if (readError) throw readError;
