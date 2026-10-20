@@ -7,6 +7,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { HttpError } from './http.js';
 import { db } from './supabase.js';
+import { logError } from './monitoring.js';
 
 export type AccountLinkKind = 'invite' | 'recovery';
 
@@ -60,7 +61,7 @@ export async function redeemAccountLink(token: string): Promise<{ tokenHash: str
   }
   const tokenHash = generated.data.properties?.hashed_token;
   if (generated.error || !tokenHash) {
-    console.error('[links] generateLink', generated.error);
+    logError('links.generateLink', generated.error);
     throw new HttpError(500, 'Could not open the link. Try again or ask for a new one.');
   }
   return { tokenHash, type };

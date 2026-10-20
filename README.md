@@ -126,6 +126,15 @@ Darmowa baza dev usypia się po 7 dniach bez użycia. Wybudzenie: Supabase → p
 4. Settings → Domains: `nutripartners.vercel.app`.
 5. Deployment Protection: Vercel Authentication tylko dla preview.
 
+## Monitorowanie i błędy
+
+- **Sentry** zbiera błędy wszystkich czterech aplikacji (przeglądarka i serwer) w jednym projekcie. Tagi: `app` (`hub`, `neutralizer`, `owner-lookup`, `signatures`), `side` (`browser`, `server`), `where` (miejsce w kodzie), środowisko (`production`, `preview`). Przy nowym rodzaju błędu Sentry wysyła e-mail.
+  - Zmienne: `SENTRY_DSN` (serwer) i `VITE_SENTRY_DSN` (przeglądarka), ta sama wartość, w Production i Preview. Bez nich nic nie jest wysyłane.
+  - Serwer: `api/_lib/monitoring.ts` (`logError` zamiast `console.error`; `handle` zgłasza nieoczekiwane błędy i odpowiedzi 5xx). Przeglądarka: `src/lib/monitoring.ts`.
+  - Do Sentry nie trafiają ciasteczka, nagłówki, treść żądań ani fragment adresu (`#sso=…`, linki z e-maili). Osobę opisuje id konta i e-mail.
+- **`GET /api/health`** sprawdza, czy serwer centrum łączy się z Supabase (Auth i baza) swoim kluczem i czy jest klucz Resend. Odpowiada 200 albo 503 z listą `checks` (bez szczegółów). Monitor (UptimeRobot) wywołuje go co 5 minut i wysyła alert, gdy odpowiedź nie jest 200.
+  - Test Sentry poza produkcją: `/api/health?test=sentry` wysyła błąd testowy.
+
 ## Praca lokalna
 
 ```bash
