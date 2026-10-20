@@ -35,7 +35,7 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 
 Na produkcji i działa (właściciel potwierdził): centrum z User management i uprawnieniami, środowiska dev i produkcja, jedno logowanie we wszystkich trzech aplikacjach. Pracownicy dostali wiadomość o centrum i o HubSpot owner lookup.
 
-**News i Leave wydane na produkcję 20.10.2026** (PR #17): tabele i bucket założone w bazie produkcyjnej, wszystkie konta z `intranet` (13) dostały `news` i `leave`. Automatyczne code review działa we wszystkich czterech repo.
+**News i Leave: wycofane z produkcji 20.10.2026 (decyzja właściciela: na razie tylko w dev).** Kod jest w `main`, ale na produkcji moduły są wyłączone (brak `VITE_HUB_MODULES`, zob. „Moduły centrum”). Dane zostały: tabele i bucket w bazie produkcyjnej, konta z `intranet` (13) mają `news` i `leave` (PR #17). Automatyczne code review działa we wszystkich czterech repo.
 
 **Monitoring wydany na produkcję 20.10.2026** (PR #24 centrum i wydania 3 aplikacji): Sentry we wszystkich 4 aplikacjach, `/api/health` + UptimeRobot, czytelne błędy klucza serwera w centrum (zob. „Monitorowanie”).
 
@@ -71,6 +71,8 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
 8. **Pierwsze wdrożenie `develop`:** jeśli `develop` jest na tym samym commicie co `main`, Vercel go nie wdroży. Wtedy użyć `create_deployment` (zob. „Pułapki”).
 
 ## Moduły centrum: News i Leave (od 20.10.2026)
+
+**Na razie tylko w dev (decyzja z 20.10.2026):** moduły z listy `DEV_MODULES` (`shared/access.ts`: `news`, `leave`) działają tylko tam, gdzie `VITE_HUB_MODULES` je wymienia (`news,leave` w Preview i Development centrum). Na produkcji zmiennej nie ma, więc kafelki, trasy i wybór w User management są ukryte (`available()` w `src/apps.ts`), `requireApp` odpowiada 404, a e-maile z zaproszeniem ich nie wymieniają. **Wydanie:** na polecenie właściciela dodać moduł do `VITE_HUB_MODULES` w Production i wdrożyć ponownie (albo usunąć go z `DEV_MODULES`).
 
 **Decyzja właściciela (20.10.2026):** zamiast osobnej aplikacji intranetu (`pnedzka/nutri_intranet`, projekt Vercel `nutri-intranet`) kolejne funkcje są **modułami samego centrum**: kafelki News i Leave, działające jak pozostałe, z osobnymi uprawnieniami. Centrum docelowo staje się intranetem. Kod przeniesiono z `nutri_intranet` (PR-y #3 i #4 tamtego repo); tamto repo i projekt Vercel są do archiwizacji.
 
@@ -126,6 +128,7 @@ Decyzje właściciela: osobna baza dev, wersje dev widzi tylko on, na produkcję
   - neutralizator: `ANTHROPIC_API_KEY` także w Preview; whoisowner: HubSpot i Claude mają te same klucze w obu środowiskach (HubSpot tylko do odczytu);
   - stopki: `BLOB_READ_WRITE_TOKEN` tylko w Production i Development, więc w dev zapisane stopki zostają w przeglądarce i nie zmieniają wspólnej listy zespołu.
   - wszystkie 4 projekty: `SENTRY_DSN`, `VITE_SENTRY_DSN` (ten sam DSN w Production i Preview);
+  - centrum: `VITE_HUB_MODULES` = `news,leave` tylko w Preview i Development (moduły w budowie; na produkcji nie ustawiać, dopóki właściciel ich nie wyda);
   - Nowa zmienna o różnych wartościach w dev i na produkcji: dodać osobno dla Production i dla Preview. Zmienne działają od następnego wdrożenia.
 
 ### Procedura

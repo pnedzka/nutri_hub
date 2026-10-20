@@ -1,7 +1,7 @@
 // Account e-mails (invitation, password reset), sent through the Resend API. The sender is Nutri APEX, the company's
 // AI assistant; the message says clearly that it concerns the Nutri Partners apps. Links come from accountLinks.ts.
 
-import { APP_NAMES, type AppId } from '../../shared/access.js';
+import { APP_NAMES, isAvailable, type AppId } from '../../shared/access.js';
 import { LINK_VALIDITY_HOURS, type AccountLinkKind } from './accountLinks.js';
 import { HttpError } from './http.js';
 import { logError } from './monitoring.js';
@@ -27,7 +27,8 @@ export interface AccountMail {
 
 function appList(apps: AccountMail['apps']): string | null {
   if (apps === 'all') return 'all apps (administrator)';
-  return apps?.length ? apps.map((id) => APP_NAMES[id]).join(', ') : null;
+  const shown = apps?.filter((id) => isAvailable(id, process.env.VITE_HUB_MODULES)) ?? [];
+  return shown.length ? shown.map((id) => APP_NAMES[id]).join(', ') : null;
 }
 
 export function accountMessage({ kind, email, url, appUrl, invitedBy, apps }: AccountMail) {

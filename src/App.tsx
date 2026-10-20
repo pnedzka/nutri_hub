@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Toasts } from './components/Toasts';
 import { canUse, type AppId } from '../shared/access.ts';
+import { available } from './apps';
 import { useAuth } from './lib/auth';
 import { HomePage } from './pages/HomePage';
 import { LeavePage } from './pages/leave/LeavePage';
@@ -47,8 +48,8 @@ export default function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/news/*" element={<AppOnly app="news"><NewsPage /></AppOnly>} />
-          <Route path="/leave/*" element={<AppOnly app="leave"><LeavePage /></AppOnly>} />
+          {available('news') && <Route path="/news/*" element={<AppOnly app="news"><NewsPage /></AppOnly>} />}
+          {available('leave') && <Route path="/leave/*" element={<AppOnly app="leave"><LeavePage /></AppOnly>} />}
           <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
           <Route path="/sso" element={<SsoPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
