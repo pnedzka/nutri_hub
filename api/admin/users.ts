@@ -5,10 +5,17 @@
 //
 // `apps` is the list of apps the person may use (ids from shared/access.ts); administrators may use every app.
 //
-//   GET   /api/admin/users   → { users: (Profile & { created_at, documents, status, last_sign_in_at })[] }
+// Contact details (job title, phones, office, photo) are saved with PATCH /api/people, by the person or an
+// administrator; every change of an account is noted in its history (profile_events).
+//
+//   GET   /api/admin/users              → { users: (Profile & { created_at, documents, status, last_sign_in_at, profile })[] }
+//   GET   /api/admin/users?history=<id> → { events: ProfileEvent[] }
 //   POST  /api/admin/users   body { email, fullName?, role?, apps?, invite?, password? } → { user, invited }
-//   PATCH /api/admin/users   body { id, role?, fullName?, apps?, password?, sendLink? } → { user, sent? }
+//   PATCH /api/admin/users   body { id, role?, fullName?, apps?, password?, sendLink?, active? } → { user, sent? }
 //   DELETE /api/admin/users  body { id } → { deleted: email }
+//
+// `active: false` deactivates an account (someone who left): it is banned in Supabase Auth, cannot sign in and is
+// hidden from Team and the modules, while its documents, leave and posts stay. `active: true` restores it.
 
 import type { User } from '@supabase/supabase-js';
 import { toApps } from '../../shared/access.js';
@@ -18,13 +25,19 @@ import { createInvitedUser, issueAccountLink } from '../_lib/accountLinks.js';
 import { sendAccountMail } from '../_lib/mail.js';
 import { db } from '../_lib/supabase.js';
 import { logError } from '../_lib/monitoring.js';
+import { isUuid, type ProfileEvent } from '../../shared/profile.js';
+import { CONTACT_COLUMNS, logProfileEvent, signAvatars, toTeamMember } from '../_lib/profiles.js';
 
 const MIN_PASSWORD = 10;
 
 /** active: has signed in; invited: invitation not used yet; created: start password, never signed in. */
-export type AccountStatus = 'active' | 'invited' | 'created';
+export type AccountStatus = 'active' | 'invited' | 'created' | 'deactivated';
 
-function accountStatus(user: User | undefined): AccountStatus {
+/** "Never" for a ban: Supabase Auth takes a duration, 100 years is the usual way to block an account for good. */
+const BAN_FOREVER = '876000h';
+
+function accountStatus(user: User | undefined, deactivated = false): AccountStatus {
+  if (deactivated) return 'deactivated';
   if (user?.last_sign_in_at) return 'active';
   return user?.invited_at && !user.email_confirmed_at ? 'invited' : 'created';
 }
@@ -39,16 +52,42 @@ async function authUsers(): Promise<Map<string, User>> {
   }
 }
 
+/** The history of one account, newest first, with the names of who made each change. */
+async function history(id: string): Promise<ProfileEvent[]> {
+  const { data, error } = await db()
+    .from('profile_events')
+    .select('id, action, details, created_at, actor:profiles!profile_events_actor_id_fkey(full_name, email)')
+    .eq('profile_id', id)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []).map((e) => {
+    const actor = (Array.isArray(e.actor) ? e.actor[0] : e.actor) as { full_name?: string | null; email?: string } | null;
+    return {
+      id: String(e.id),
+      action: String(e.action),
+      details: (e.details ?? {}) as Record<string, unknown>,
+      createdAt: String(e.created_at),
+      actor: actor ? actor.full_name?.trim() || actor.email || null : null,
+    };
+  });
+}
+
 export function GET(request: Request): Promise<Response> {
   return handle(async () => {
     await requireAdmin(request);
-    const { data, error } = await db().from('profiles').select(`${PROFILE_COLUMNS}, created_at`).order('email');
+    const historyOf = new URL(request.url).searchParams.get('history');
+    if (historyOf !== null) {
+      if (!isUuid(historyOf)) throw new HttpError(400, 'User ID is invalid.');
+      return json({ events: await history(historyOf) });
+    }
+    const { data, error } = await db().from('profiles').select(`${PROFILE_COLUMNS}, ${CONTACT_COLUMNS}, created_at, deactivated_at`).order('email');
     if (error) throw error;
     const { data: docs, error: docsError } = await db().from('documents').select('owner_id');
     if (docsError) throw docsError;
     const counts = new Map<string, number>();
     for (const d of docs ?? []) counts.set(d.owner_id, (counts.get(d.owner_id) ?? 0) + 1);
-    const accounts = await authUsers();
+    const [accounts, avatars] = await Promise.all([authUsers(), signAvatars((data ?? []).map((u) => u.avatar_path))]);
     return json({
       users: (data ?? []).map((u) => {
         const account = accounts.get(u.id);
@@ -56,8 +95,9 @@ export function GET(request: Request): Promise<Response> {
           ...toProfile(u),
           created_at: u.created_at,
           documents: counts.get(u.id) ?? 0,
-          status: accountStatus(account),
+          status: accountStatus(account, Boolean(u.deactivated_at)),
           last_sign_in_at: account?.last_sign_in_at ?? null,
+          profile: toTeamMember(u, avatars),
         };
       }),
     });
@@ -89,6 +129,7 @@ export function POST(request: Request): Promise<Response> {
     const profile: Profile = { id: created.user.id, email, full_name: fullName, role: role(body.role), apps: toApps(body.apps) };
     const { error: profileError } = await db().from('profiles').upsert(profile);
     if (profileError) throw profileError;
+    await logProfileEvent(profile.id, admin.id, 'created', { role: profile.role, apps: profile.apps });
     if (invite) {
       try {
         const url = await issueAccountLink('invite', created.user.id, appUrl(request));
@@ -100,6 +141,7 @@ export function POST(request: Request): Promise<Response> {
           invitedBy: admin.full_name || admin.email,
           apps: profile.role === 'admin' ? 'all' : profile.apps,
         });
+        await logProfileEvent(profile.id, admin.id, 'invited');
       } catch (error) {
         const reason = error instanceof HttpError ? error.message : 'sending failed.';
         throw new HttpError(502, `The account was created, but the invitation was not sent: ${reason} Send it again with the "Send link" button in the account list.`);
@@ -112,12 +154,19 @@ export function POST(request: Request): Promise<Response> {
 export function PATCH(request: Request): Promise<Response> {
   return handle(async () => {
     const admin = await requireAdmin(request);
-    const body = await readJson<{ id?: unknown; role?: unknown; fullName?: unknown; apps?: unknown; password?: unknown; sendLink?: unknown }>(request);
+    const body = await readJson<{ id?: unknown; role?: unknown; fullName?: unknown; apps?: unknown; password?: unknown; sendLink?: unknown; active?: unknown }>(request);
     if (typeof body.id !== 'string') throw new HttpError(400, 'User ID is missing.');
     if (body.id === admin.id && body.role !== undefined && role(body.role) !== 'admin') {
       throw new HttpError(400, 'You cannot remove administrator rights from yourself.');
     }
-    const changes: Partial<Profile> = {};
+    if (body.id === admin.id && body.active === false) throw new HttpError(400, 'You cannot deactivate your own account.');
+    const { data: current, error: currentError } = await db().from('profiles').select(`${PROFILE_COLUMNS}, deactivated_at`).eq('id', body.id).maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) throw new HttpError(404, 'User not found.');
+    if (current.deactivated_at && body.sendLink === true) {
+      throw new HttpError(400, 'This account is deactivated. Reactivate it before sending an e-mail link.');
+    }
+    const changes: Partial<Profile> & { deactivated_at?: string | null } = {};
     if (body.role !== undefined) changes.role = role(body.role);
     if (typeof body.fullName === 'string') changes.full_name = body.fullName.trim().slice(0, 200) || null;
     if (body.apps !== undefined) {
@@ -130,6 +179,15 @@ export function PATCH(request: Request): Promise<Response> {
       }
       const { error } = await db().auth.admin.updateUserById(body.id, { password: body.password });
       if (error) throw new HttpError(400, 'Could not change the password.');
+      await logProfileEvent(body.id, admin.id, 'password');
+    }
+    if (typeof body.active === 'boolean' && body.active === Boolean(current.deactivated_at)) {
+      const { error } = await db().auth.admin.updateUserById(body.id, { ban_duration: body.active ? 'none' : BAN_FOREVER });
+      if (error) {
+        logError('users.ban', error);
+        throw new HttpError(500, body.active ? 'Could not reactivate the account.' : 'Could not deactivate the account.');
+      }
+      changes.deactivated_at = body.active ? null : new Date().toISOString();
     }
     if ('full_name' in changes) {
       // The other apps of the shared user base (e.g. HubSpot owner lookup) read the name from the account's metadata.
@@ -140,8 +198,7 @@ export function PATCH(request: Request): Promise<Response> {
     if (body.sendLink === true) {
       const { data: found, error } = await db().auth.admin.getUserById(body.id);
       if (error || !found.user?.email) throw new HttpError(404, 'User not found.');
-      const { data: row } = await db().from('profiles').select(PROFILE_COLUMNS).eq('id', body.id).maybeSingle();
-      const person = row ? toProfile(row) : null;
+      const person = toProfile(current);
       // An unused invitation is sent again; anyone else gets a password-reset link.
       sent = accountStatus(found.user) === 'invited' ? 'invite' : 'recovery';
       const url = await issueAccountLink(sent, found.user.id, appUrl(request));
@@ -151,14 +208,21 @@ export function PATCH(request: Request): Promise<Response> {
         url,
         appUrl: appUrl(request),
         invitedBy: admin.full_name || admin.email,
-        apps: person?.role === 'admin' ? 'all' : person?.apps,
+        apps: person.role === 'admin' ? 'all' : person.apps,
       });
+      await logProfileEvent(body.id, admin.id, 'link', { kind: sent });
     }
     const query = Object.keys(changes).length ? db().from('profiles').update(changes) : db().from('profiles').select();
     const { data, error } = await query.eq('id', body.id).select(PROFILE_COLUMNS).maybeSingle();
     if (error) throw error;
     if (!data) throw new HttpError(404, 'User not found.');
-    return json({ user: toProfile(data), sent });
+    const before = toProfile(current);
+    const after = toProfile(data);
+    if (after.role !== before.role) await logProfileEvent(body.id, admin.id, 'role', { from: before.role, to: after.role });
+    if (after.apps.join() !== before.apps.join()) await logProfileEvent(body.id, admin.id, 'apps', { from: before.apps, to: after.apps });
+    if (after.full_name !== before.full_name) await logProfileEvent(body.id, admin.id, 'profile', { fields: ['name'] });
+    if ('deactivated_at' in changes) await logProfileEvent(body.id, admin.id, changes.deactivated_at ? 'deactivated' : 'reactivated');
+    return json({ user: after, sent });
   });
 }
 

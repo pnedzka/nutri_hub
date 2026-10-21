@@ -1,9 +1,9 @@
-import { Building2, CalendarDays, FileText, Newspaper, PenLine, UserSearch, Users, type LucideIcon } from 'lucide-react';
+import { Building2, CalendarDays, FileText, Newspaper, PenLine, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAvailable, type AppId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
 export interface AppTile {
-  id: AppId | 'users';
+  id: AppId | 'users' | 'team';
   name: string;
   description: string;
   /** An address, or a path inside the hub (starts with "/"). */
@@ -11,9 +11,10 @@ export interface AppTile {
   icon: LucideIcon;
   /**
    * 'app': shown to people who may use the app (`profiles.apps`; administrators see all).
+   * 'everyone': every signed-in person (Team).
    * 'admin': administrators only. Hiding a tile is only a convenience: each app checks access itself.
    */
-  audience: 'app' | 'admin';
+  audience: 'app' | 'everyone' | 'admin';
   /**
    * Opens in a new tab: apps outside our user base (the intranet). Our own apps open in the same tab and link back
    * to the hub from their header.
@@ -81,6 +82,14 @@ export const APPS: AppTile[] = [
     audience: 'app',
   },
   {
+    id: 'team',
+    name: 'Team',
+    description: 'Contact details of your colleagues: phones, e-mails and offices.',
+    url: '/team',
+    icon: UsersRound,
+    audience: 'everyone',
+  },
+  {
     id: 'intranet',
     name: 'Intranet',
     description: 'The company intranet.',
@@ -114,7 +123,9 @@ export function sectionsFor(
   const sections: AppSection[] = [
     {
       title: 'Your apps',
-      apps: apps.filter((a) => a.audience === 'app' && a.id !== 'users' && available(a.id, enabledModules) && canUse(user, a.id)),
+      apps: apps.filter(
+        (a) => a.audience === 'everyone' || (a.audience === 'app' && a.id !== 'users' && a.id !== 'team' && available(a.id, enabledModules) && canUse(user, a.id)),
+      ),
     },
   ];
   if (user.role === 'admin') sections.push({ title: 'Administration', apps: apps.filter((a) => a.audience === 'admin') });

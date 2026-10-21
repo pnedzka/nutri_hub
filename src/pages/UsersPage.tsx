@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowLeft, Check, Mail, Pencil, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { ArrowLeft, Ban, Check, KeyRound, Mail, Pencil, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { APP_IDS, APP_NAMES, type AppId, type Role } from '../../shared/access.ts';
+import type { TeamMember } from '../../shared/profile.ts';
 import { available } from '../apps';
+import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
+import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
+import { OfficesCard } from '../components/OfficesCard';
 import { Card, CardBody, CardHeader } from '../components/Card';
 import { Input } from '../components/Input';
 import { api } from '../lib/api';
@@ -11,7 +15,7 @@ import { useAuth } from '../lib/auth';
 import { formatDateTime } from '../lib/format';
 import { useToast } from '../lib/toast';
 
-interface UserRow {
+export interface UserRow {
   id: string;
   email: string;
   full_name: string | null;
@@ -19,14 +23,17 @@ interface UserRow {
   apps: AppId[];
   created_at: string;
   documents: number;
-  status: 'active' | 'invited' | 'created';
+  status: 'active' | 'invited' | 'created' | 'deactivated';
   last_sign_in_at: string | null;
+  /** Contact details and photo, as Team shows them. */
+  profile: TeamMember;
 }
 
 const STATUS: Record<UserRow['status'], { label: string; className: string }> = {
   active: { label: 'Active', className: 'bg-green-50 text-green-700' },
   invited: { label: 'Invited', className: 'bg-amber-50 text-amber-700' },
   created: { label: 'Never signed in', className: 'bg-gray-100 text-gray-600' },
+  deactivated: { label: 'Deactivated', className: 'bg-gray-200 text-gray-700' },
 };
 
 function randomPassword() {
@@ -73,6 +80,8 @@ function UserName({ user, onSave }: { user: UserRow; onSave: (fullName: string) 
   }
 
   return (
+    <div className="flex items-start gap-3 min-w-0">
+    <Avatar name={user.full_name} email={user.email} url={user.profile.avatarUrl} size="sm" />
     <div className="min-w-0">
       <p className="flex items-center gap-1 font-medium text-gray-900 break-words">
         <span className="min-w-0">{user.full_name || user.email}</span>
@@ -87,6 +96,8 @@ function UserName({ user, onSave }: { user: UserRow; onSave: (fullName: string) 
         </button>
       </p>
       {user.full_name && <p className="text-xs text-gray-500 break-all">{user.email}</p>}
+      {user.profile.jobTitle && <p className="text-xs text-gray-500 break-words">{user.profile.jobTitle}</p>}
+    </div>
     </div>
   );
 }
@@ -214,6 +225,14 @@ export function UsersPage() {
   const rename = (u: UserRow) => (fullName: string) => update(u.id, { fullName }, 'Name changed');
   const setApps = (u: UserRow) => (apps: AppId[]) => update(u.id, { apps }, 'Apps changed');
 
+  const setActive = async (u: UserRow, active: boolean) => {
+    const question = active
+      ? `Reactivate the account ${u.email}?\n\nThe person can sign in again and gets back their apps.`
+      : `Deactivate the account ${u.email}?\n\nUse this when someone leaves: they can no longer sign in (within an hour in apps that are already open) and disappear from Team. Their documents, leave and posts stay. You can reactivate the account later.`;
+    if (!confirm(question)) return;
+    await update(u.id, { active }, active ? `Account ${u.email} reactivated` : `Account ${u.email} deactivated`);
+  };
+
   const sendLink = async (u: UserRow) => {
     const what = u.status === 'invited' ? 'the invitation again' : 'a link to set a new password';
     if (!confirm(`Send ${what} to ${u.email}?`)) return;
@@ -265,28 +284,32 @@ export function UsersPage() {
     </select>
   );
 
-  const actions = (u: UserRow) => (
-    <>
-      <Button variant="ghost" size="sm" onClick={() => void sendLink(u)} title={u.status === 'invited' ? 'Resend invitation' : 'Send password reset link'}>
-        <Mail size={14} className="mr-1" />
-        Send link
-      </Button>
-      <Button variant="ghost" size="sm" onClick={() => resetPassword(u)}>New password</Button>
-      {u.id !== me?.id && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-red-600 hover:text-red-700 disabled:text-gray-300"
-          disabled={u.documents > 0}
-          title={u.documents > 0 ? 'An account with documents cannot be deleted: its documents and their history must be kept.' : 'Delete account'}
-          onClick={() => void remove(u)}
-        >
-          <Trash2 size={14} className="mr-1" />
-          Delete
-        </Button>
-      )}
-    </>
-  );
+  const deactivated = (u: UserRow) => u.status === 'deactivated';
+
+  const actions = (u: UserRow) => {
+    const items: MenuAction[] = [{ label: 'Edit profile and history', icon: <SquarePen size={15} />, to: `/users/${u.id}` }];
+    if (!deactivated(u)) {
+      items.push(
+        { label: u.status === 'invited' ? 'Resend invitation' : 'Reset password (e-mail link)', icon: <Mail size={15} />, onSelect: () => void sendLink(u) },
+        { label: 'Set a new password', icon: <KeyRound size={15} />, onSelect: () => resetPassword(u) },
+      );
+    }
+    if (u.id !== me?.id) {
+      items.push(
+        deactivated(u)
+          ? { label: 'Reactivate', icon: <RotateCcw size={15} />, onSelect: () => void setActive(u, true) }
+          : { label: 'Deactivate', icon: <Ban size={15} />, onSelect: () => void setActive(u, false) },
+        {
+          label: 'Delete account',
+          icon: <Trash2 size={15} />,
+          danger: true,
+          onSelect: () => void remove(u),
+          disabledReason: u.documents > 0 ? 'Has documents, which must be kept. Deactivate instead.' : undefined,
+        },
+      );
+    }
+    return <ActionsMenu label={`Actions for ${u.email}`} actions={items} />;
+  };
 
   return (
     <div className="space-y-6">
@@ -296,7 +319,7 @@ export function UsersPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Users</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Accounts are created here. A new person gets an e-mail with a link to set a password, and then sees only the apps you choose.
+          Accounts are created here. A new person gets an e-mail with a link to set a password, and then sees only the apps you choose. Contact details and photos are under Edit; everyone can also change their own in My profile.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-6 items-start">
@@ -352,17 +375,19 @@ export function UsersPage() {
           <ul className="md:hidden divide-y divide-gray-100">
             {(users ?? []).map((u) => (
               <li key={u.id} className="px-4 py-4 space-y-3">
-                <div className="min-w-0">
+                <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
                   <UserName user={u} onSave={rename(u)} />
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                     {statusPill(u)}
                     <span>Documents: {u.documents}</span>
-                    <span>Created {formatDateTime(u.created_at)}</span>
+                    <span>Last sign-in {formatDateTime(u.last_sign_in_at)}</span>
                   </div>
+                </div>
+                <div className="shrink-0 -mr-2 -mt-1">{actions(u)}</div>
                 </div>
                 {roleSelect(u)}
                 <UserApps user={u} onSave={setApps(u)} />
-                <div className="flex flex-wrap gap-1 -ml-2">{actions(u)}</div>
               </li>
             ))}
           </ul>
@@ -374,8 +399,8 @@ export function UsersPage() {
                   <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Apps</th>
                   <th className="px-4 py-3">Documents</th>
-                  <th className="px-4 py-3">Created</th>
-                  <th className="px-4 py-3" />
+                  <th className="px-4 py-3">Last sign-in</th>
+                  <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -388,16 +413,15 @@ export function UsersPage() {
                     <td className="px-4 py-3">{roleSelect(u)}</td>
                     <td className="px-4 py-3 max-w-[260px]"><UserApps user={u} onSave={setApps(u)} /></td>
                     <td className="px-4 py-3 text-gray-600">{u.documents}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDateTime(u.created_at)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col items-end gap-1 whitespace-nowrap">{actions(u)}</div>
-                    </td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap" title={`Created ${formatDateTime(u.created_at)}`}>{formatDateTime(u.last_sign_in_at)}</td>
+                    <td className="px-4 py-3 text-right">{actions(u)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </Card>
+        <OfficesCard />
       </div>
     </div>
   );
