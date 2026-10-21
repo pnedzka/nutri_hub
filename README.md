@@ -13,11 +13,16 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - E-mail signature generator: https://nutri-signatures.vercel.app
   - HubSpot owner lookup: https://whoisowner.vercel.app
   - **News** (`/news`) i **Leave** (`/leave`): moduły samego centrum, opisane niżej.
+  - **Team** (`/team`, wszyscy zalogowani): katalog pracowników ze zdjęciem, stanowiskiem, działem, biurem, e-mailem, telefonami i LinkedIn; wyszukiwanie i filtr biura. Konta dezaktywowane są ukryte.
   - Intranet: https://intranet.nutripartners.co, w nowej karcie, z plakietką „Separate sign-in” (stary intranet, własna baza kont). Docelowo jego rolę przejmuje centrum.
+- **My profile** (`/profile`, kliknięcie imienia w nagłówku): zdjęcie (kwadrat 512 px, przycinany w przeglądarce), imię i nazwisko, stanowisko, dział, telefon, komórka, LinkedIn (opcjonalnie), biuro. E-mail firmowy to adres logowania; zmienia go, razem z rolą i aplikacjami, tylko admin. Generator stopek wypełnia formularz tymi danymi.
 - **Kafelki według uprawnień:** user widzi tylko aplikacje z `profiles.apps`, admin wszystkie. Bez żadnej aplikacji widać komunikat „You don't have access to any apps yet”.
 - **User management** (`/users`, tylko Admin):
   - nowe konto: e-mail, imię i nazwisko, rola, **aplikacje** (pola wyboru), zaproszenie e-mailem albo hasło startowe;
-  - lista kont: zmiana imienia (ołówek), roli i **aplikacji** (ołówek przy aplikacjach → pola wyboru → Save), ponowne wysłanie zaproszenia albo linku do resetu, nowe hasło, usunięcie konta bez dokumentów;
+  - lista kont: zdjęcie, stanowisko, data ostatniego logowania; zmiana imienia (ołówek), roli i **aplikacji** (ołówek przy aplikacjach → pola wyboru → Save), „Resend invitation” albo „Reset password” (link e-mailem), nowe hasło, usunięcie konta bez dokumentów;
+  - **Edit** (`/users/<id>`): dane kontaktowe i zdjęcie osoby (te same pola co My profile) oraz **historia** konta: kto i kiedy założył konto, wysłał link, zmienił rolę, aplikacje, hasło, dane albo dezaktywował konto (`profile_events`);
+  - **Deactivate / Reactivate:** dla osób, które odchodzą. Konto jest zablokowane w Supabase Auth (`ban_duration`) i ma `profiles.deactivated_at`: nie zaloguje się (w już otwartych aplikacjach najpóźniej po godzinie, gdy wygaśnie token), znika z Team i modułów, a jego dokumenty, urlopy i wpisy zostają. Reaktywacja przywraca dostęp;
+  - **Offices:** lista biur (miasto + adres po angielsku do stopek), z której każdy wybiera swoje biuro;
   - admin ma zawsze wszystkie aplikacje; Intranet w uprawnieniach decyduje tylko o widoczności kafelka starego intranetu (osobne logowanie).
 - **Linki z e-maili** (zaproszenie 24 h, reset hasła 1 h) otwierają centrum: ustawiasz hasło i od razu jesteś zalogowany.
 - Nasze aplikacje otwierają się w tej samej karcie. Logo i przycisk „All apps” („Wszystkie aplikacje”) w ich nagłówkach prowadzą z powrotem tutaj.
@@ -49,7 +54,7 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 - **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, e-maile w `api/_lib/notify.ts`.
 - **Dane:** tabele `leave_*` i `news_*` oraz prywatny bucket Storage `intranet` (`db/schema.sql`). Mają RLS bez polityk: czyta i zapisuje je tylko serwer centrum kluczem secret, po sprawdzeniu dostępu (`requireApp` w `api/_lib/auth.ts`).
 - **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z uprawnieniem `intranet` dostały oba (`db/schema.sql`; w dev i na produkcji zrobione 20.10.2026).
-- **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 11. Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`).
+- **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 12 (ostatnia: `api/people.ts`, Team, My profile, zdjęcia i biura). Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`, historia konta `GET /api/admin/users?history=<id>`).
 
 ## Uprawnienia do aplikacji
 

@@ -1,8 +1,8 @@
--- Modules of the Nutri Partners hub (News, Leave): tables in the shared Supabase project
+-- Tables of the Nutri Partners hub (News, Leave, profiles) in the shared Supabase project
 -- (nutri_documentation/db/schema.sql has the rest, including profiles).
 -- Apply to nutri-dev first; to production before merging the release into main (CLAUDE.md, "Środowiska").
--- Every table has row level security on and no policies: only the hub's server (secret key) reads and writes them,
--- after checking who is asking (api/_lib/leave.ts, api/_lib/news.ts).
+-- Every table has row level security on and no policies (except reading offices): only the hub's server (secret
+-- key) reads and writes them, after checking who is asking (api/_lib/leave.ts, api/_lib/news.ts, api/people.ts).
 
 -- Access: the modules are apps in profiles.apps ('news', 'leave'). Accounts that had the planned intranet get both
 -- (run once; harmless to repeat).
@@ -113,3 +113,48 @@ alter table public.news_likes enable row level security;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('intranet', 'intranet', false, 10485760, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
+
+-- Profiles (User management, My profile, Team): company contact details of each account. The login e-mail is the
+-- company e-mail. Only the hub's server writes these columns (profiles has no update policy); the person reads
+-- their own row (profiles_read), e.g. the signature generator fills the form from it.
+create table if not exists public.offices (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique check (char_length(btrim(name)) between 1 and 80),
+  -- Full address for e-mail signatures, in English (e.g. "…, 35-021 Rzeszów, Poland").
+  address text not null default '' check (char_length(address) <= 200),
+  created_at timestamptz not null default now()
+);
+
+alter table public.offices enable row level security;
+-- The list of offices is not secret: every signed-in person may read it (the signature generator does).
+drop policy if exists offices_read on public.offices;
+create policy offices_read on public.offices for select to authenticated using (true);
+
+insert into public.offices (name, address)
+values ('Rzeszów', 'Prof. Ludwika Chmaja 6, 35-021 Rzeszów, Poland')
+on conflict (name) do nothing;
+
+alter table public.profiles add column if not exists job_title text check (char_length(job_title) <= 100);
+alter table public.profiles add column if not exists department text check (char_length(department) <= 100);
+alter table public.profiles add column if not exists phone text check (char_length(phone) <= 30);
+alter table public.profiles add column if not exists mobile text check (char_length(mobile) <= 30);
+alter table public.profiles add column if not exists linkedin_url text check (char_length(linkedin_url) <= 300);
+alter table public.profiles add column if not exists office_id uuid references public.offices (id) on delete set null;
+-- Square photo in the private "intranet" bucket (avatars/<user id>/<random>.jpg), shown through signed links.
+alter table public.profiles add column if not exists avatar_path text check (char_length(avatar_path) <= 200);
+-- Deactivated accounts cannot sign in (the account is also banned in Supabase Auth) and are hidden from Team and the
+-- modules; their documents, leave and posts stay. Reactivating restores access.
+alter table public.profiles add column if not exists deactivated_at timestamptz;
+
+-- Who changed an account and when (User management → Edit → History). Written by the hub's server only.
+create table if not exists public.profile_events (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  actor_id uuid references public.profiles (id) on delete set null,
+  action text not null check (char_length(action) <= 40),
+  details jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists profile_events_profile on public.profile_events (profile_id, created_at desc);
+alter table public.profile_events enable row level security;

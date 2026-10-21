@@ -8,29 +8,29 @@ const ids = (user: Parameters<typeof sectionsFor>[0], modules: string | undefine
 
 describe('sectionsFor', () => {
   it('shows a user only the apps they may use', () => {
-    expect(ids({ role: 'user', apps: ['neutralizer', 'intranet'] })).toEqual([['Your apps', ['neutralizer', 'intranet']]]);
+    expect(ids({ role: 'user', apps: ['neutralizer', 'intranet'] })).toEqual([['Your apps', ['neutralizer', 'team', 'intranet']]]);
   });
 
-  it('shows nothing to a user without apps', () => {
-    expect(ids({ role: 'user', apps: [] })).toEqual([]);
+  it('shows only Team to a user without apps', () => {
+    expect(ids({ role: 'user', apps: [] })).toEqual([['Your apps', ['team']]]);
   });
 
   it('shows News and Leave, modules of the hub, as paths inside it', () => {
-    expect(ids({ role: 'user', apps: ['leave', 'news'] })).toEqual([['Your apps', ['news', 'leave']]]);
+    expect(ids({ role: 'user', apps: ['leave', 'news'] })).toEqual([['Your apps', ['news', 'leave', 'team']]]);
     expect(APPS.filter((a) => a.id === 'news' || a.id === 'leave').map((a) => a.url)).toEqual(['/news', '/leave']);
   });
 
   it('hides News and Leave where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'team', 'intranet']],
       ['Administration', ['users']],
     ]);
-    expect(ids({ role: 'user', apps: ['news', 'leave', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news']]]);
+    expect(ids({ role: 'user', apps: ['news', 'leave', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'team']]]);
   });
 
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'team', 'intranet']],
       ['Administration', ['users']],
     ]);
   });

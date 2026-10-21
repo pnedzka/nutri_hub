@@ -16,9 +16,10 @@ export function POST(request: Request): Promise<Response> {
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'Invalid e-mail address.');
 
-    const { data: profile, error } = await db().from('profiles').select('id').eq('email', email).maybeSingle();
+    const { data: profile, error } = await db().from('profiles').select('id, deactivated_at').eq('email', email).maybeSingle();
     if (error) throw error;
-    if (!profile) return json({ ok: true });
+    // Deactivated accounts get nothing (the same answer, so it does not tell who was deactivated).
+    if (!profile || profile.deactivated_at) return json({ ok: true });
 
     const { data: found } = await db().auth.admin.getUserById(profile.id);
     const user = found.user;

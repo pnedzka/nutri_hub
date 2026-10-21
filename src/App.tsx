@@ -9,9 +9,12 @@ import { HomePage } from './pages/HomePage';
 import { LeavePage } from './pages/leave/LeavePage';
 import { LoginPage } from './pages/LoginPage';
 import { NewsPage } from './pages/news/NewsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
 import { SetupPage } from './pages/SetupPage';
 import { SsoPage } from './pages/SsoPage';
+import { TeamPage } from './pages/team/TeamPage';
+import { UserEditPage } from './pages/UserEditPage';
 import { UsersPage } from './pages/UsersPage';
 
 function Spinner() {
@@ -50,7 +53,10 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           {available('news') && <Route path="/news/*" element={<AppOnly app="news"><NewsPage /></AppOnly>} />}
           {available('leave') && <Route path="/leave/*" element={<AppOnly app="leave"><LeavePage /></AppOnly>} />}
+          <Route path="/team" element={<TeamPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
+          <Route path="/users/:id" element={<AdminOnly><UserEditPage /></AdminOnly>} />
           <Route path="/sso" element={<SsoPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

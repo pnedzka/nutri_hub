@@ -8,9 +8,12 @@ export interface PersonRow extends Person {
   isAdmin: boolean;
 }
 
-/** Everyone who may use the module (administrators and people with it in `profiles.apps`), by name. */
+/**
+ * Everyone who may use the module (administrators and people with it in `profiles.apps`), by name. Deactivated
+ * accounts are left out, so their past entries show as "Former user".
+ */
 export async function appPeople(app: AppId): Promise<PersonRow[]> {
-  const { data, error } = await db().from('profiles').select('id, email, full_name, role, apps');
+  const { data, error } = await db().from('profiles').select('id, email, full_name, role, apps').is('deactivated_at', null);
   if (error) throw error;
   return (data ?? [])
     .filter((row) => canUse({ role: row.role === 'admin' ? 'admin' : 'user', apps: toApps(row.apps) }, app))
