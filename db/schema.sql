@@ -131,7 +131,8 @@ drop policy if exists offices_read on public.offices;
 create policy offices_read on public.offices for select to authenticated using (true);
 
 insert into public.offices (name, address)
-values ('Rzeszów', 'Prof. Ludwika Chmaja 6, 35-021 Rzeszów, Poland')
+-- The offices of 21.10.2026 (owner's list); administrators add the Lublin address in User management → Offices.
+values ('Rzeszów', 'Prof. Ludwika Chmaja 6, 35-021 Rzeszów, Poland'), ('Lublin', '')
 on conflict (name) do nothing;
 
 alter table public.profiles add column if not exists job_title text check (char_length(job_title) <= 100);
