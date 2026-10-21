@@ -50,9 +50,11 @@ export async function requireUser(request: Request): Promise<Profile> {
     );
   }
   if (error || !data.user) throw new HttpError(401, 'Your session has expired. Please sign in again.');
-  const { data: row, error: readError } = await db().from('profiles').select(PROFILE_COLUMNS).eq('id', data.user.id).maybeSingle();
+  const { data: row, error: readError } = await db().from('profiles').select(`${PROFILE_COLUMNS}, deactivated_at`).eq('id', data.user.id).maybeSingle();
   if (readError) throw readError;
   if (!row) throw new HttpError(403, 'Your account has no profile yet. Ask your administrator.');
+  // A deactivated account is also banned in Supabase Auth, but a session started before that still has a valid token.
+  if (row.deactivated_at) throw new HttpError(403, 'Your account has been deactivated. Ask your administrator.');
   return toProfile(row);
 }
 

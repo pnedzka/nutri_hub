@@ -18,9 +18,14 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 
 ## Ustalenia
 
-- Kafelki są w `src/apps.ts` (`audience: 'app' | 'admin'`, `newTab` tylko dla starego intranetu). Nowa aplikacja to jeden wpis; moduł centrum ma `url` ze ścieżką (`/news`, `/leave`).
+- Kafelki są w `src/apps.ts` (`audience: 'app' | 'everyone' | 'admin'`, `newTab` tylko dla starego intranetu; `everyone` to Team). Nowa aplikacja to jeden wpis; moduł centrum ma `url` ze ścieżką (`/news`, `/leave`).
 - **Zarządzanie kontami jest tylko w centrum** (`/users`, decyzja z 17.10.2026): zakładanie, zaproszenia, reset haseł, role, imiona i **uprawnienia do aplikacji**. Neutralizator już tego nie ma.
 - Uprawnienia: `profiles.apps text[]` (`shared/access.ts`: `neutralizer`, `signatures`, `owner-lookup`, `news`, `leave`, `intranet`). Admin ma wszystko. Każda aplikacja sprawdza dostęp sama (News i Leave: `requireApp` w `api/_lib/auth.ts`); Intranet to tylko widoczność kafelka starego intranetu. Konta sprzed zmiany dostały wszystkie aplikacje, domyślna wartość kolumny to `'{}'`.
+- **Profile (od 21.10.2026, decyzja właściciela: wszystkie propozycje):** kolumny `profiles` `job_title`, `department`, `phone`, `mobile`, `linkedin_url`, `office_id` (tabela `offices`: miasto + adres po angielsku do stopek, prowadzą admini), `avatar_path` (bucket `intranet`, `avatars/<id>/…jpg`, linki podpisane na dobę), `deactivated_at`; historia zmian w `profile_events`. Schemat w `db/schema.sql` tego repo.
+  - E-mail firmowy = adres logowania (bez osobnego pola). Pracownik sam zmienia swoje dane w **My profile** (`/profile`, także imię); adres logowania, rolę i aplikacje zmienia tylko admin (User management → Edit, `/users/<id>`).
+  - **Team** (`/team`) widzi każdy zalogowany. API: `api/people.ts` (12. funkcja, limit planu wyczerpany), reguły i walidacja w `shared/profile.ts`, zapis w `api/_lib/profiles.ts` (`saveProfile`, `logProfileEvent`).
+  - **Dezaktywacja** zamiast usuwania (osoba odchodzi): ban w Supabase Auth + `deactivated_at`; `requireUser` odrzuca takie konto (403), `appPeople` je pomija, reset hasła go nie wysyła. Inne aplikacje odcina ban (sesja wygasa w ciągu godziny).
+  - RLS: `offices` czyta każdy zalogowany (generator stopek), `profile_events` tylko serwer; własny wiersz `profiles` czyta właściciel (stopki wypełniają się z niego).
 - Serwer centrum (`api/`) używa `SUPABASE_SECRET_KEY` i `RESEND_API_KEY`. Linki z e-maili prowadzą do centrum.
 - Nasze aplikacje otwierają się w tej samej karcie. W ich nagłówkach logo i „All apps” prowadzą z powrotem (`HUB_URL` / `VITE_HUB_URL`). Stary intranet otwiera się w nowej karcie.
 - `/?q=…` przekierowuje na whoisowner (`src/lib/legacy.ts`), bo dawniej ta domena należała do owner lookup.
@@ -78,7 +83,7 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
 
 - **Układ:** ekrany `src/pages/news/`, `src/pages/leave/` (trasy `/news/*`, `/leave/*` w `src/App.tsx`, `AppOnly`), API `api/news/`, `api/leave/`, reguły z testami `shared/leave.ts`, `shared/news.ts`, typy `shared/leaveApi.ts`, `shared/newsApi.ts`.
   - Serwer: `requireApp(request, 'news' | 'leave')` (`api/_lib/auth.ts`), ludzie modułu `appPeople()` (`api/_lib/people.ts`), uprawnienia w `api/_lib/leave.ts` (`canDecide`, `seesType`) i `api/_lib/news.ts` (`isEditor`, `canEditPost`, `canEditComment`, `canDeleteComment`), e-maile `api/_lib/notify.ts` (`sendMail`, `sendToEach`: Resend batch, osobna wiadomość dla każdego).
-  - **Plan Hobby: 12 funkcji**, jest 11 (`api/admin/users`, `auth/accept`, `auth/recover`, `sso`, `leave/index` (GET, POST, PATCH = decyzje), `leave/calendar`, `leave/employees`, `news/index`, `news/post` (GET, PUT, DELETE, POST = polubienia i komentarze), `news/upload`, `news/editors`). Nowe endpointy łączyć w istniejących plikach.
+  - **Plan Hobby: 12 funkcji**, jest 12 (`api/admin/users` (też historia konta), `auth/accept`, `auth/recover`, `sso`, `people` (Team, My profile, zdjęcia, biura), `leave/index` (GET, POST, PATCH = decyzje), `leave/calendar`, `leave/employees`, `news/index`, `news/post` (GET, PUT, DELETE, POST = polubienia i komentarze), `news/upload`, `news/editors`). Nowe endpointy łączyć w istniejących plikach.
 - **Dane:** `db/schema.sql` tego repo: `leave_settings`, `leave_allowances`, `leave_requests`, `news_editors`, `news_posts`, `news_comments`, `news_likes`, prywatny bucket Storage `intranet` (nazwa zostaje). RLS bez polityk: czyta i zapisuje tylko serwer centrum (`db()`, klucz secret). Zastosowane na `nutri-dev` i na produkcji (20.10.2026, migracja `hub_news_leave_modules`).
 - **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z `intranet` dostają oba (`update` na początku `db/schema.sql`; dev i produkcja: zrobione 20.10.2026). `/api/sso` nie wydaje tokenów dla `news`, `leave` ani `intranet`.
 - **Urlopy:**
