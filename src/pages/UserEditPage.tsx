@@ -66,7 +66,7 @@ export function UserEditPage() {
         <Link to="/users" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
           <ArrowLeft size={14} /> Users
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 break-words">{user ? user.full_name || user.email : 'Edit account'}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 [overflow-wrap:anywhere]">{user ? user.full_name || user.email : 'Edit account'}</h1>
         {user && (
           <p className="text-sm text-gray-500 mt-1">
             {user.email} · last sign-in {formatDateTime(user.last_sign_in_at)}

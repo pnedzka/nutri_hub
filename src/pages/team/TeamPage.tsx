@@ -14,7 +14,7 @@ const tel = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;
 /** Lower case without Polish diacritics, so "lodz" finds "Łódź". */
 const fold = (text: string) => text.toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-const contactClass = 'inline-flex items-center gap-2 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 text-sm text-gray-600 hover:text-[#CC1F1F] break-all';
+const contactClass = 'inline-flex items-center gap-2 min-w-0 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 text-sm text-gray-600 hover:text-[#CC1F1F] [overflow-wrap:anywhere]';
 
 function PersonCard({ person, office }: { person: TeamMember; office: Office | undefined }) {
   return (
@@ -22,7 +22,7 @@ function PersonCard({ person, office }: { person: TeamMember; office: Office | u
       <div className="flex items-start gap-3">
         <Avatar name={person.name} email={person.email} url={person.avatarUrl} />
         <div className="min-w-0">
-          <p className="font-semibold text-gray-900 break-words">{person.name || person.email}</p>
+          <p className="font-semibold text-gray-900 [overflow-wrap:anywhere]">{person.name || person.email}</p>
           {(person.jobTitle || person.department) && (
             <p className="text-sm text-gray-500">{[person.jobTitle, person.department].filter(Boolean).join(' · ')}</p>
           )}
@@ -115,7 +115,7 @@ export function TeamPage() {
       {shown.length > 0 && (
         <ul className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((p) => (
-            <li key={p.id}>
+            <li key={p.id} className="min-w-0">
               <PersonCard person={p} office={officeById.get(p.officeId ?? '')} />
             </li>
           ))}

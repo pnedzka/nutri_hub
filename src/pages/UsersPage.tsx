@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowLeft, Ban, Check, Mail, Pencil, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { ArrowLeft, Ban, Check, KeyRound, Mail, Pencil, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { APP_IDS, APP_NAMES, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
 import { available } from '../apps';
+import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { OfficesCard } from '../components/OfficesCard';
@@ -285,52 +286,30 @@ export function UsersPage() {
 
   const deactivated = (u: UserRow) => u.status === 'deactivated';
 
-  const actions = (u: UserRow) => (
-    <>
-      <Link
-        to={`/users/${u.id}`}
-        className="inline-flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 min-h-11 sm:min-h-0 pointer-coarse:min-h-11"
-        title="Edit contact details and photo, see the history"
-      >
-        <SquarePen size={14} />
-        Edit
-      </Link>
-      {!deactivated(u) && (
-        <>
-          <Button variant="ghost" size="sm" onClick={() => void sendLink(u)} title={u.status === 'invited' ? 'Resend invitation' : 'Send password reset link'}>
-            <Mail size={14} className="mr-1" />
-            {u.status === 'invited' ? 'Resend invitation' : 'Reset password'}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => resetPassword(u)}>New password</Button>
-        </>
-      )}
-      {u.id !== me?.id &&
-        (deactivated(u) ? (
-          <Button variant="ghost" size="sm" onClick={() => void setActive(u, true)}>
-            <RotateCcw size={14} className="mr-1" />
-            Reactivate
-          </Button>
-        ) : (
-          <Button variant="ghost" size="sm" onClick={() => void setActive(u, false)} title="Block the account of someone who left; their data stays">
-            <Ban size={14} className="mr-1" />
-            Deactivate
-          </Button>
-        ))}
-      {u.id !== me?.id && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-red-600 hover:text-red-700 disabled:text-gray-300"
-          disabled={u.documents > 0}
-          title={u.documents > 0 ? 'An account with documents cannot be deleted: its documents and their history must be kept. Deactivate it instead.' : 'Delete account'}
-          onClick={() => void remove(u)}
-        >
-          <Trash2 size={14} className="mr-1" />
-          Delete
-        </Button>
-      )}
-    </>
-  );
+  const actions = (u: UserRow) => {
+    const items: MenuAction[] = [{ label: 'Edit profile and history', icon: <SquarePen size={15} />, to: `/users/${u.id}` }];
+    if (!deactivated(u)) {
+      items.push(
+        { label: u.status === 'invited' ? 'Resend invitation' : 'Reset password (e-mail link)', icon: <Mail size={15} />, onSelect: () => void sendLink(u) },
+        { label: 'Set a new password', icon: <KeyRound size={15} />, onSelect: () => resetPassword(u) },
+      );
+    }
+    if (u.id !== me?.id) {
+      items.push(
+        deactivated(u)
+          ? { label: 'Reactivate', icon: <RotateCcw size={15} />, onSelect: () => void setActive(u, true) }
+          : { label: 'Deactivate', icon: <Ban size={15} />, onSelect: () => void setActive(u, false) },
+        {
+          label: 'Delete account',
+          icon: <Trash2 size={15} />,
+          danger: true,
+          onSelect: () => void remove(u),
+          disabledReason: u.documents > 0 ? 'Has documents, which must be kept. Deactivate instead.' : undefined,
+        },
+      );
+    }
+    return <ActionsMenu label={`Actions for ${u.email}`} actions={items} />;
+  };
 
   return (
     <div className="space-y-6">
@@ -396,7 +375,8 @@ export function UsersPage() {
           <ul className="md:hidden divide-y divide-gray-100">
             {(users ?? []).map((u) => (
               <li key={u.id} className="px-4 py-4 space-y-3">
-                <div className="min-w-0">
+                <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
                   <UserName user={u} onSave={rename(u)} />
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                     {statusPill(u)}
@@ -404,9 +384,10 @@ export function UsersPage() {
                     <span>Last sign-in {formatDateTime(u.last_sign_in_at)}</span>
                   </div>
                 </div>
+                <div className="shrink-0 -mr-2 -mt-1">{actions(u)}</div>
+                </div>
                 {roleSelect(u)}
                 <UserApps user={u} onSave={setApps(u)} />
-                <div className="flex flex-wrap gap-1 -ml-2">{actions(u)}</div>
               </li>
             ))}
           </ul>
@@ -419,7 +400,7 @@ export function UsersPage() {
                   <th className="px-4 py-3">Apps</th>
                   <th className="px-4 py-3">Documents</th>
                   <th className="px-4 py-3">Last sign-in</th>
-                  <th className="px-4 py-3" />
+                  <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -432,10 +413,8 @@ export function UsersPage() {
                     <td className="px-4 py-3">{roleSelect(u)}</td>
                     <td className="px-4 py-3 max-w-[260px]"><UserApps user={u} onSave={setApps(u)} /></td>
                     <td className="px-4 py-3 text-gray-600">{u.documents}</td>
-                    <td className="px-4 py-3 text-gray-600" title={`Created ${formatDateTime(u.created_at)}`}>{formatDateTime(u.last_sign_in_at)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col items-end gap-1 whitespace-nowrap">{actions(u)}</div>
-                    </td>
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap" title={`Created ${formatDateTime(u.created_at)}`}>{formatDateTime(u.last_sign_in_at)}</td>
+                    <td className="px-4 py-3 text-right">{actions(u)}</td>
                   </tr>
                 ))}
               </tbody>
