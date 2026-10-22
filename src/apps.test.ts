@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { APP_IDS } from '../shared/access';
 import { APPS, sectionsFor } from './apps';
 
-const MODULES = 'news,leave';
+const MODULES = 'news,leave,calls';
 const ids = (user: Parameters<typeof sectionsFor>[0], modules: string | undefined = MODULES) =>
   sectionsFor(user, APPS, modules).map((s) => [s.title, s.apps.map((a) => a.id)]);
 
@@ -20,10 +20,10 @@ describe('sectionsFor', () => {
     expect(APPS.filter((a) => a.id === 'news' || a.id === 'leave').map((a) => a.url)).toEqual(['/news', '/leave']);
   });
 
-  it('hides News and Leave where VITE_HUB_MODULES does not list them (production)', () => {
+  it('hides News, Leave and Phone calls analyser where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'team', 'intranet']],
-      ['Administration', ['users', 'calls']],
+      ['Administration', ['users']],
     ]);
     expect(ids({ role: 'user', apps: ['news', 'leave', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'team']]]);
   });

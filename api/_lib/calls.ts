@@ -9,6 +9,7 @@
 // the person written into each row at import. Phone usage is personal data: nothing of it goes to the logs or
 // Sentry, only error codes.
 
+import { isAvailable } from '../../shared/access.js';
 import { CallsError, leaveDaysIn, matchNumbers, personCalls, validateInvoice, type KpiRow, type NumberOwner } from '../../shared/calls.js';
 import type { CallsImportResult, CallsPeriod, CallsPreview, CallsReport, PersonCalls } from '../../shared/callsApi.js';
 import { workingDays } from '../../shared/leave.js';
@@ -20,6 +21,12 @@ import { logError } from './monitoring.js';
 import { db } from './supabase.js';
 
 export const isCallsRequest = (request: Request) => new URL(request.url).searchParams.get('resource') === 'calls';
+
+/** The signed-in administrator; 404 where the module is still off (production until released, VITE_HUB_MODULES). */
+async function requireCalls(request: Request) {
+  if (!isAvailable('calls', process.env.VITE_HUB_MODULES)) throw new HttpError(404, 'Phone calls analyser is not available yet.');
+  return requireAdmin(request);
+}
 
 /** A failed database call, logged by its code only: Postgres error details can quote the row (numbers, usage). */
 function failed(where: string, error: { code?: string } | null | undefined): HttpError {
@@ -74,7 +81,7 @@ async function importedAt(invoiceNumber: string): Promise<string | null> {
 
 export function callsGet(request: Request): Promise<Response> {
   return handle(async () => {
-    await requireAdmin(request);
+    await requireCalls(request);
     const period = new URL(request.url).searchParams.get('period');
     if (period !== null && !isUuid(period)) throw new HttpError(400, 'Invalid period.');
     return json(await report(period));
@@ -83,7 +90,7 @@ export function callsGet(request: Request): Promise<Response> {
 
 export function callsPost(request: Request): Promise<Response> {
   return handle(async () => {
-    const admin = await requireAdmin(request);
+    const admin = await requireCalls(request);
     const action = new URL(request.url).searchParams.get('action');
     if (action !== null && action !== 'preview') throw new HttpError(400, 'Unknown action.');
     const body = await readJson<{ invoice?: unknown; fileName?: unknown; replace?: unknown }>(request);

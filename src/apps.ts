@@ -1,5 +1,5 @@
 import { Building2, CalendarDays, FileText, Newspaper, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
-import { canUse, isAppId, isAvailable, type AppId } from '../shared/access.ts';
+import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
 export interface AppTile {
@@ -34,8 +34,8 @@ export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoi
 export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
 export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
 
-/** Whether an app is switched on here: News and Leave only where VITE_HUB_MODULES lists them (shared/access.ts). */
-export const available = (id: AppId, enabledModules: string | undefined = env.VITE_HUB_MODULES) => isAvailable(id, enabledModules);
+/** Whether an app is switched on here: News, Leave and Phone calls analyser only where VITE_HUB_MODULES lists them (shared/access.ts). */
+export const available = (id: ModuleId, enabledModules: string | undefined = env.VITE_HUB_MODULES) => isAvailable(id, enabledModules);
 
 /**
  * Every app of the hub. A new app is one entry here and one id in shared/access.ts (see README). News and Leave are
@@ -137,6 +137,8 @@ export function sectionsFor(
       ),
     },
   ];
-  if (user.role === 'admin') sections.push({ title: 'Administration', apps: apps.filter((a) => a.audience === 'admin') });
+  if (user.role === 'admin') {
+    sections.push({ title: 'Administration', apps: apps.filter((a) => a.audience === 'admin' && (a.id !== 'calls' || available(a.id, enabledModules))) });
+  }
   return sections.filter((s) => s.apps.length > 0);
 }
