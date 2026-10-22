@@ -24,6 +24,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - **Deactivate / Reactivate:** dla osób, które odchodzą. Konto jest zablokowane w Supabase Auth (`ban_duration`) i ma `profiles.deactivated_at`: nie zaloguje się (w już otwartych aplikacjach najpóźniej po godzinie, gdy wygaśnie token), znika z Team i modułów, a jego dokumenty, urlopy i wpisy zostają. Reaktywacja przywraca dostęp;
   - **Offices:** lista biur (miasto + adres po angielsku do stopek), z której każdy wybiera swoje biuro;
   - admin ma zawsze wszystkie aplikacje; Intranet w uprawnieniach decyduje tylko o widoczności kafelka starego intranetu (osobne logowanie).
+- **Phone calls analyser** (`/calls`, tylko Admin, sekcja Administration): import faktur T-Mobile (PDF) i raport połączeń pracowników. Opis w „Phone calls analyser” niżej.
 - **Linki z e-maili** (zaproszenie 24 h, reset hasła 1 h) otwierają centrum: ustawiasz hasło i od razu jesteś zalogowany.
 - Nasze aplikacje otwierają się w tej samej karcie. Logo i przycisk „All apps” („Wszystkie aplikacje”) w ich nagłówkach prowadzą z powrotem tutaj.
 - **Moduły centrum (od 20.10.2026):** News i Leave działają w samym centrum, bez osobnego logowania i projektu Vercel (decyzja właściciela: centrum stanie się intranetem). Szczegóły w „Moduły: News i Leave”.
@@ -54,7 +55,21 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 - **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, e-maile w `api/_lib/notify.ts`.
 - **Dane:** tabele `leave_*` i `news_*` oraz prywatny bucket Storage `intranet` (`db/schema.sql`). Mają RLS bez polityk: czyta i zapisuje je tylko serwer centrum kluczem secret, po sprawdzeniu dostępu (`requireApp` w `api/_lib/auth.ts`).
 - **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z uprawnieniem `intranet` dostały oba (`db/schema.sql`; w dev i na produkcji zrobione 20.10.2026).
-- **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 12 (ostatnia: `api/people.ts`, Team, My profile, zdjęcia i biura). Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`, historia konta `GET /api/admin/users?history=<id>`).
+- **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 12 (ostatnia: `api/people.ts`, Team, My profile, zdjęcia i biura). Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`, historia konta `GET /api/admin/users?history=<id>`, Phone calls analyser `/api/admin/users?resource=calls`).
+
+## Phone calls analyser
+
+Admin wgrywa miesięczną fakturę T-Mobile (PDF), a centrum pokazuje, kto ile dzwonił. Zastępuje skrypty właściciela na Macu (parser PDF → SQL → Supabase).
+
+- **Import:** przeciągnięcie PDF → podgląd (numer faktury, okres, dopasowani pracownicy, pominięte numery, ostrzeżenie, gdy faktura już jest w bazie) → **Import** albo **Replace**.
+  - PDF czyta przeglądarka (`pdfjs-dist`, ładowany tylko na tej stronie) i parser `shared/tmobile.ts` (port `parse_tmobile_invoice.py`: oba układy faktur, sprzed i po zmianie z 2026). Do serwera idzie tylko JSON (do ~50 KB), PDF nie opuszcza komputera.
+  - Parser zatrzymuje import, gdy brakuje numeru faktury lub okresu, gdy jakiejś linii tabel połączeń nie rozumie albo gdy zestawienie opłat i część szczegółowa wymieniają inne numery.
+  - Numery dopasowuje serwer do `profiles.mobile` (ostatnie 9 cyfr, także konta dezaktywowane). **Zapisywane są tylko numery pracowników**; numer bez profilu jest pomijany, numer w dwóch profilach też (do poprawienia w profilach). Osoba jest zapisana w wierszu w chwili importu, więc późniejsza zmiana numeru w profilu nie przepisuje historii.
+- **Raport:** wybór okresu, ranking z paskami (połączenia wychodzące = krajowe + wykonane w roamingu, minuty, średnia długość, komórkowe/stacjonarne/międzynarodowe/roaming, SMS, koszt zmienny netto), **średnia na dzień roboczy** = połączenia / (dni robocze okresu bez weekendów i świąt − zatwierdzone dni urlopu osoby z Leave), tabela porównawcza miesięcy, eksport CSV (średniki, przecinki dziesiętne).
+- **Zasady z faktury:** faktura podaje sumy miesięczne na numer, nie pojedyncze połączenia; przychodzących krajowych na niej nie ma; numer na fakturze bez wykazu połączeń = 0 połączeń; „–” = numeru nie ma na fakturze.
+- **Technicznie:** strona `src/pages/calls/`, API w `api/_lib/calls.ts` wpięte w `api/admin/users.ts` (`?resource=calls`, bo limit 12 funkcji), reguły z testami w `shared/calls.ts` i `shared/tmobile.ts` (fixtury syntetyczne: `shared/tmobile.fixtures.ts`).
+- **Dane:** tabele `phone_invoices`, `phone_invoice_lines` (numery pracowników na fakturze), `phone_usage` (sumy na numer i kategorię), `phone_call_records` (pusta, na przyszłe bilingi), funkcja `import_phone_invoice` (import w jednej transakcji, tylko `service_role`) i widok `v_phone_monthly_kpi` (`db/schema.sql`). RLS bez polityk: tylko serwer centrum.
+- **Prywatność:** czas rozmów pracowników to dane osobowe z monitoringu pracy: dostęp tylko dla adminów, w logach i Sentry tylko kody błędów, bez numerów i danych o rozmowach. **Do repo (publicznego) nie trafiają faktury ani prawdziwe numery.** Pracownicy powinni być o tym poinformowani (regulamin, RODO).
 
 ## Uprawnienia do aplikacji
 

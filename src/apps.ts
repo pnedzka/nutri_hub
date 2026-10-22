@@ -1,9 +1,10 @@
-import { Building2, CalendarDays, FileText, Newspaper, PenLine, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
-import { canUse, isAvailable, type AppId } from '../shared/access.ts';
+import { Building2, CalendarDays, FileText, Newspaper, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { canUse, isAppId, isAvailable, type AppId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
 export interface AppTile {
-  id: AppId | 'users' | 'team';
+  /** 'users' and 'calls' are administrators' tools (not in profiles.apps), 'team' is for everyone. */
+  id: AppId | 'users' | 'team' | 'calls';
   name: string;
   description: string;
   /** An address, or a path inside the hub (starts with "/"). */
@@ -107,6 +108,14 @@ export const APPS: AppTile[] = [
     icon: Users,
     audience: 'admin',
   },
+  {
+    id: 'calls',
+    name: 'Phone calls analyser',
+    description: 'Import T-Mobile invoices and see who called how much, month by month.',
+    url: '/calls',
+    icon: PhoneCall,
+    audience: 'admin',
+  },
 ];
 
 export interface AppSection {
@@ -124,7 +133,7 @@ export function sectionsFor(
     {
       title: 'Your apps',
       apps: apps.filter(
-        (a) => a.audience === 'everyone' || (a.audience === 'app' && a.id !== 'users' && a.id !== 'team' && available(a.id, enabledModules) && canUse(user, a.id)),
+        (a) => a.audience === 'everyone' || (a.audience === 'app' && isAppId(a.id) && available(a.id, enabledModules) && canUse(user, a.id)),
       ),
     },
   ];

@@ -159,3 +159,144 @@ create table if not exists public.profile_events (
 
 create index if not exists profile_events_profile on public.profile_events (profile_id, created_at desc);
 alter table public.profile_events enable row level security;
+
+-- Phone calls analyser (/calls, administrators only): monthly usage of the employees' phone numbers from T-Mobile
+-- invoices. The browser parses the PDF (shared/tmobile.ts) and the server keeps only the numbers that match an
+-- employee's profiles.mobile (api/_lib/calls.ts); other numbers on the invoice are not stored. The person is written
+-- into each row at import, so a later change of a number in a profile does not rewrite past months.
+-- Usage of phones is personal data (monitoring of work): no policies, only the hub's server reads and writes.
+create table if not exists public.phone_invoices (
+  id uuid primary key default gen_random_uuid(),
+  invoice_number text not null unique check (invoice_number ~ '^[0-9]{6,20}$'),
+  customer_number text check (char_length(customer_number) <= 30),
+  period_start date not null,
+  period_end date not null,
+  issue_date date not null,
+  source_file_name text check (char_length(source_file_name) <= 200),
+  uploaded_by uuid references public.profiles (id) on delete set null,
+  imported_at timestamptz not null default now(),
+  check (period_end >= period_start)
+);
+
+-- The employees' numbers on an invoice, also those without any usage (a number without a list of calls made none;
+-- a number missing from the invoice is "not on the invoice").
+create table if not exists public.phone_invoice_lines (
+  invoice_id uuid not null references public.phone_invoices (id) on delete cascade,
+  msisdn text not null check (msisdn ~ '^[0-9]{9}$'),
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  primary key (invoice_id, msisdn)
+);
+
+-- Monthly totals per number and category, as T-Mobile reports them (no single calls on the invoice).
+create table if not exists public.phone_usage (
+  id bigint generated always as identity primary key,
+  invoice_id uuid not null references public.phone_invoices (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  msisdn text not null check (msisdn ~ '^[0-9]{9}$'),
+  kind text not null check (kind in ('voice_out', 'voice_out_roaming', 'voice_in_roaming', 'sms', 'mms', 'sms_roaming', 'data', 'data_roaming', 'premium')),
+  category text not null check (char_length(category) <= 200),
+  roaming_operator text check (char_length(roaming_operator) <= 200),
+  event_count integer not null check (event_count >= 0),
+  duration_s integer,
+  data_mb numeric(14, 3),
+  paid_duration_s integer,
+  paid_data_mb numeric(14, 3),
+  paid_count integer,
+  net_amount numeric(10, 2) not null default 0
+);
+
+create unique index if not exists phone_usage_uq on public.phone_usage (invoice_id, msisdn, category, coalesce(roaming_operator, ''));
+create index if not exists phone_usage_profile on public.phone_usage (profile_id);
+create index if not exists phone_invoice_lines_profile on public.phone_invoice_lines (profile_id);
+create index if not exists phone_invoices_period on public.phone_invoices (period_start);
+
+-- Empty for now: single calls, if T-Mobile's itemised billing is imported later.
+create table if not exists public.phone_call_records (
+  id bigint generated always as identity primary key,
+  invoice_id uuid references public.phone_invoices (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  msisdn text not null check (msisdn ~ '^[0-9]{9}$'),
+  started_at timestamptz not null,
+  direction text not null check (direction in ('out', 'in')),
+  counterpart text check (char_length(counterpart) <= 40),
+  network text check (char_length(network) <= 100),
+  duration_s integer not null default 0 check (duration_s >= 0),
+  is_roaming boolean not null default false
+);
+
+create index if not exists phone_call_records_profile on public.phone_call_records (profile_id, started_at);
+
+alter table public.phone_invoices enable row level security;
+alter table public.phone_invoice_lines enable row level security;
+alter table public.phone_usage enable row level security;
+alter table public.phone_call_records enable row level security;
+
+-- Imports an invoice in one transaction (supabase-js has none): the invoice, the employees' numbers and their usage.
+-- payload: { invoice: { invoice_number, customer_number, period_start, period_end, issue_date, source_file_name,
+-- uploaded_by }, lines: [{ msisdn, profile_id }], usage: [{ msisdn, profile_id, kind, category, ... }] }.
+-- An invoice already imported stops the import (unique_violation), unless replace_existing: then it is replaced.
+create or replace function public.import_phone_invoice(payload jsonb, replace_existing boolean default false)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  head jsonb := payload -> 'invoice';
+  existing uuid;
+  created uuid;
+begin
+  select id into existing from public.phone_invoices where invoice_number = head ->> 'invoice_number' for update;
+  if existing is not null then
+    if not replace_existing then
+      raise exception 'Invoice % is already imported.', head ->> 'invoice_number' using errcode = 'unique_violation';
+    end if;
+    delete from public.phone_invoices where id = existing;
+  end if;
+
+  insert into public.phone_invoices (invoice_number, customer_number, period_start, period_end, issue_date, source_file_name, uploaded_by)
+  values (
+    head ->> 'invoice_number',
+    head ->> 'customer_number',
+    (head ->> 'period_start')::date,
+    (head ->> 'period_end')::date,
+    (head ->> 'issue_date')::date,
+    head ->> 'source_file_name',
+    (head ->> 'uploaded_by')::uuid
+  )
+  returning id into created;
+
+  insert into public.phone_invoice_lines (invoice_id, msisdn, profile_id)
+  select created, l.msisdn, l.profile_id
+  from jsonb_to_recordset(coalesce(payload -> 'lines', '[]')) as l (msisdn text, profile_id uuid);
+
+  insert into public.phone_usage (invoice_id, profile_id, msisdn, kind, category, roaming_operator, event_count, duration_s, data_mb, paid_duration_s, paid_data_mb, paid_count, net_amount)
+  select created, u.profile_id, u.msisdn, u.kind, u.category, u.roaming_operator, u.event_count, u.duration_s, u.data_mb, u.paid_duration_s, u.paid_data_mb, u.paid_count, u.net_amount
+  from jsonb_to_recordset(coalesce(payload -> 'usage', '[]')) as u (
+    msisdn text, profile_id uuid, kind text, category text, roaming_operator text, event_count integer, duration_s integer,
+    data_mb numeric, paid_duration_s integer, paid_data_mb numeric, paid_count integer, net_amount numeric
+  );
+
+  return created;
+end;
+$$;
+
+revoke execute on function public.import_phone_invoice(jsonb, boolean) from public, anon, authenticated;
+grant execute on function public.import_phone_invoice(jsonb, boolean) to service_role;
+
+-- Monthly KPIs per person, for SQL by hand (the app computes its report in api/_lib/calls.ts).
+create or replace view public.v_phone_monthly_kpi with (security_invoker = on) as
+select u.profile_id, p.full_name, p.job_title, i.invoice_number, i.period_start, i.period_end,
+       sum(u.event_count) filter (where u.kind in ('voice_out', 'voice_out_roaming')) as outgoing_calls,
+       round(sum(u.duration_s) filter (where u.kind in ('voice_out', 'voice_out_roaming')) / 60.0, 1) as outgoing_minutes,
+       round(sum(u.duration_s) filter (where u.kind in ('voice_out', 'voice_out_roaming'))
+             / nullif(sum(u.event_count) filter (where u.kind in ('voice_out', 'voice_out_roaming')), 0), 0) as avg_call_seconds,
+       sum(u.event_count) filter (where u.kind in ('sms', 'sms_roaming')) as sms_sent,
+       round(sum(u.data_mb) filter (where u.kind in ('data', 'data_roaming')), 0) as data_mb,
+       sum(u.net_amount) as variable_cost_net
+from public.phone_invoices i
+join public.phone_usage u on u.invoice_id = i.id
+join public.profiles p on p.id = u.profile_id
+group by u.profile_id, p.full_name, p.job_title, i.id;
+
+revoke all on public.v_phone_monthly_kpi from anon, authenticated;

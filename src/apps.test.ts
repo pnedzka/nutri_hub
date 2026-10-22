@@ -23,7 +23,7 @@ describe('sectionsFor', () => {
   it('hides News and Leave where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'team', 'intranet']],
-      ['Administration', ['users']],
+      ['Administration', ['users', 'calls']],
     ]);
     expect(ids({ role: 'user', apps: ['news', 'leave', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'team']]]);
   });
@@ -31,7 +31,7 @@ describe('sectionsFor', () => {
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'team', 'intranet']],
-      ['Administration', ['users']],
+      ['Administration', ['users', 'calls']],
     ]);
   });
 });
