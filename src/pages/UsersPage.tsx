@@ -344,7 +344,7 @@ export function UsersPage() {
               )}
               <label className="flex items-center gap-2 text-sm text-gray-700">
                 <input type="checkbox" checked={form.role === 'admin'} onChange={(e) => setForm({ ...form, role: e.target.checked ? 'admin' : 'user' })} />
-                Administrator (manages users, sees all documents, can use every app)
+                Administrator (manages users, can use every app)
               </label>
               <AppPicker value={form.apps} onChange={(apps) => setForm({ ...form, apps })} admin={form.role === 'admin'} />
               <Button type="submit" isLoading={busy}>{form.invite ? 'Send invitation' : 'Create account'}</Button>
@@ -380,7 +380,6 @@ export function UsersPage() {
                   <UserName user={u} onSave={rename(u)} />
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                     {statusPill(u)}
-                    <span>Documents: {u.documents}</span>
                     <span>Last sign-in {formatDateTime(u.last_sign_in_at)}</span>
                   </div>
                 </div>
@@ -398,7 +397,6 @@ export function UsersPage() {
                   <th className="px-6 py-3">User</th>
                   <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Apps</th>
-                  <th className="px-4 py-3">Documents</th>
                   <th className="px-4 py-3">Last sign-in</th>
                   <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -412,7 +410,6 @@ export function UsersPage() {
                     </td>
                     <td className="px-4 py-3">{roleSelect(u)}</td>
                     <td className="px-4 py-3 max-w-[260px]"><UserApps user={u} onSave={setApps(u)} /></td>
-                    <td className="px-4 py-3 text-gray-600">{u.documents}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap" title={`Created ${formatDateTime(u.created_at)}`}>{formatDateTime(u.last_sign_in_at)}</td>
                     <td className="px-4 py-3 text-right">{actions(u)}</td>
                   </tr>
