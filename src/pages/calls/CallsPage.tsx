@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react';
-import { AlertTriangle, ArrowLeft, Download, FileUp, PhoneCall, Upload, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Download, FileText, FileUp, PhoneCall, Upload, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { CallsImportBody, CallsImportResult, CallsPeriod, CallsPreview, CallsReport, PersonCalls } from '../../../shared/callsApi.ts';
 import { byDepartment } from '../../../shared/calls.ts';
@@ -18,86 +18,194 @@ const CALLS_API = '/api/admin/users?resource=calls';
 
 const MONTH = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 /** A billing period by the month it mostly covers ("2 Aug – 1 Sep 2026" → "Aug 2026"). */
-const monthOf = (period: CallsPeriod) => MONTH.format(new Date(`${period.periodStart}T00:00:00Z`));
+const monthOf = (period: { periodStart: string }) => MONTH.format(new Date(`${period.periodStart}T00:00:00Z`));
 const periodRange = (period: { periodStart: string; periodEnd: string }) => `${formatDate(period.periodStart)} – ${formatDate(period.periodEnd)}`;
 
 const decimal = (value: number, digits = 1) => value.toLocaleString('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 const minutes = (seconds: number) => Math.round(seconds / 60).toLocaleString('en-GB');
 const whole = (value: number) => value.toLocaleString('en-GB');
 
-interface Pending {
+/** At most this many PDFs in one go (a year of invoices and some to spare). */
+const MAX_FILES = 24;
+
+type ItemState = 'reading' | 'ready' | 'failed' | 'importing' | 'imported';
+
+/** One file of the import: read in the browser, checked by the server (preview), then imported. */
+interface Item {
+  key: string;
   fileName: string;
-  invoice: ParsedInvoice;
-  preview: CallsPreview;
+  state: ItemState;
+  invoice?: ParsedInvoice;
+  preview?: CallsPreview;
+  /** Why the file cannot be imported, or why its import failed. */
+  problems: string[];
+  /** Ticked for the import (ready files only). */
+  selected: boolean;
+  /** The last import attempt failed; the file stays ready, to try again. */
+  error?: string;
+  replaced?: boolean;
 }
 
-/** Drop zone, preview of the matched numbers and the import itself. */
-function ImportCard({ onImported, onClose }: { onImported: (invoiceId: string) => void; onClose?: () => void }) {
+const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
+function ItemIcon({ state }: { state: ItemState }) {
+  if (state === 'reading' || state === 'importing') {
+    return <span className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-[#CC1F1F]" aria-label="Working" />;
+  }
+  if (state === 'imported') return <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-green-600" aria-label="Imported" />;
+  if (state === 'failed') return <AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-600" aria-label="Not imported" />;
+  return <FileText size={20} className="mt-0.5 shrink-0 text-gray-400" aria-hidden="true" />;
+}
+
+function ItemRow({ item, disabled, onToggle }: { item: Item; disabled: boolean; onToggle: () => void }) {
+  const preview = item.preview;
+  return (
+    <li className="flex items-start gap-3 py-3">
+      <ItemIcon state={item.state} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <p className="font-medium text-gray-900">
+            {preview ? monthOf(preview) : item.state === 'reading' ? 'Reading…' : 'Not imported'}
+          </p>
+          {preview && <p className="text-xs text-gray-500">{periodRange(preview)}</p>}
+          {preview?.importedAt && item.state !== 'imported' && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800" title={`Imported on ${formatDateTime(preview.importedAt)}`}>
+              Replaces the saved invoice
+            </span>
+          )}
+          {item.state === 'imported' && <span className="text-xs font-medium text-green-700">{item.replaced ? 'Replaced' : 'Imported'}</span>}
+        </div>
+        <p className="truncate text-xs text-gray-500" title={item.fileName}>
+          {[item.fileName, preview?.invoiceNumber].filter(Boolean).join(' · ')}
+        </p>
+        {preview && item.problems.length === 0 && (
+          <details className="mt-1 text-sm text-gray-600">
+            <summary className="cursor-pointer select-none text-sm text-gray-700">
+              {preview.matched.length} employee{preview.matched.length === 1 ? '' : 's'}
+              {preview.skipped.length > 0 && ` · ${preview.skipped.length} other number${preview.skipped.length === 1 ? '' : 's'} skipped`}
+              {preview.ambiguous.length > 0 && ` · ${preview.ambiguous.length} in more than one profile`}
+            </summary>
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {preview.matched.map((m) => (
+                <li key={m.msisdn} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700" title={m.msisdn}>
+                  {m.name}
+                </li>
+              ))}
+            </ul>
+            {preview.skipped.length > 0 && (
+              <p className="mt-2 text-xs [overflow-wrap:anywhere]">Skipped (no profile has them as the mobile number): {preview.skipped.join(', ')}.</p>
+            )}
+            {preview.ambiguous.length > 0 && (
+              <p className="mt-1 text-xs text-amber-800 [overflow-wrap:anywhere]">In more than one profile: {preview.ambiguous.join(', ')}.</p>
+            )}
+          </details>
+        )}
+        {item.error && <p className="mt-1 text-sm text-red-700">Import failed: {item.error}</p>}
+        {item.problems.length > 0 && (
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-red-700 [overflow-wrap:anywhere]">
+            {item.problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {item.state === 'ready' && (
+        <label className="-my-2 -mr-2 inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 px-2 text-sm text-gray-700">
+          <input type="checkbox" className="h-4 w-4 accent-[#CC1F1F]" checked={item.selected} disabled={disabled} onChange={onToggle} />
+          Import
+        </label>
+      )}
+    </li>
+  );
+}
+
+/** Drop zone for one or more PDFs, a preview of each (matched numbers, already imported) and the import. */
+function ImportCard({ onImported, onClose }: { onImported: (invoiceId: string, close: boolean) => void; onClose?: () => void }) {
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [reading, setReading] = useState(false);
+  const [items, setItems] = useState<Item[]>([]);
   const [importing, setImporting] = useState(false);
-  const [problems, setProblems] = useState<string[]>([]);
-  const [pending, setPending] = useState<Pending | null>(null);
+  const reading = items.some((i) => i.state === 'reading');
+  const selected = items.filter((i) => i.state === 'ready' && i.selected);
 
-  const reset = () => {
-    setPending(null);
-    setProblems([]);
+  const update = (key: string, change: Partial<Item>) => setItems((all) => all.map((i) => (i.key === key ? { ...i, ...change } : i)));
+
+  const choose = async (list: FileList | File[] | null | undefined) => {
+    const files = [...(list ?? [])];
     if (input.current) input.current.value = '';
-  };
-
-  const choose = async (file: File | undefined) => {
-    if (!file) return;
-    reset();
-    setReading(true);
-    try {
-      const invoice = await readInvoice(file);
-      const body: CallsImportBody = { invoice };
-      const preview = await api<CallsPreview>(`${CALLS_API}&action=preview`, { method: 'POST', body });
-      setPending({ fileName: file.name, invoice, preview });
-    } catch (error) {
-      setProblems(error instanceof InvoiceParseError ? error.problems : [(error as Error).message]);
-    } finally {
-      setReading(false);
+    if (!files.length) return;
+    const pdfs = files.filter(isPdf).slice(0, Math.max(0, MAX_FILES - items.length));
+    if (pdfs.length < files.length) {
+      toast.info('Some files were left out', `Only PDF files, at most ${MAX_FILES} at a time.`);
+    }
+    const added: Item[] = pdfs.map((file) => ({ key: `${file.name}-${crypto.randomUUID()}`, fileName: file.name, state: 'reading', problems: [], selected: false }));
+    setItems((all) => [...all, ...added]);
+    // One file at a time: a PDF of several MB at once is enough for the browser and the server.
+    const seen = new Set(items.map((i) => i.invoice?.invoiceNumber).filter(Boolean));
+    for (const [index, file] of pdfs.entries()) {
+      const key = added[index].key;
+      try {
+        const invoice = await readInvoice(file);
+        if (seen.has(invoice.invoiceNumber)) throw new InvoiceParseError([`Invoice ${invoice.invoiceNumber} is already on this list.`]);
+        seen.add(invoice.invoiceNumber);
+        const body: CallsImportBody = { invoice };
+        const preview = await api<CallsPreview>(`${CALLS_API}&action=preview`, { method: 'POST', body });
+        const problems = preview.matched.length ? [] : ["None of the numbers on this invoice belongs to an employee. Add the employees' mobile numbers to their profiles first."];
+        update(key, { state: problems.length ? 'failed' : 'ready', invoice, preview, problems, selected: !problems.length });
+      } catch (error) {
+        update(key, { state: 'failed', problems: error instanceof InvoiceParseError ? error.problems : [(error as Error).message] });
+      }
     }
   };
 
   const save = async () => {
-    if (!pending) return;
     setImporting(true);
-    try {
-      const body: CallsImportBody = { invoice: pending.invoice, fileName: pending.fileName, replace: Boolean(pending.preview.importedAt) };
-      const result = await api<CallsImportResult>(CALLS_API, { method: 'POST', body });
-      toast.success(result.replaced ? 'Invoice replaced' : 'Invoice imported', `${result.matched} employee number(s), ${periodRange(pending.preview)}`);
-      reset();
-      onImported(result.invoiceId);
-    } catch (error) {
-      toast.error('Import failed', (error as Error).message);
-    } finally {
-      setImporting(false);
+    const done: { id: string; periodStart: string }[] = [];
+    let failed = 0;
+    for (const item of selected) {
+      update(item.key, { state: 'importing' });
+      try {
+        const body: CallsImportBody = { invoice: item.invoice!, fileName: item.fileName, replace: Boolean(item.preview!.importedAt) };
+        const result = await api<CallsImportResult>(CALLS_API, { method: 'POST', body });
+        update(item.key, { state: 'imported', replaced: result.replaced, error: undefined });
+        done.push({ id: result.invoiceId, periodStart: item.preview!.periodStart });
+      } catch (error) {
+        failed++;
+        update(item.key, { state: 'ready', error: (error as Error).message });
+      }
+    }
+    setImporting(false);
+    if (done.length) {
+      const latest = done.reduce((a, b) => (b.periodStart > a.periodStart ? b : a));
+      if (failed) toast.error(`${done.length} imported, ${failed} failed`, 'The failed files are marked below; import them again.');
+      else toast.success(done.length === 1 ? 'Invoice imported' : `${done.length} invoices imported`);
+      onImported(latest.id, failed === 0);
+      if (!failed) setItems([]);
+    } else if (failed) {
+      toast.error('Import failed', 'The files are marked below.');
     }
   };
 
   const drop = (e: DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    void choose(e.dataTransfer.files[0]);
+    if (!importing) void choose(e.dataTransfer.files);
   };
 
-  const preview = pending?.preview;
   return (
     <Card>
       <CardHeader className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-gray-900">Import an invoice</h2>
-          <p className="mt-0.5 text-sm text-gray-500">The PDF is read on this computer. Only the usage of employees' numbers is saved.</p>
+          <h2 className="text-base font-semibold text-gray-900">Import invoices</h2>
+          <p className="mt-0.5 text-sm text-gray-500">The PDFs are read on this computer. Only the usage of employees' numbers is saved.</p>
         </div>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="-mr-2 -mt-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            disabled={importing}
+            className="-mr-2 -mt-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
             aria-label="Close"
           >
             <X size={18} />
@@ -105,115 +213,55 @@ function ImportCard({ onImported, onClose }: { onImported: (invoiceId: string) =
         )}
       </CardHeader>
       <CardBody className="space-y-4">
-        {!pending && (
-          <label
-            htmlFor="invoice-file"
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={drop}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
-              dragging ? 'border-[#CC1F1F] bg-red-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {reading ? (
-              <span className="animate-spin h-6 w-6 rounded-full border-2 border-gray-300 border-t-[#CC1F1F]" />
-            ) : (
-              <FileUp size={26} className="text-gray-400" />
-            )}
-            <span className="text-sm font-medium text-gray-800">
-              {reading ? 'Reading the invoice…' : (
-                <>
-                  <span className="hidden sm:inline">Drop the invoice PDF here or </span>
-                  <span className="text-[#CC1F1F] sm:text-gray-800">
-                    <span className="sm:hidden">Choose the invoice PDF</span>
-                    <span className="hidden sm:inline">click to choose it</span>
-                  </span>
-                </>
-              )}
+        <label
+          htmlFor="invoice-files"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={drop}
+          className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 text-center transition-colors ${
+            items.length ? 'py-4' : 'py-6'
+          } ${dragging ? 'border-[#CC1F1F] bg-red-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+        >
+          <FileUp size={items.length ? 20 : 26} className="text-gray-400" />
+          <span className="text-sm font-medium text-gray-800">
+            <span className="hidden sm:inline">{items.length ? 'Drop more PDFs here or ' : 'Drop invoice PDFs here or '}</span>
+            <span className="text-[#CC1F1F] sm:text-gray-800">
+              <span className="sm:hidden">{items.length ? 'Add more PDFs' : 'Choose invoice PDFs'}</span>
+              <span className="hidden sm:inline">click to choose them</span>
             </span>
-            <span className="text-xs text-gray-500">T-Mobile business invoice with “Rozliczenie szczegółowe”</span>
-            <input
-              ref={input}
-              id="invoice-file"
-              type="file"
-              accept="application/pdf,.pdf"
-              className="sr-only"
-              disabled={reading || importing}
-              onChange={(e) => void choose(e.target.files?.[0])}
-            />
-          </label>
-        )}
+          </span>
+          {!items.length && <span className="text-xs text-gray-500">T-Mobile business invoices with “Rozliczenie szczegółowe”, one or more at a time</span>}
+          <input
+            ref={input}
+            id="invoice-files"
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            className="sr-only"
+            disabled={importing}
+            onChange={(e) => void choose(e.target.files)}
+          />
+        </label>
 
-        {problems.length > 0 && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <p className="font-medium">The invoice was not imported.</p>
-            <ul className="mt-1 list-disc space-y-0.5 pl-5 [overflow-wrap:anywhere]">
-              {problems.map((p) => (
-                <li key={p}>{p}</li>
+        {items.length > 0 && (
+          <>
+            <ul className="divide-y divide-gray-100">
+              {items.map((item) => (
+                <ItemRow key={item.key} item={item} disabled={importing} onToggle={() => update(item.key, { selected: !item.selected })} />
               ))}
             </ul>
-          </div>
-        )}
-
-        {pending && preview && (
-          <div className="space-y-4">
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-              <div>
-                <dt className="text-xs text-gray-500">Billing period</dt>
-                <dd className="font-medium text-gray-900">{periodRange(preview)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-gray-500">Invoice</dt>
-                <dd className="font-medium text-gray-900">{preview.invoiceNumber}</dd>
-              </div>
-              <div className="col-span-2 sm:col-span-1">
-                <dt className="text-xs text-gray-500">File</dt>
-                <dd className="text-gray-900 [overflow-wrap:anywhere]">{pending.fileName}</dd>
-              </div>
-            </dl>
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {preview.matched.length} employee{preview.matched.length === 1 ? '' : 's'} found
-              </p>
-              {preview.matched.length > 0 && (
-                <ul className="mt-2 flex flex-wrap gap-1.5">
-                  {preview.matched.map((m) => (
-                    <li key={m.msisdn} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700" title={m.msisdn}>
-                      {m.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {preview.skipped.length > 0 && (
-              <p className="text-sm text-gray-600 [overflow-wrap:anywhere]">
-                <span className="font-medium text-gray-900">{preview.skipped.length} other number(s) skipped</span> (no profile has them as the mobile
-                number): {preview.skipped.join(', ')}.
-              </p>
-            )}
-            {preview.ambiguous.length > 0 && (
-              <p className="text-sm text-amber-800 [overflow-wrap:anywhere]">
-                <span className="font-medium">In more than one profile:</span> {preview.ambiguous.join(', ')}. Correct the profiles to include them.
-              </p>
-            )}
-            {preview.importedAt && (
-              <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                Already imported on {formatDateTime(preview.importedAt)}. Importing again replaces the saved data.
-              </p>
-            )}
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button variant="ghost" className="min-h-11" onClick={reset} disabled={importing}>
-                Choose another file
+              <Button variant="ghost" className="min-h-11" onClick={() => setItems([])} disabled={importing || reading}>
+                Clear the list
               </Button>
-              <Button className="min-h-11 sm:order-first" isLoading={importing} disabled={!preview.matched.length} onClick={() => void save()}>
-                {preview.importedAt ? 'Replace invoice' : 'Import invoice'}
+              <Button className="min-h-11 sm:order-first" isLoading={importing} disabled={reading || !selected.length} onClick={() => void save()}>
+                {reading ? 'Reading…' : `Import ${selected.length} invoice${selected.length === 1 ? '' : 's'}`}
               </Button>
             </div>
-          </div>
+          </>
         )}
       </CardBody>
     </Card>
@@ -596,8 +644,9 @@ export function CallsPage() {
   const { data, error, reload } = useApi<CallsReport>(periodId ? `${CALLS_API}&period=${periodId}` : CALLS_API);
   const hasInvoices = Boolean(data?.period);
 
-  const imported = (id: string) => {
-    setImporting(false);
+  /** After an import: show the newest imported period; the list stays open when some files failed. */
+  const imported = (id: string, close: boolean) => {
+    setImporting(!close);
     if (id === periodId) reload();
     else setPeriodId(id);
   };
@@ -618,9 +667,9 @@ export function CallsPage() {
             <p className="mt-1 text-sm text-gray-500">Who called how much, from the monthly T-Mobile invoices.</p>
           </div>
           {hasInvoices && !importing && (
-            <Button className="min-h-11 shrink-0 sm:min-h-0" onClick={() => setImporting(true)} aria-label="Import invoice">
+            <Button className="min-h-11 shrink-0 sm:min-h-0" onClick={() => setImporting(true)} aria-label="Import invoices">
               <Upload size={16} />
-              <span className="hidden sm:inline">Import invoice</span>
+              <span className="hidden sm:inline">Import invoices</span>
             </Button>
           )}
         </div>
