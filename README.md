@@ -24,7 +24,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - **Deactivate / Reactivate:** dla osób, które odchodzą. Konto jest zablokowane w Supabase Auth (`ban_duration`) i ma `profiles.deactivated_at`: nie zaloguje się (w już otwartych aplikacjach najpóźniej po godzinie, gdy wygaśnie token), znika z Team i modułów, a jego dokumenty, urlopy i wpisy zostają. Reaktywacja przywraca dostęp;
   - **Offices:** lista biur (miasto + adres po angielsku do stopek), z której każdy wybiera swoje biuro;
   - admin ma zawsze wszystkie aplikacje; Intranet w uprawnieniach decyduje tylko o widoczności kafelka starego intranetu (osobne logowanie).
-- **Phone calls analyser** (`/calls`, tylko Admin, sekcja Administration; na razie tylko w dev, `VITE_HUB_MODULES`): import faktur T-Mobile (PDF) i raport połączeń pracowników. Opis w „Phone calls analyser” niżej.
+- **Phone calls analyser** (`/calls`, tylko Admin, sekcja Administration; na produkcji od 23.10.2026): import faktur T-Mobile (PDF) i raport połączeń pracowników. Opis w „Phone calls analyser” niżej.
 - **Linki z e-maili** (zaproszenie 24 h, reset hasła 1 h) otwierają centrum: ustawiasz hasło i od razu jesteś zalogowany.
 - Nasze aplikacje otwierają się w tej samej karcie. Logo i przycisk „All apps” („Wszystkie aplikacje”) w ich nagłówkach prowadzą z powrotem tutaj.
 - **Moduły centrum (od 20.10.2026):** News i Leave działają w samym centrum, bez osobnego logowania i projektu Vercel (decyzja właściciela: centrum stanie się intranetem). Szczegóły w „Moduły: News i Leave”.
@@ -34,7 +34,7 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 
 ## Moduły: News i Leave
 
-**Tylko w dev (decyzja z 20.10.2026).** Moduły w budowie są włączone zmienną `VITE_HUB_MODULES` (`news,leave,calls`, tylko w Preview i Development; `calls` = Phone calls analyser, od 22.10.2026). Bez niej, czyli na produkcji, kafelki, strony i wybór w User management są ukryte, a API modułów odpowiada 404. Lista modułów w budowie jest w `shared/access.ts` (`DEV_MODULES`). Wydanie modułu: dodać go do `VITE_HUB_MODULES` w Production (i wdrożyć ponownie) albo usunąć z `DEV_MODULES`.
+**Tylko w dev (decyzja z 20.10.2026).** Moduły w budowie są włączone zmienną `VITE_HUB_MODULES` (`news,leave,calls`, tylko w Preview i Development; `calls` = Phone calls analyser, od 22.10.2026). Bez niej, czyli na produkcji, kafelki, strony i wybór w User management są ukryte, a API modułów odpowiada 404. Lista modułów w budowie jest w `shared/access.ts` (`DEV_MODULES`). Wydanie modułu: dodać go do `VITE_HUB_MODULES` w Production (i wdrożyć ponownie) albo usunąć z `DEV_MODULES`. W Production jest `calls` (Phone calls analyser wydany 23.10.2026), więc News i Leave są tam nadal ukryte.
 
 - **Leave (urlopy):**
   - **My leave:** saldo urlopu wypoczynkowego (przeniesione z poprzednich lat, przyznane na ten rok, wykorzystane, czekające), formularz wniosku z podglądem liczby dni roboczych i lista własnych wniosków (oczekujące można anulować).
