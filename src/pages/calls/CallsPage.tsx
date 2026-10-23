@@ -2,6 +2,7 @@ import { useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { AlertTriangle, ArrowLeft, Download, FileUp, PhoneCall, Upload, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { CallsImportBody, CallsImportResult, CallsPeriod, CallsPreview, CallsReport, PersonCalls } from '../../../shared/callsApi.ts';
+import { byDepartment } from '../../../shared/calls.ts';
 import { formatDate } from '../../../shared/leave.ts';
 import { InvoiceParseError, type ParsedInvoice } from '../../../shared/tmobile.ts';
 import { Button } from '../../components/Button';
@@ -309,48 +310,81 @@ const COLUMNS: { label: string; title?: string; value: (p: PersonCalls) => strin
   { label: 'Cost', title: 'Variable cost, net PLN', value: (p) => decimal(p.costNet, 2) },
 ];
 
-/** The ranking: a table on wide screens, cards on phones and tablets. */
+const NO_DEPARTMENT = 'No department';
+
+/** "4 people · 812 calls · 9.7 per day" for a department's heading. */
+function departmentSummary(people: PersonCalls[]): string {
+  const daily = people.map((p) => p.callsPerDay).filter((v): v is number => v !== null);
+  return [
+    `${people.length} ${people.length === 1 ? 'person' : 'people'}`,
+    `${whole(people.reduce((sum, p) => sum + p.calls, 0))} calls`,
+    daily.length ? `${decimal(daily.reduce((a, b) => a + b, 0) / daily.length)} per day` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function PersonCard({ person: p, rank, most }: { person: PersonCalls; rank: number; most: number }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 w-5 shrink-0 text-sm text-gray-400">{rank}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="min-w-0 truncate font-medium text-gray-900">{p.name}</p>
+          <p className="shrink-0 text-lg font-semibold text-gray-900">{whole(p.calls)}</p>
+        </div>
+        {p.jobTitle && <p className="truncate text-xs text-gray-500">{p.jobTitle}</p>}
+        <div className="mt-2">
+          <Bar value={p.calls} most={most} />
+        </div>
+        <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <dt className="text-gray-500">Per day</dt>
+            <dd className="font-medium text-gray-900">{perDay(p)}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">Minutes</dt>
+            <dd className="font-medium text-gray-900">{minutes(p.seconds)}</dd>
+          </div>
+          <div>
+            <dt className="text-gray-500">Avg call</dt>
+            <dd className="font-medium text-gray-900">{p.averageSeconds === null ? '—' : `${p.averageSeconds} s`}</dd>
+          </div>
+        </dl>
+        <p className="mt-2 text-xs text-gray-500">
+          {[...breakdown(p).map(([label, n]) => `${n} ${label}`), `${p.sms} SMS`, `${decimal(p.costNet, 2)} zł`].join(' · ')}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The ranking by department (departments by name, people by calls within each): a table on wide screens, cards on
+ * phones and tablets. The bars share one scale, so departments compare.
+ */
 function Ranking({ report }: { report: CallsReport }) {
-  const people = report.people;
-  const most = Math.max(1, ...people.map((p) => p.calls));
+  const groups = byDepartment(report.people);
+  const most = Math.max(1, ...report.people.map((p) => p.calls));
   return (
     <>
-      <ol className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 lg:hidden">
-        {people.map((p, index) => (
-          <li key={p.profileId} className="border-t border-gray-100 py-4 first:border-t-0 first:pt-0 sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(2)]:pt-0">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 w-5 shrink-0 text-sm text-gray-400">{index + 1}</span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="min-w-0 truncate font-medium text-gray-900">{p.name}</p>
-                  <p className="shrink-0 text-lg font-semibold text-gray-900">{whole(p.calls)}</p>
-                </div>
-                {p.jobTitle && <p className="truncate text-xs text-gray-500">{p.jobTitle}</p>}
-                <div className="mt-2">
-                  <Bar value={p.calls} most={most} />
-                </div>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                  <div>
-                    <dt className="text-gray-500">Per day</dt>
-                    <dd className="font-medium text-gray-900">{perDay(p)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Minutes</dt>
-                    <dd className="font-medium text-gray-900">{minutes(p.seconds)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Avg call</dt>
-                    <dd className="font-medium text-gray-900">{p.averageSeconds === null ? '—' : `${p.averageSeconds} s`}</dd>
-                  </div>
-                </dl>
-                <p className="mt-2 text-xs text-gray-500">
-                  {[...breakdown(p).map(([label, n]) => `${n} ${label}`), `${p.sms} SMS`, `${decimal(p.costNet, 2)} zł`].join(' · ')}
-                </p>
-              </div>
+      <div className="space-y-6 lg:hidden">
+        {groups.map((group, index) => (
+          <section key={group.department ?? ''} aria-label={group.department ?? NO_DEPARTMENT}>
+            <div className={`-mx-6 mb-4 border-b border-gray-100 bg-gray-50 px-6 py-2.5 ${index === 0 ? '-mt-4' : 'border-t'}`}>
+              <h3 className="text-sm font-semibold text-gray-900">{group.department ?? NO_DEPARTMENT}</h3>
+              <p className="text-xs text-gray-500">{departmentSummary(group.people)}</p>
             </div>
-          </li>
+            <ol className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+              {group.people.map((p, index) => (
+                <li key={p.profileId} className="border-t border-gray-100 py-4 first:border-t-0 first:pt-0 sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(2)]:pt-0">
+                  <PersonCard person={p} rank={index + 1} most={most} />
+                </li>
+              ))}
+            </ol>
+          </section>
         ))}
-      </ol>
+      </div>
 
       <div className="-mx-6 hidden overflow-x-auto lg:block">
         <table className="w-full text-sm">
@@ -366,30 +400,38 @@ function Ranking({ report }: { report: CallsReport }) {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
-            {people.map((p, index) => (
-              <tr key={p.profileId} className="hover:bg-gray-50/60">
-                <td className={`${td} pl-6 text-gray-400`}>{index + 1}</td>
-                <td className="min-w-44 px-3 py-3">
-                  <p className="font-medium text-gray-900">{p.name}</p>
-                  <p className="text-xs text-gray-500">{p.jobTitle ?? p.msisdn}</p>
-                </td>
-                <td className={td}>
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 text-right font-semibold text-gray-900">{whole(p.calls)}</span>
-                    <div className="w-28">
-                      <Bar value={p.calls} most={most} />
-                    </div>
-                  </div>
-                </td>
-                {COLUMNS.map((c) => (
-                  <td key={c.label} className={`${td} text-right text-gray-700 last:pr-6 ${c.value(p) === 'on leave' ? 'text-gray-400' : ''}`}>
-                    {c.value(p)}
-                  </td>
-                ))}
+          {groups.map((group) => (
+            <tbody key={group.department ?? ''} className="divide-y divide-gray-100 border-b border-gray-100">
+              <tr>
+                <th colSpan={3 + COLUMNS.length} scope="rowgroup" className="pt-6 pb-2 pl-6 pr-6 text-left">
+                  <span className="text-sm font-semibold text-gray-900">{group.department ?? NO_DEPARTMENT}</span>
+                  <span className="ml-3 text-xs font-normal text-gray-500">{departmentSummary(group.people)}</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
+              {group.people.map((p, index) => (
+                <tr key={p.profileId} className="hover:bg-gray-50/60">
+                  <td className={`${td} pl-6 text-gray-400`}>{index + 1}</td>
+                  <td className="min-w-44 px-3 py-3">
+                    <p className="font-medium text-gray-900">{p.name}</p>
+                    <p className="text-xs text-gray-500">{p.jobTitle ?? p.msisdn}</p>
+                  </td>
+                  <td className={td}>
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 text-right font-semibold text-gray-900">{whole(p.calls)}</span>
+                      <div className="w-28">
+                        <Bar value={p.calls} most={most} />
+                      </div>
+                    </div>
+                  </td>
+                  {COLUMNS.map((c) => (
+                    <td key={c.label} className={`${td} text-right text-gray-700 last:pr-6 ${c.value(p) === 'on leave' ? 'text-gray-400' : ''}`}>
+                      {c.value(p)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          ))}
         </table>
       </div>
     </>
@@ -412,31 +454,39 @@ function Comparison({ report }: { report: CallsReport }) {
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
-          {report.comparison.map((row) => (
-            <tr key={row.profileId}>
-              <td className={`${td} sticky left-0 max-w-40 truncate bg-white pl-6 font-medium text-gray-900 sm:max-w-none`}>{row.name}</td>
-              {row.values.map((value, i) => (
-                <td key={report.periods[i].invoiceId} className={`${td} text-right last:pr-6`}>
-                  {!row.onInvoice[i] ? (
-                    <span className="text-gray-300" title="Not on this invoice">
-                      –
-                    </span>
-                  ) : value === null ? (
-                    <span className="text-gray-400">leave</span>
-                  ) : (
-                    <span
-                      className="inline-block min-w-12 rounded px-2 py-0.5 text-gray-900"
-                      style={{ backgroundColor: `rgb(204 31 31 / ${0.04 + (value / most) * 0.22})` }}
-                    >
-                      {decimal(value)}
-                    </span>
-                  )}
-                </td>
-              ))}
+        {byDepartment(report.comparison).map((group) => (
+          <tbody key={group.department ?? ''} className="divide-y divide-gray-100 border-b border-gray-100">
+            <tr>
+              <th scope="rowgroup" className="sticky left-0 bg-white pt-6 pb-2 pl-6 text-left text-sm font-semibold text-gray-900">
+                {group.department ?? NO_DEPARTMENT}
+              </th>
+              <td colSpan={report.periods.length} />
             </tr>
-          ))}
-        </tbody>
+            {group.people.map((row) => (
+              <tr key={row.profileId}>
+                <td className={`${td} sticky left-0 max-w-40 truncate bg-white pl-6 font-medium text-gray-900 sm:max-w-none`}>{row.name}</td>
+                {row.values.map((value, i) => (
+                  <td key={report.periods[i].invoiceId} className={`${td} text-right last:pr-6`}>
+                    {!row.onInvoice[i] ? (
+                      <span className="text-gray-300" title="Not on this invoice">
+                        –
+                      </span>
+                    ) : value === null ? (
+                      <span className="text-gray-400">leave</span>
+                    ) : (
+                      <span
+                        className="inline-block min-w-12 rounded px-2 py-0.5 text-gray-900"
+                        style={{ backgroundColor: `rgb(204 31 31 / ${0.04 + (value / most) * 0.22})` }}
+                      >
+                        {decimal(value)}
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        ))}
       </table>
     </div>
   );
@@ -446,10 +496,11 @@ function Comparison({ report }: { report: CallsReport }) {
 function toCsv(report: CallsReport): string {
   const period = report.period!;
   const number = (value: number | null, digits: number) => (value === null ? '' : value.toFixed(digits).replace('.', ','));
-  const head = ['Period', 'Invoice', 'Employee', 'Job title', 'Number', 'Working days', 'Days on leave', 'Outgoing calls', 'Calls per working day', 'Minutes', 'Average length (s)', 'Mobile', 'Landline', 'International', 'Roaming', 'SMS', 'Data (GB)', 'Variable cost net (PLN)'];
-  const rows = report.people.map((p) => [
+  const head = ['Period', 'Invoice', 'Department', 'Employee', 'Job title', 'Number', 'Working days', 'Days on leave', 'Outgoing calls', 'Calls per working day', 'Minutes', 'Average length (s)', 'Mobile', 'Landline', 'International', 'Roaming', 'SMS', 'Data (GB)', 'Variable cost net (PLN)'];
+  const rows = byDepartment(report.people).flatMap((group) => group.people).map((p) => [
     periodRange(period),
     period.invoiceNumber,
+    p.department ?? '',
     p.name,
     p.jobTitle ?? '',
     p.msisdn,
@@ -510,7 +561,7 @@ function Report({ report, onPeriod }: { report: CallsReport; onPeriod: (id: stri
 
       <Section
         title="Ranking"
-        subtitle="Outgoing calls: domestic and made abroad, without “other calls”."
+        subtitle="By department. Outgoing calls: domestic and made abroad, without “other calls”."
         action={
           report.people.length > 0 && (
             <Button variant="secondary" size="sm" className="min-h-11 sm:min-h-9" onClick={() => downloadCsv(report)}>
