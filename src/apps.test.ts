@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { APP_IDS } from '../shared/access';
 import { APPS, sectionsFor } from './apps';
 
-const MODULES = 'news,leave';
+const MODULES = 'news,leave,calls';
 const ids = (user: Parameters<typeof sectionsFor>[0], modules: string | undefined = MODULES) =>
   sectionsFor(user, APPS, modules).map((s) => [s.title, s.apps.map((a) => a.id)]);
 
@@ -20,7 +20,7 @@ describe('sectionsFor', () => {
     expect(APPS.filter((a) => a.id === 'news' || a.id === 'leave').map((a) => a.url)).toEqual(['/news', '/leave']);
   });
 
-  it('hides News and Leave where VITE_HUB_MODULES does not list them (production)', () => {
+  it('hides News, Leave and Phone calls analyser where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'team', 'intranet']],
       ['Administration', ['users']],
@@ -31,7 +31,7 @@ describe('sectionsFor', () => {
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'team', 'intranet']],
-      ['Administration', ['users']],
+      ['Administration', ['users', 'calls']],
     ]);
   });
 });

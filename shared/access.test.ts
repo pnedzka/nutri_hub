@@ -24,5 +24,7 @@ describe('isAvailable', () => {
     expect(isAvailable('leave', '')).toBe(false);
     expect(isAvailable('news', 'news, leave')).toBe(true);
     expect(isAvailable('leave', 'news')).toBe(false);
+    expect(isAvailable('calls', 'news,leave')).toBe(false);
+    expect(isAvailable('calls', 'news,leave,calls')).toBe(true);
   });
 });
