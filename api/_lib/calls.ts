@@ -10,7 +10,7 @@
 // Sentry, only error codes.
 
 import { isAvailable } from '../../shared/access.js';
-import { CallsError, leaveDaysIn, matchNumbers, personCalls, validateInvoice, type KpiRow, type NumberOwner } from '../../shared/calls.js';
+import { CallsError, departmentOf, leaveDaysIn, matchNumbers, personCalls, validateInvoice, type KpiRow, type NumberOwner } from '../../shared/calls.js';
 import type { CallsImportResult, CallsPeriod, CallsPreview, CallsReport, PersonCalls } from '../../shared/callsApi.js';
 import { workingDays } from '../../shared/leave.js';
 import { isUuid } from '../../shared/profile.js';
@@ -52,6 +52,7 @@ interface ProfileRow {
   email: string;
   full_name: string | null;
   job_title: string | null;
+  department: string | null;
   mobile: string | null;
 }
 
@@ -59,7 +60,7 @@ const nameOf = (row: ProfileRow) => row.full_name?.trim() || row.email;
 
 /** Every profile, also deactivated ones: an older invoice may have the number of someone who has left since. */
 async function profiles(): Promise<ProfileRow[]> {
-  return everyRow<ProfileRow>('calls.profiles', (from, to) => db().from('profiles').select('id, email, full_name, job_title, mobile').order('id').range(from, to));
+  return everyRow<ProfileRow>('calls.profiles', (from, to) => db().from('profiles').select('id, email, full_name, job_title, department, mobile').order('id').range(from, to));
 }
 
 const owners = (rows: ProfileRow[]): NumberOwner[] => rows.map((row) => ({ id: row.id, name: nameOf(row), mobile: row.mobile }));
@@ -243,7 +244,13 @@ async function report(periodId: string | null): Promise<CallsReport> {
     if (!msisdns) return null;
     const profile = byId.get(profileId);
     return personCalls(
-      { profileId, name: profile ? nameOf(profile) : 'Former user', jobTitle: profile?.job_title ?? null, msisdn: msisdns.join(', ') },
+      {
+        profileId,
+        name: profile ? nameOf(profile) : 'Former user',
+        jobTitle: profile?.job_title ?? null,
+        department: departmentOf(profile?.department),
+        msisdn: msisdns.join(', '),
+      },
       rows.get(key(p.invoiceId, profileId)) ?? [],
       p.workingDays,
       leaveDaysIn(leaveOf.get(profileId) ?? [], p.periodStart, p.periodEnd),
@@ -261,6 +268,7 @@ async function report(periodId: string | null): Promise<CallsReport> {
       return {
         profileId: id,
         name: profile ? nameOf(profile) : 'Former user',
+        department: departmentOf(profile?.department),
         values: periods.map((p) => kpis(p, id)?.callsPerDay ?? null),
         onInvoice: periods.map((p) => numbers.has(key(p.invoiceId, id))),
       };

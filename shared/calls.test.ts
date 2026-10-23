@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CallsError, callTarget, isCountedCall, leaveDaysIn, matchNumbers, msisdnOf, personCalls, validateInvoice, type KpiRow } from './calls';
+import { CallsError, byDepartment, callTarget, departmentOf, isCountedCall, leaveDaysIn, matchNumbers, msisdnOf, personCalls, validateInvoice, type KpiRow } from './calls';
 import { LAYOUT_2026 } from './tmobile.fixtures';
 import { parseTMobileInvoice } from './tmobile';
 
@@ -59,6 +59,28 @@ describe('validateInvoice', () => {
   });
 });
 
+describe('byDepartment', () => {
+  it('groups people by department, by name, those without one last, keeping their order', () => {
+    const people = [
+      { id: 1, department: 'Trade' },
+      { id: 2, department: null },
+      { id: 3, department: 'Administration' },
+      { id: 4, department: 'Trade' },
+    ];
+    expect(byDepartment(people)).toEqual([
+      { department: 'Administration', people: [{ id: 3, department: 'Administration' }] },
+      { department: 'Trade', people: [{ id: 1, department: 'Trade' }, { id: 4, department: 'Trade' }] },
+      { department: null, people: [{ id: 2, department: null }] },
+    ]);
+  });
+
+  it('reads the department from a profile', () => {
+    expect(departmentOf('  Trade ')).toBe('Trade');
+    expect(departmentOf('')).toBeNull();
+    expect(departmentOf(null)).toBeNull();
+  });
+});
+
 describe('callTarget', () => {
   it('sorts domestic calls like the owner\'s report', () => {
     expect(callTarget('Połączenia do sieci Orange')).toBe('mobile');
@@ -82,7 +104,7 @@ describe('leaveDaysIn', () => {
 });
 
 describe('personCalls', () => {
-  const person = { profileId: 'a', name: 'Zofia Nowak', jobTitle: 'Trader', msisdn: '500100101' };
+  const person = { profileId: 'a', name: 'Zofia Nowak', jobTitle: 'Trader', department: 'Trade', msisdn: '500100101' };
   const row = (kind: KpiRow['kind'], category: string, eventCount: number, durationS: number | null, netAmount = 0, dataMb: number | null = null): KpiRow => ({
     kind,
     category,
