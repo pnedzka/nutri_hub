@@ -510,7 +510,7 @@ function Report({ report, onPeriod }: { report: CallsReport; onPeriod: (id: stri
 
       <Section
         title="Ranking"
-        subtitle="Outgoing calls: domestic and made abroad."
+        subtitle="Outgoing calls: domestic and made abroad, without “other calls”."
         action={
           report.people.length > 0 && (
             <Button variant="secondary" size="sm" className="min-h-11 sm:min-h-9" onClick={() => downloadCsv(report)}>
@@ -530,8 +530,8 @@ function Report({ report, onPeriod }: { report: CallsReport; onPeriod: (id: stri
       )}
 
       <p className="text-xs leading-relaxed text-gray-500">
-        The invoice gives monthly totals per number, not single calls; domestic incoming calls are not on it. A number on the invoice without a list
-        of calls made none, and “–” means the number is not on that invoice. Per day: calls divided by the working days of the period (without
+        The invoice gives monthly totals per number, not single calls; domestic incoming calls are not on it. “Połączenia inne” (other calls) are not
+        counted, only their cost. A number on the invoice without a list of calls made none, and “–” means the number is not on that invoice. Per day: calls divided by the working days of the period (without
         weekends and public holidays) minus the person's approved leave.
       </p>
     </div>

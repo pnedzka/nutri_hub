@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CallsError, callTarget, leaveDaysIn, matchNumbers, msisdnOf, personCalls, validateInvoice, type KpiRow } from './calls';
+import { CallsError, callTarget, isCountedCall, leaveDaysIn, matchNumbers, msisdnOf, personCalls, validateInvoice, type KpiRow } from './calls';
 import { LAYOUT_2026 } from './tmobile.fixtures';
 import { parseTMobileInvoice } from './tmobile';
 
@@ -92,6 +92,13 @@ describe('personCalls', () => {
     netAmount,
   });
 
+  it('leaves "Połączenia inne" out of the calls', () => {
+    expect(isCountedCall({ kind: 'voice_out', category: 'Połączenia inne' })).toBe(false);
+    expect(isCountedCall({ kind: 'voice_out', category: 'Połączenia do sieci Play' })).toBe(true);
+    expect(isCountedCall({ kind: 'voice_out_roaming', category: 'Wychodzące połączenia roamingowe' })).toBe(true);
+    expect(isCountedCall({ kind: 'voice_in_roaming', category: 'Przychodzące połączenia roamingowe' })).toBe(false);
+  });
+
   it('adds up outgoing calls, their kinds, SMS, data and cost', () => {
     const kpis = personCalls(
       person,
@@ -99,6 +106,7 @@ describe('personCalls', () => {
         row('voice_out', 'Połączenia do sieci Orange', 12, 1530),
         row('voice_out', 'Połączenia do sieci stacjonarnych', 3, 45),
         row('voice_out', 'Połączenia międzynarodowe', 5, 720, 9.4),
+        row('voice_out', 'Połączenia inne', 7, 300, 0.5),
         row('voice_out_roaming', 'Wychodzące połączenia roamingowe', 4, 375),
         row('voice_in_roaming', 'Przychodzące połączenia roamingowe', 2, 182),
         row('sms', 'SMS krajowy', 15, null),
@@ -123,7 +131,7 @@ describe('personCalls', () => {
       other: 0,
       sms: 18,
       dataMb: 1235.641,
-      costNet: 12.44,
+      costNet: 12.94,
       leaveDays: 2,
       callsPerDay: 1.33,
     });

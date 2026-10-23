@@ -113,6 +113,16 @@ export function validateInvoice(value: unknown): ParsedInvoice {
   };
 }
 
+/**
+ * Outgoing calls left out of the KPIs (owner's decision of 23.10.2026): "Połączenia inne" are not calls to people
+ * (e.g. voicemail or service numbers). Their cost still counts.
+ */
+export const NOT_COUNTED: readonly string[] = ['Połączenia inne'];
+
+/** Whether a usage row is an outgoing call the KPIs count: domestic (except NOT_COUNTED) or made abroad. */
+export const isCountedCall = (row: { kind: UsageKind; category: string }) =>
+  row.kind === 'voice_out_roaming' || (row.kind === 'voice_out' && !NOT_COUNTED.includes(row.category));
+
 /** Where an outgoing domestic call went, from the invoice's category. */
 export function callTarget(category: string): 'mobile' | 'landline' | 'international' | 'other' {
   if (category === 'Połączenia do sieci stacjonarnych') return 'landline';
@@ -148,7 +158,8 @@ const round = (value: number, places: number) => Math.round(value * 10 ** places
 
 /**
  * KPIs of one person in one period, as in the owner's report (build_local.py): outgoing calls are domestic calls and
- * calls made abroad; the average per day is over the working days of the period minus the person's leave.
+ * calls made abroad, without NOT_COUNTED; the average per day is over the working days of the period minus the
+ * person's leave.
  */
 export function personCalls(
   person: { profileId: string; name: string; jobTitle: string | null; msisdn: string },
@@ -174,7 +185,7 @@ export function personCalls(
   };
   for (const row of rows) {
     result.costNet += row.netAmount;
-    if (row.kind === 'voice_out' || row.kind === 'voice_out_roaming') {
+    if (isCountedCall(row)) {
       result.calls += row.eventCount;
       result.seconds += row.durationS ?? 0;
       result[row.kind === 'voice_out' ? callTarget(row.category) : 'roaming'] += row.eventCount;

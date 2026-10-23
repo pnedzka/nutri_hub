@@ -284,13 +284,14 @@ $$;
 revoke execute on function public.import_phone_invoice(jsonb, boolean) from public, anon, authenticated;
 grant execute on function public.import_phone_invoice(jsonb, boolean) to service_role;
 
--- Monthly KPIs per person, for SQL by hand (the app computes its report in api/_lib/calls.ts).
+-- Monthly KPIs per person, for SQL by hand (the app computes its report in shared/calls.ts). Outgoing calls without
+-- "Połączenia inne" (not calls to people; NOT_COUNTED in shared/calls.ts).
 create or replace view public.v_phone_monthly_kpi with (security_invoker = on) as
 select u.profile_id, p.full_name, p.job_title, i.invoice_number, i.period_start, i.period_end,
-       sum(u.event_count) filter (where u.kind in ('voice_out', 'voice_out_roaming')) as outgoing_calls,
-       round(sum(u.duration_s) filter (where u.kind in ('voice_out', 'voice_out_roaming')) / 60.0, 1) as outgoing_minutes,
-       round(sum(u.duration_s) filter (where u.kind in ('voice_out', 'voice_out_roaming'))
-             / nullif(sum(u.event_count) filter (where u.kind in ('voice_out', 'voice_out_roaming')), 0), 0) as avg_call_seconds,
+       sum(u.event_count) filter (where u.kind = 'voice_out_roaming' or (u.kind = 'voice_out' and u.category <> 'Połączenia inne')) as outgoing_calls,
+       round(sum(u.duration_s) filter (where u.kind = 'voice_out_roaming' or (u.kind = 'voice_out' and u.category <> 'Połączenia inne')) / 60.0, 1) as outgoing_minutes,
+       round(sum(u.duration_s) filter (where u.kind = 'voice_out_roaming' or (u.kind = 'voice_out' and u.category <> 'Połączenia inne'))
+             / nullif(sum(u.event_count) filter (where u.kind = 'voice_out_roaming' or (u.kind = 'voice_out' and u.category <> 'Połączenia inne')), 0), 0) as avg_call_seconds,
        sum(u.event_count) filter (where u.kind in ('sms', 'sms_roaming')) as sms_sent,
        round(sum(u.data_mb) filter (where u.kind in ('data', 'data_roaming')), 0) as data_mb,
        sum(u.net_amount) as variable_cost_net
