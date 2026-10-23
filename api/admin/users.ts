@@ -16,6 +16,8 @@
 //
 // `active: false` deactivates an account (someone who left): it is banned in Supabase Auth, cannot sign in and is
 // hidden from Team and the modules, while its documents, leave and posts stay. `active: true` restores it.
+//
+// `?resource=calls` is Phone calls analyser (api/_lib/calls.ts), here because the Hobby plan's 12 functions are used.
 
 import type { User } from '@supabase/supabase-js';
 import { toApps } from '../../shared/access.js';
@@ -27,6 +29,7 @@ import { db } from '../_lib/supabase.js';
 import { logError } from '../_lib/monitoring.js';
 import { isUuid, type ProfileEvent } from '../../shared/profile.js';
 import { CONTACT_COLUMNS, logProfileEvent, signAvatars, toTeamMember } from '../_lib/profiles.js';
+import { callsGet, callsPost, isCallsRequest } from '../_lib/calls.js';
 
 const MIN_PASSWORD = 10;
 
@@ -74,6 +77,7 @@ async function history(id: string): Promise<ProfileEvent[]> {
 }
 
 export function GET(request: Request): Promise<Response> {
+  if (isCallsRequest(request)) return callsGet(request);
   return handle(async () => {
     await requireAdmin(request);
     const historyOf = new URL(request.url).searchParams.get('history');
@@ -107,6 +111,7 @@ export function GET(request: Request): Promise<Response> {
 const role = (value: unknown): Profile['role'] => (value === 'admin' ? 'admin' : 'user');
 
 export function POST(request: Request): Promise<Response> {
+  if (isCallsRequest(request)) return callsPost(request);
   return handle(async () => {
     const admin = await requireAdmin(request);
     const body = await readJson<{ email?: unknown; fullName?: unknown; password?: unknown; role?: unknown; apps?: unknown; invite?: unknown }>(request);

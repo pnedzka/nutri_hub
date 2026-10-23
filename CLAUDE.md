@@ -27,6 +27,12 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
   - **Team** (`/team`) widzi każdy zalogowany. API: `api/people.ts` (12. funkcja, limit planu wyczerpany), reguły i walidacja w `shared/profile.ts`, zapis w `api/_lib/profiles.ts` (`saveProfile`, `logProfileEvent`).
   - **Dezaktywacja** zamiast usuwania (osoba odchodzi): ban w Supabase Auth + `deactivated_at`; `requireUser` odrzuca takie konto (403), `appPeople` je pomija, reset hasła go nie wysyła. Inne aplikacje odcina ban (sesja wygasa w ciągu godziny).
   - RLS: `offices` czyta każdy zalogowany (generator stopek), `profile_events` tylko serwer; własny wiersz `profiles` czyta właściciel (stopki wypełniają się z niego).
+- **Phone calls analyser** (`/calls`, kafelek `calls` w Administration, tylko admin; od 22.10.2026 tylko w dev: `calls` w `DEV_MODULES`, decyzja właściciela, PR #35): import faktur T-Mobile (PDF) i raport połączeń pracowników. Zastępuje skrypty właściciela z `~/Claude/telecom-kpi/` (projekt Supabase `nutri-telecom-kpi` do usunięcia po imporcie trzech faktur na produkcji).
+  - PDF czyta przeglądarka (`pdfjs-dist`, `src/pages/calls/pdf.ts`) i `shared/tmobile.ts` (port `parse_tmobile_invoice.py`; wynik dla 3 prawdziwych faktur zgodny co do wiersza); serwer dostaje JSON. API: `api/_lib/calls.ts` przez `api/admin/users.ts?resource=calls` (limit funkcji).
+  - Numery łączy z `profiles.mobile` (ostatnie 9 cyfr); zapisuje tylko numery pracowników, osobę w wierszu w chwili importu. Średnia na dzień roboczy odejmuje zatwierdzone urlopy (`leave_requests`).
+  - Połączenia = krajowe wychodzące + wykonane w roamingu, **bez „Połączenia inne”** (decyzja z 23.10.2026, `NOT_COUNTED` w `shared/calls.ts` i widok; ich koszt się liczy). Dlatego wyniki mogą być niższe niż w starym `report.html`.
+  - Tabele `phone_*`, funkcja `import_phone_invoice`, widok `v_phone_monthly_kpi` (`db/schema.sql`); zastosowane na `nutri-dev` 22.10.2026 (migracje `hub_phone_calls`, `hub_phone_calls_import`), **na produkcji jeszcze nie** (przy wydaniu).
+  - Repo jest publiczne: **żadnych faktur, prawdziwych numerów ani danych o rozmowach** w kodzie, testach i Sentry (fixtury są syntetyczne, logi tylko z kodem błędu).
 - Serwer centrum (`api/`) używa `SUPABASE_SECRET_KEY` i `RESEND_API_KEY`. Linki z e-maili prowadzą do centrum.
 - Nasze aplikacje otwierają się w tej samej karcie. W ich nagłówkach logo i „All apps” prowadzą z powrotem (`HUB_URL` / `VITE_HUB_URL`). Stary intranet otwiera się w nowej karcie.
 - `/?q=…` przekierowuje na whoisowner (`src/lib/legacy.ts`), bo dawniej ta domena należała do owner lookup.
@@ -78,13 +84,13 @@ Szablonem jest whoisowner (`pnedzka/nutripartners`): Vite na froncie, funkcje Ve
 
 ## Moduły centrum: News i Leave (od 20.10.2026)
 
-**Na razie tylko w dev (decyzja z 20.10.2026):** moduły z listy `DEV_MODULES` (`shared/access.ts`: `news`, `leave`) działają tylko tam, gdzie `VITE_HUB_MODULES` je wymienia (`news,leave` w Preview i Development centrum). Na produkcji zmiennej nie ma, więc kafelki, trasy i wybór w User management są ukryte (`available()` w `src/apps.ts`), `requireApp` odpowiada 404, a e-maile z zaproszeniem ich nie wymieniają. **Wydanie:** na polecenie właściciela dodać moduł do `VITE_HUB_MODULES` w Production i wdrożyć ponownie (albo usunąć go z `DEV_MODULES`).
+**Na razie tylko w dev (decyzja z 20.10.2026):** moduły z listy `DEV_MODULES` (`shared/access.ts`: `news`, `leave`, `calls`) działają tylko tam, gdzie `VITE_HUB_MODULES` je wymienia (`news,leave,calls` w Preview i Development centrum; `calls` = Phone calls analyser, od 22.10.2026, jego API też odpowiada 404). Na produkcji zmiennej nie ma, więc kafelki, trasy i wybór w User management są ukryte (`available()` w `src/apps.ts`), `requireApp` odpowiada 404, a e-maile z zaproszeniem ich nie wymieniają. **Wydanie:** na polecenie właściciela dodać moduł do `VITE_HUB_MODULES` w Production i wdrożyć ponownie (albo usunąć go z `DEV_MODULES`).
 
 **Decyzja właściciela (20.10.2026):** zamiast osobnej aplikacji intranetu (`pnedzka/nutri_intranet`, projekt Vercel `nutri-intranet`) kolejne funkcje są **modułami samego centrum**: kafelki News i Leave, działające jak pozostałe, z osobnymi uprawnieniami. Centrum docelowo staje się intranetem. Kod przeniesiono z `nutri_intranet` (PR-y #3 i #4 tamtego repo); tamto repo i projekt Vercel są do archiwizacji.
 
 - **Układ:** ekrany `src/pages/news/`, `src/pages/leave/` (trasy `/news/*`, `/leave/*` w `src/App.tsx`, `AppOnly`), API `api/news/`, `api/leave/`, reguły z testami `shared/leave.ts`, `shared/news.ts`, typy `shared/leaveApi.ts`, `shared/newsApi.ts`.
   - Serwer: `requireApp(request, 'news' | 'leave')` (`api/_lib/auth.ts`), ludzie modułu `appPeople()` (`api/_lib/people.ts`), uprawnienia w `api/_lib/leave.ts` (`canDecide`, `seesType`) i `api/_lib/news.ts` (`isEditor`, `canEditPost`, `canEditComment`, `canDeleteComment`), e-maile `api/_lib/notify.ts` (`sendMail`, `sendToEach`: Resend batch, osobna wiadomość dla każdego).
-  - **Plan Hobby: 12 funkcji**, jest 12 (`api/admin/users` (też historia konta), `auth/accept`, `auth/recover`, `sso`, `people` (Team, My profile, zdjęcia, biura), `leave/index` (GET, POST, PATCH = decyzje), `leave/calendar`, `leave/employees`, `news/index`, `news/post` (GET, PUT, DELETE, POST = polubienia i komentarze), `news/upload`, `news/editors`). Nowe endpointy łączyć w istniejących plikach.
+  - **Plan Hobby: 12 funkcji**, jest 12 (`api/admin/users` (też historia konta i Phone calls analyser, `?resource=calls`), `auth/accept`, `auth/recover`, `sso`, `people` (Team, My profile, zdjęcia, biura), `leave/index` (GET, POST, PATCH = decyzje), `leave/calendar`, `leave/employees`, `news/index`, `news/post` (GET, PUT, DELETE, POST = polubienia i komentarze), `news/upload`, `news/editors`). Nowe endpointy łączyć w istniejących plikach.
 - **Dane:** `db/schema.sql` tego repo: `leave_settings`, `leave_allowances`, `leave_requests`, `news_editors`, `news_posts`, `news_comments`, `news_likes`, prywatny bucket Storage `intranet` (nazwa zostaje). RLS bez polityk: czyta i zapisuje tylko serwer centrum (`db()`, klucz secret). Zastosowane na `nutri-dev` i na produkcji (20.10.2026, migracja `hub_news_leave_modules`).
 - **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z `intranet` dostają oba (`update` na początku `db/schema.sql`; dev i produkcja: zrobione 20.10.2026). `/api/sso` nie wydaje tokenów dla `news`, `leave` ani `intranet`.
 - **Urlopy:**
@@ -134,7 +140,7 @@ Decyzje właściciela: osobna baza dev, wersje dev widzi tylko on, na produkcję
   - neutralizator: `ANTHROPIC_API_KEY` także w Preview; whoisowner: HubSpot i Claude mają te same klucze w obu środowiskach (HubSpot tylko do odczytu);
   - stopki: `BLOB_READ_WRITE_TOKEN` tylko w Production i Development, więc w dev zapisane stopki zostają w przeglądarce i nie zmieniają wspólnej listy zespołu.
   - wszystkie 4 projekty: `SENTRY_DSN`, `VITE_SENTRY_DSN` (ten sam DSN w Production i Preview);
-  - centrum: `VITE_HUB_MODULES` = `news,leave` tylko w Preview i Development (moduły w budowie; na produkcji nie ustawiać, dopóki właściciel ich nie wyda);
+  - centrum: `VITE_HUB_MODULES` = `news,leave,calls` tylko w Preview i Development (moduły w budowie; na produkcji nie ustawiać, dopóki właściciel ich nie wyda);
   - Nowa zmienna o różnych wartościach w dev i na produkcji: dodać osobno dla Production i dla Preview. Zmienne działają od następnego wdrożenia.
 
 ### Procedura
