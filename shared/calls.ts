@@ -144,6 +144,18 @@ export function leaveDaysIn(leave: { start: string; end: string; halfDay: boolea
   return days;
 }
 
+/** The department of a profile as the report groups it: trimmed, null when empty. */
+export const departmentOf = (value: string | null | undefined) => value?.replace(/\s+/g, ' ').trim() || null;
+
+/** People grouped by department, departments by name and people in their order; those without one come last. */
+export function byDepartment<T extends { department: string | null }>(people: T[]): { department: string | null; people: T[] }[] {
+  const groups = new Map<string | null, T[]>();
+  for (const person of people) groups.set(person.department, [...(groups.get(person.department) ?? []), person]);
+  return [...groups]
+    .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : a.localeCompare(b, 'pl')))
+    .map(([department, members]) => ({ department, people: members }));
+}
+
 /** A usage row as the report needs it. */
 export interface KpiRow {
   kind: UsageKind;
@@ -162,7 +174,7 @@ const round = (value: number, places: number) => Math.round(value * 10 ** places
  * person's leave.
  */
 export function personCalls(
-  person: { profileId: string; name: string; jobTitle: string | null; msisdn: string },
+  person: { profileId: string; name: string; jobTitle: string | null; department: string | null; msisdn: string },
   rows: KpiRow[],
   periodWorkingDays: number,
   leaveDays: number,

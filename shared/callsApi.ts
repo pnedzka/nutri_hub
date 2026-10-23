@@ -54,6 +54,8 @@ export interface PersonCalls {
   profileId: string;
   name: string;
   jobTitle: string | null;
+  /** The department in the person's profile now (Team, My profile); null when not filled in. */
+  department: string | null;
   msisdn: string;
   calls: number;
   seconds: number;
@@ -87,5 +89,5 @@ export interface CallsReport {
    * Calls per working day of each person in each period (in the order of `periods`). A value is null when the person
    * is not on that invoice (onInvoice false) or was on leave the whole period.
    */
-  comparison: { profileId: string; name: string; values: (number | null)[]; onInvoice: boolean[] }[];
+  comparison: { profileId: string; name: string; department: string | null; values: (number | null)[]; onInvoice: boolean[] }[];
 }
