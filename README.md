@@ -61,7 +61,7 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 
 Admin wgrywa miesięczną fakturę T-Mobile (PDF), a centrum pokazuje, kto ile dzwonił. Zastępuje skrypty właściciela na Macu (parser PDF → SQL → Supabase).
 
-- **Import:** przeciągnięcie PDF → podgląd (numer faktury, okres, dopasowani pracownicy, pominięte numery, ostrzeżenie, gdy faktura już jest w bazie) → **Import** albo **Replace**.
+- **Import:** przeciągnięcie jednego lub kilku PDF-ów naraz (do 24) → lista z podglądem każdej faktury (okres, numer, dopasowani pracownicy, pominięte numery, „Replaces the saved invoice”, gdy faktura już jest w bazie; duplikaty i błędy oznaczone) → **Import N invoices**. Faktury zapisują się po kolei; nieudana zostaje na liście do ponowienia. Zastąpienie faktury usuwa jej stare dane w tej samej transakcji, więc nie trzeba niczego usuwać ręcznie.
   - PDF czyta przeglądarka (`pdfjs-dist`, ładowany tylko na tej stronie) i parser `shared/tmobile.ts` (port `parse_tmobile_invoice.py`: oba układy faktur, sprzed i po zmianie z 2026). Do serwera idzie tylko JSON (do ~50 KB), PDF nie opuszcza komputera.
   - Parser zatrzymuje import, gdy brakuje numeru faktury lub okresu, gdy jakiejś linii tabel połączeń nie rozumie albo gdy zestawienie opłat i część szczegółowa wymieniają inne numery.
   - Numery dopasowuje serwer do `profiles.mobile` (ostatnie 9 cyfr, także konta dezaktywowane). **Zapisywane są tylko numery pracowników**; numer bez profilu jest pomijany, numer w dwóch profilach też (do poprawienia w profilach). Osoba jest zapisana w wierszu w chwili importu, więc późniejsza zmiana numeru w profilu nie przepisuje historii.
