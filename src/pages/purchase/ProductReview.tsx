@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCheck, Search } from 'lucide-react';
+import { Check, CheckCheck, Search } from 'lucide-react';
 import {
   BULK_MIN_CONFIDENCE,
   REVIEW_PAGE_SIZE,
@@ -218,6 +218,14 @@ function ItemCard({
   );
 }
 
+const DECIDED_MS = 1000;
+const DECIDED_LABEL: Partial<Record<PurchaseAction['action'], string>> = {
+  approve: 'Approved',
+  merge: 'Merged',
+  remap: 'Matched',
+  notProduct: 'Not a product',
+};
+
 const emptyFilters: ReviewFilters = { type: null, category: null, maxConfidence: null, withOffers: false, q: null, page: 1 };
 
 export function ProductReview() {
@@ -228,6 +236,8 @@ export function ProductReview() {
   const [bulkBusy, setBulkBusy] = useState(false);
   // Items decided here disappear at once, while the list reloads (a decided item never comes back).
   const [hidden, setHidden] = useState<Set<number>>(new Set());
+  // A card decided one by one first turns green with the outcome, then fades out (DECIDED_MS).
+  const [decided, setDecided] = useState<Map<number, string>>(new Map());
   const summary = useApi<ReviewSummary>(`${PURCHASE_API}&view=summary`);
   const query = reviewQuery(filters);
   const list = useApi<ReviewPage>(`${PURCHASE_API}&view=review${query ? `&${query}` : ''}`);
@@ -245,14 +255,20 @@ export function ProductReview() {
   const onAction = async (action: PurchaseAction, done: string): Promise<boolean> => {
     try {
       await api(PURCHASE_API, { method: 'POST', body: action });
-      toast.success(done);
-      if ('itemId' in action) {
-        const decided = action.itemId;
-        setHidden((h) => new Set(h).add(decided));
-        setSelected((all) => new Set([...all].filter((id) => id !== decided)));
+      if (!('itemId' in action)) {
+        toast.success(done);
+        summary.reload();
+        list.reload();
+        return true;
       }
-      summary.reload();
-      list.reload();
+      const id = action.itemId;
+      setSelected((all) => new Set([...all].filter((s) => s !== id)));
+      setDecided((m) => new Map(m).set(id, DECIDED_LABEL[action.action] ?? 'Done'));
+      setTimeout(() => {
+        setHidden((h) => new Set(h).add(id));
+        summary.reload();
+        list.reload();
+      }, DECIDED_MS);
       return true;
     } catch (error) {
       toast.error('Not saved', (error as Error).message);
@@ -357,7 +373,13 @@ export function ProductReview() {
       {list.data && items.length === 0 && <Empty>{query ? 'Nothing matches these filters.' : 'Nothing to review. Well done!'}</Empty>}
       <ul className="space-y-3">
         {items.map((item) => (
-          <li key={item.id}>
+          <li key={item.id} className={decided.has(item.id) ? 'relative animate-[card-decided_1s_ease-in_forwards]' : undefined}>
+            {decided.has(item.id) && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-xl bg-green-600 text-lg font-semibold text-white animate-[card-decided-in_150ms_ease-out]">
+                <Check size={22} strokeWidth={3} />
+                {decided.get(item.id)}
+              </div>
+            )}
             <ItemCard
               item={item}
               categories={s?.categories ?? []}
