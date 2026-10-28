@@ -97,7 +97,9 @@ function ItemCard({
 
       {item.similar.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-gray-500">Similar in the catalogue</p>
+          <p className="text-xs font-medium text-gray-500">
+            Similar in the catalogue <span className="font-normal">· only hints: merge if it is the same product, otherwise ignore</span>
+          </p>
           <ul className="mt-1.5 divide-y divide-gray-100 rounded-lg border border-gray-100">
             {item.similar.map((s) => (
               <li key={s.productId} className="flex flex-wrap items-center gap-2 px-3 py-2">
