@@ -5,6 +5,7 @@
 //   GET  ?resource=purchase&view=summary                                   → ReviewSummary
 //   GET  ?resource=purchase&view=review&type&category&maxConfidence&withOffers&q&page → ReviewPage
 //   GET  ?resource=purchase&view=search&q                                  → { products: ProductHit[] }
+//   GET  ?resource=purchase&view=lastDecision                              → { last: LastDecision | null }
 //   GET  ?resource=purchase&view=proposals&status&page                     → ProposalPage
 //   POST ?resource=purchase  body PurchaseAction                           → { result }
 //
@@ -140,7 +141,17 @@ export type PurchaseAction =
   | { action: 'notProduct'; itemId: number }
   | { action: 'remap'; itemId: number; targetId: number }
   | { action: 'approveBulk'; itemIds: number[] }
-  | { action: 'decide'; proposalId: number; status: 'approved' | 'rejected' | 'pending_review'; optionId?: number; note?: string };
+  | { action: 'decide'; proposalId: number; status: 'approved' | 'rejected' | 'pending_review'; optionId?: number; note?: string }
+  | { action: 'undo' };
+
+/** The latest review decision of the signed-in person that can still be undone (GET view=lastDecision). */
+export interface LastDecision {
+  id: number;
+  itemId: number;
+  action: 'approve' | 'merge' | 'notProduct' | 'remap';
+  label: string | null;
+  decidedAt: string;
+}
 
 export class PurchaseInputError extends Error {}
 
@@ -218,6 +229,8 @@ export function purchaseAction(body: unknown): PurchaseAction {
       if (status === 'approved' && !optionId) throw new PurchaseInputError('Choose a supplier option.');
       return { action: 'decide', proposalId: id(b.proposalId, 'Proposal'), status, optionId, note: text(b.note, 500) };
     }
+    case 'undo':
+      return { action: 'undo' };
     default:
       throw new PurchaseInputError('Unknown action.');
   }

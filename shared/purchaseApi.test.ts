@@ -38,6 +38,7 @@ describe('purchaseAction', () => {
     });
     expect(purchaseAction({ action: 'merge', itemId: 1, targetId: 2 })).toEqual({ action: 'merge', itemId: 1, targetId: 2 });
     expect(purchaseAction({ action: 'approveBulk', itemIds: [3, 3, '4', -1, 'x'] })).toEqual({ action: 'approveBulk', itemIds: [3, 4] });
+    expect(purchaseAction({ action: 'undo', itemId: 5 })).toEqual({ action: 'undo' });
     expect(purchaseAction({ action: 'decide', proposalId: 5, status: 'rejected', note: ' too old ' })).toEqual({
       action: 'decide',
       proposalId: 5,

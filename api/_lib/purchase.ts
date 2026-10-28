@@ -57,7 +57,7 @@ async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 
 export function purchaseGet(request: Request): Promise<Response> {
   return handle(async () => {
-    await requireApp(request, 'purchase');
+    const person = await requireApp(request, 'purchase');
     const params = new URL(request.url).searchParams;
     switch (params.get('view')) {
       case 'summary':
@@ -76,6 +76,8 @@ export function purchaseGet(request: Request): Promise<Response> {
           }),
         );
       }
+      case 'lastDecision':
+        return json({ last: await call('review_last_decision', { p_by: person.email }) });
       case 'search': {
         const q = params.get('q')?.trim().slice(0, 100) ?? '';
         if (q.length < 2) return json({ products: [] });
@@ -110,6 +112,8 @@ function run(action: PurchaseAction, by: string): Promise<unknown> {
       return call('review_remap', { p_item_id: action.itemId, p_target_id: action.targetId, p_by: by });
     case 'approveBulk':
       return call('review_approve_bulk', { p_item_ids: action.itemIds, p_by: by, p_min_confidence: BULK_MIN_CONFIDENCE });
+    case 'undo':
+      return call('review_undo_last', { p_by: by });
     case 'decide':
       return call('bid_proposal_decide', {
         p_id: action.proposalId,

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Check, CheckCheck, Search } from 'lucide-react';
+import { Check, CheckCheck, Search, Undo2 } from 'lucide-react';
 import {
   BULK_MIN_CONFIDENCE,
   REVIEW_PAGE_SIZE,
   reviewQuery,
+  type LastDecision,
   type ProductHit,
   type PurchaseAction,
   type ReviewFilters,
@@ -219,6 +220,12 @@ function ItemCard({
 }
 
 const DECIDED_MS = 1200;
+const UNDO_LABEL: Record<LastDecision['action'], string> = {
+  approve: 'Approved',
+  merge: 'Merged',
+  remap: 'Matched',
+  notProduct: 'Not a product',
+};
 const DECIDED_LABEL: Partial<Record<PurchaseAction['action'], string>> = {
   approve: 'Approved',
   merge: 'Merged',
@@ -241,6 +248,9 @@ export function ProductReview() {
   const summary = useApi<ReviewSummary>(`${PURCHASE_API}&view=summary`);
   const query = reviewQuery(filters);
   const list = useApi<ReviewPage>(`${PURCHASE_API}&view=review${query ? `&${query}` : ''}`);
+  // Without db/central/purchase_undo.sql in the database this view fails; the Undo bar then just stays hidden.
+  const last = useApi<{ last: LastDecision | null }>(`${PURCHASE_API}&view=lastDecision`);
+  const [undoBusy, setUndoBusy] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setFilters((f) => (f.q === (search.trim() || null) ? f : { ...f, q: search.trim() || null, page: 1 })), 300);
@@ -264,6 +274,7 @@ export function ProductReview() {
       const id = action.itemId;
       setSelected((all) => new Set([...all].filter((s) => s !== id)));
       setDecided((m) => new Map(m).set(id, DECIDED_LABEL[action.action] ?? 'Done'));
+      last.reload();
       setTimeout(() => {
         setHidden((h) => new Set(h).add(id));
         summary.reload();
@@ -285,6 +296,7 @@ export function ProductReview() {
       });
       setHidden((h) => new Set([...h, ...result.approved]));
       setSelected(new Set());
+      last.reload();
       toast.success(
         `${result.approved.length} approved`,
         result.skipped.length ? `${result.skipped.length} skipped: AI is less than ${percent(BULK_MIN_CONFIDENCE)} sure of them.` : undefined,
@@ -298,12 +310,38 @@ export function ProductReview() {
     }
   };
 
+  const undo = async () => {
+    setUndoBusy(true);
+    try {
+      const { result } = await api<{ result: { item: number; label: string | null } }>(PURCHASE_API, {
+        method: 'POST',
+        body: { action: 'undo' } satisfies PurchaseAction,
+      });
+      toast.success('Decision undone', result.label ?? undefined);
+      setHidden((h) => new Set([...h].filter((id) => id !== result.item)));
+      setDecided((m) => {
+        const next = new Map(m);
+        next.delete(result.item);
+        return next;
+      });
+      summary.reload();
+      list.reload();
+      last.reload();
+    } catch (error) {
+      toast.error('Not undone', (error as Error).message);
+      last.reload();
+    } finally {
+      setUndoBusy(false);
+    }
+  };
+
   const items = (list.data?.items ?? []).filter((i) => !hidden.has(i.id));
+  const lastDecision = last.data?.last ?? null;
   const bulkable = items.filter((i) => (i.confidence ?? 0) >= BULK_MIN_CONFIDENCE);
   const s = summary.data;
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 ${lastDecision ? 'pb-16' : ''}`}>
       {s && (
         <p className="text-sm text-gray-600">
           <span className="font-semibold text-gray-900">{whole(s.open)}</span> to review: {whole(s.newProducts)} new products, {whole(s.mappings)} uncertain
@@ -398,6 +436,20 @@ export function ProductReview() {
         ))}
       </ul>
       {list.data && <Pager page={filters.page} total={list.data.total} size={REVIEW_PAGE_SIZE} onPage={(page) => change({ page })} />}
+      {lastDecision && (
+        <div className="safe-bottom pointer-events-none fixed inset-x-0 bottom-4 z-20 flex justify-center px-4">
+          <div className="pointer-events-auto flex max-w-full items-center gap-3 rounded-full border border-gray-200 bg-white/90 py-1.5 pl-4 pr-1.5 text-sm shadow-lg backdrop-blur">
+            <span className="min-w-0 truncate text-gray-600">
+              {UNDO_LABEL[lastDecision.action]}
+              {lastDecision.label && <span className="text-gray-900"> “{lastDecision.label}”</span>}
+            </span>
+            <Button size="sm" variant="secondary" className="min-h-11 shrink-0 sm:min-h-0" isLoading={undoBusy} onClick={() => void undo()}>
+              <Undo2 size={14} />
+              Undo
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
