@@ -1,4 +1,4 @@
-import { Building2, CalendarDays, FileText, Newspaper, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, CalendarDays, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
@@ -34,7 +34,7 @@ export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoi
 export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
 export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
 
-/** Whether an app is switched on here: News, Leave and Phone calls analyser only where VITE_HUB_MODULES lists them (shared/access.ts). */
+/** Whether an app is switched on here: News, Leave, Phone calls analyser and Purchase Manager only where VITE_HUB_MODULES lists them (shared/access.ts). */
 export const available = (id: ModuleId, enabledModules: string | undefined = env.VITE_HUB_MODULES) => isAvailable(id, enabledModules);
 
 /**
@@ -80,6 +80,14 @@ export const APPS: AppTile[] = [
     description: "Leave requests, your balance and the team's absence calendar.",
     url: '/leave',
     icon: CalendarDays,
+    audience: 'app',
+  },
+  {
+    id: 'purchase',
+    name: 'Purchase Manager',
+    description: 'Review AI products and bid sell proposals from supplier offers.',
+    url: '/purchase',
+    icon: PackageSearch,
     audience: 'app',
   },
   {

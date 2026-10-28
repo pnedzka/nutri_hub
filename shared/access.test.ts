@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canUse, isAvailable, toApps } from './access';
+import { DEFAULT_APPS, canUse, isAvailable, toApps } from './access';
 
 describe('toApps', () => {
   it('keeps known apps once, in a fixed order', () => {
@@ -26,5 +26,14 @@ describe('isAvailable', () => {
     expect(isAvailable('leave', 'news')).toBe(false);
     expect(isAvailable('calls', 'news,leave')).toBe(false);
     expect(isAvailable('calls', 'news,leave,calls')).toBe(true);
+    expect(isAvailable('purchase', 'news,leave,calls')).toBe(false);
+    expect(isAvailable('purchase', 'calls,purchase')).toBe(true);
+  });
+});
+
+describe('DEFAULT_APPS', () => {
+  it('leaves Purchase Manager out of a new account', () => {
+    expect(DEFAULT_APPS).not.toContain('purchase');
+    expect(DEFAULT_APPS).toContain('neutralizer');
   });
 });

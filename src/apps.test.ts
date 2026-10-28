@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { APP_IDS } from '../shared/access';
 import { APPS, sectionsFor } from './apps';
 
-const MODULES = 'news,leave,calls';
+const MODULES = 'news,leave,calls,purchase';
 const ids = (user: Parameters<typeof sectionsFor>[0], modules: string | undefined = MODULES) =>
   sectionsFor(user, APPS, modules).map((s) => [s.title, s.apps.map((a) => a.id)]);
 
@@ -15,22 +15,23 @@ describe('sectionsFor', () => {
     expect(ids({ role: 'user', apps: [] })).toEqual([['Your apps', ['team']]]);
   });
 
-  it('shows News and Leave, modules of the hub, as paths inside it', () => {
+  it('shows News, Leave and Purchase Manager, modules of the hub, as paths inside it', () => {
     expect(ids({ role: 'user', apps: ['leave', 'news'] })).toEqual([['Your apps', ['news', 'leave', 'team']]]);
-    expect(APPS.filter((a) => a.id === 'news' || a.id === 'leave').map((a) => a.url)).toEqual(['/news', '/leave']);
+    expect(ids({ role: 'user', apps: ['purchase'] })).toEqual([['Your apps', ['purchase', 'team']]]);
+    expect(APPS.filter((a) => ['news', 'leave', 'purchase'].includes(a.id)).map((a) => a.url)).toEqual(['/news', '/leave', '/purchase']);
   });
 
-  it('hides News, Leave and Phone calls analyser where VITE_HUB_MODULES does not list them (production)', () => {
+  it('hides News, Leave, Phone calls analyser and Purchase Manager where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'team', 'intranet']],
       ['Administration', ['users']],
     ]);
-    expect(ids({ role: 'user', apps: ['news', 'leave', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'team']]]);
+    expect(ids({ role: 'user', apps: ['news', 'leave', 'purchase', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'team']]]);
   });
 
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'team', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'purchase', 'team', 'intranet']],
       ['Administration', ['users', 'calls']],
     ]);
   });
