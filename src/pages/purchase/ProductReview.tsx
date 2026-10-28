@@ -24,13 +24,7 @@ const select =
   'min-h-11 sm:min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-base sm:text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent';
 
 /** What the item card is showing below its details. */
-type Mode =
-  | { kind: 'idle' }
-  | { kind: 'edit' }
-  | { kind: 'merge' }
-  | { kind: 'remap' }
-  | { kind: 'confirmNotProduct' }
-  | { kind: 'confirmLink'; target: Pick<ProductHit, 'productId' | 'name' | 'status'> };
+type Mode = { kind: 'idle' } | { kind: 'edit' } | { kind: 'merge' } | { kind: 'remap' } | { kind: 'confirmNotProduct' };
 
 function confidenceTone(value: number | null) {
   if (value === null) return 'gray' as const;
@@ -64,12 +58,8 @@ function ItemCard({
     if (ok) setMode({ kind: 'idle' });
   };
 
-  // Merging or matching decides the item, so it asks first: one click must not take the card away.
-  const link = (target: Pick<ProductHit, 'productId' | 'name'>) =>
-    isNew
-      ? act({ action: 'merge', itemId: item.id, targetId: target.productId }, `Merged into ${target.name}`)
-      : act({ action: 'remap', itemId: item.id, targetId: target.productId }, `Matched to ${target.name}`);
-  const confirmLink = (target: Pick<ProductHit, 'productId' | 'name' | 'status'>) => setMode({ kind: 'confirmLink', target });
+  const merge = (target: Pick<ProductHit, 'productId' | 'name'>) =>
+    act({ action: 'merge', itemId: item.id, targetId: target.productId }, `Merged into ${target.name}`);
 
   return (
     <Card className="p-4 sm:p-5">
@@ -126,8 +116,8 @@ function ItemCard({
                   size="sm"
                   variant="secondary"
                   className="min-h-11 sm:min-h-0"
-                  disabled={busy || mode.kind === 'confirmLink'}
-                  onClick={() => confirmLink(s)}
+                  disabled={busy}
+                  onClick={() => (isNew ? merge(s) : act({ action: 'remap', itemId: item.id, targetId: s.productId }, `Matched to ${s.name}`))}
                   title={isNew ? 'This product is a duplicate of that one' : 'The name means that product'}
                 >
                   {isNew ? 'Merge into this' : 'Match to this'}
@@ -182,29 +172,9 @@ function ItemCard({
             exclude={item.productId}
             actionLabel={mode.kind === 'merge' ? 'Merge into this' : 'Match to this'}
             busy={busy}
-            onPick={confirmLink}
+            onPick={(p) => (mode.kind === 'merge' ? merge(p) : act({ action: 'remap', itemId: item.id, targetId: p.productId }, `Matched to ${p.name}`))}
             onCancel={() => setMode({ kind: 'idle' })}
           />
-        </div>
-      )}
-
-      {mode.kind === 'confirmLink' && (
-        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-          <p>
-            {isNew
-              ? `“${item.aiProposal}” is not added as a new product: it becomes “${mode.target.name}” and its ${whole(item.offers)} offers move there.`
-              : `“${item.fromName}” will mean “${mode.target.name}”; its ${whole(item.offers)} offers move there.`}
-            {mode.target.status !== 'approved' && ` “${mode.target.name}” itself is still pending: approve it on its own card.`} This closes the card; no
-            separate approval is needed.
-          </p>
-          <div className="mt-2 flex gap-2">
-            <Button className="min-h-11 sm:min-h-0" isLoading={busy} onClick={() => void link(mode.target)}>
-              {isNew ? 'Yes, merge' : 'Yes, match'}
-            </Button>
-            <Button variant="ghost" className="min-h-11 sm:min-h-0" disabled={busy} onClick={() => setMode({ kind: 'idle' })}>
-              Cancel
-            </Button>
-          </div>
         </div>
       )}
 
