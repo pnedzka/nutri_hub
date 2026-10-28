@@ -218,7 +218,7 @@ function ItemCard({
   );
 }
 
-const DECIDED_MS = 1000;
+const DECIDED_MS = 1200;
 const DECIDED_LABEL: Partial<Record<PurchaseAction['action'], string>> = {
   approve: 'Approved',
   merge: 'Merged',
@@ -373,9 +373,9 @@ export function ProductReview() {
       {list.data && items.length === 0 && <Empty>{query ? 'Nothing matches these filters.' : 'Nothing to review. Well done!'}</Empty>}
       <ul className="space-y-3">
         {items.map((item) => (
-          <li key={item.id} className={decided.has(item.id) ? 'relative animate-[card-decided_1s_ease-in_forwards]' : undefined}>
+          <li key={item.id} className={decided.has(item.id) ? 'relative animate-[card-decided_1.2s_ease-in-out_forwards]' : undefined}>
             {decided.has(item.id) && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-xl bg-green-600/75 backdrop-blur-[2px] text-lg font-semibold text-white animate-[card-decided-in_150ms_ease-out]">
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-xl bg-green-400/25 ring-1 ring-green-500/30 backdrop-blur-[3px] text-lg font-semibold text-green-800 animate-[card-decided-in_300ms_ease-out]">
                 <Check size={22} strokeWidth={3} />
                 {decided.get(item.id)}
               </div>
