@@ -375,7 +375,7 @@ export function ProductReview() {
         {items.map((item) => (
           <li key={item.id} className={decided.has(item.id) ? 'relative animate-[card-decided_1s_ease-in_forwards]' : undefined}>
             {decided.has(item.id) && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-xl bg-green-600 text-lg font-semibold text-white animate-[card-decided-in_150ms_ease-out]">
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-xl bg-green-600/75 backdrop-blur-[2px] text-lg font-semibold text-white animate-[card-decided-in_150ms_ease-out]">
                 <Check size={22} strokeWidth={3} />
                 {decided.get(item.id)}
               </div>
