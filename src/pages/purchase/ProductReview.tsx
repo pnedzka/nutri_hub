@@ -236,6 +236,9 @@ const DECIDED_LABEL: Partial<Record<PurchaseAction['action'], string>> = {
 
 const emptyFilters: ReviewFilters = { type: null, category: null, maxConfidence: null, withOffers: false, q: null, page: 1 };
 
+/** The database's answer when the item was decided in the meantime (core._review_item: "Pozycja … jest już zamknięta"). */
+const ALREADY_CLOSED = /już zamknięta/;
+
 export function ProductReview() {
   const toast = useToast();
   const [filters, setFilters] = useState<ReviewFilters>(emptyFilters);
@@ -283,7 +286,18 @@ export function ProductReview() {
       }, DECIDED_MS);
       return true;
     } catch (error) {
-      toast.error('Not saved', (error as Error).message);
+      const message = (error as Error).message;
+      // Two people review the same list: the other one decided this item a moment ago. Not an error for this person.
+      if ('itemId' in action && ALREADY_CLOSED.test(message)) {
+        const id = action.itemId;
+        setSelected((all) => new Set([...all].filter((s) => s !== id)));
+        setHidden((h) => new Set(h).add(id));
+        toast.info('Already decided', 'Someone else has just decided this item. The list is refreshed.');
+        summary.reload();
+        list.reload();
+        return true;
+      }
+      toast.error('Not saved', message);
       return false;
     }
   };

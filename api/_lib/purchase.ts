@@ -127,6 +127,10 @@ function run(action: PurchaseAction, by: string): Promise<unknown> {
       return call('review_approve_bulk', { p_item_ids: action.itemIds, p_by: by, p_min_confidence: BULK_MIN_CONFIDENCE });
     case 'undo':
       return call('review_undo_last', { p_by: by });
+    case 'rejectOption':
+      return call('bid_option_reject', { p_option_id: action.optionId, p_by: by });
+    case 'restoreOption':
+      return call('bid_option_restore', { p_rejection_id: action.rejectionId, p_by: by });
     case 'decide':
       return call('bid_proposal_decide', {
         p_id: action.proposalId,
