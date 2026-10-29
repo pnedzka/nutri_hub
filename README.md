@@ -91,7 +91,8 @@ Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centr
 
 ## Uprawnienia do aplikacji
 
-- Kolumna `profiles.apps` (`text[]`) w Supabase neutralizatora: identyfikatory z `shared/access.ts` (`neutralizer`, `signatures`, `owner-lookup`, `news`, `leave`, `intranet`). Admin (`role = 'admin'`) ma dostęp do wszystkiego.
+- Kolumna `profiles.apps` (`text[]`) w Supabase neutralizatora: identyfikatory z `shared/access.ts` (`neutralizer`, `signatures`, `owner-lookup`, `commission`, `news`, `leave`, `purchase`, `intranet`, `create-users`). Admin (`role = 'admin'`) ma dostęp do wszystkiego.
+- **Create user accounts** (`create-users`, od 29.10.2026) to nie aplikacja, tylko uprawnienie w tej samej liście. Osoba, która je ma (i nie jest adminem), widzi kafelek „New user accounts” i na `/users` tylko formularz nowego konta: wysyła zaproszenie e-mailem (bez hasła startowego), konto ma rolę user i tylko aplikacje, które ma sama zapraszająca osoba. Listy kont, edycji, resetu haseł i biur nie widzi. Reguły: `newAccountProblem` w `shared/access.ts` (z testami), sprawdzane w `POST /api/admin/users`. Nowe konta nie dostają tego uprawnienia domyślnie (`DEFAULT_APPS`).
 - **Każda aplikacja sprawdza dostęp sama** (neutralizator, generator stopek, owner lookup, a News i Leave serwer centrum); centrum tylko ukrywa kafelki.
 - Konta sprzed wprowadzenia uprawnień dostały wszystkie aplikacje; nowe konto ma tylko te, które zaznaczy admin.
 - Zmienia je tylko serwer centrum (klucz secret); RLS pozwala zalogowanemu tylko czytać własny profil.
