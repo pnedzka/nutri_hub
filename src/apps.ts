@@ -1,4 +1,4 @@
-import { Building2, CalendarDays, FileText, Newspaper, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, Calculator, CalendarDays, FileText, Newspaper, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
@@ -26,13 +26,15 @@ export interface AppTile {
 }
 
 // Production addresses by default. Preview deployments (the develop branch and pull requests) point the tiles at the
-// apps' develop deployments with VITE_NEUTRALIZER_URL, VITE_SIGNATURES_URL and VITE_OWNER_LOOKUP_URL.
+// apps' develop deployments with VITE_NEUTRALIZER_URL, VITE_SIGNATURES_URL, VITE_OWNER_LOOKUP_URL and VITE_COMMISSION_URL.
 const env = import.meta.env;
 const address = (value: string | undefined, fallback: string) => (value || fallback).replace(/\/+$/, '');
 
 export const OWNER_LOOKUP_URL = address(env.VITE_OWNER_LOOKUP_URL, 'https://whoisowner.vercel.app');
 export const NEUTRALIZER_URL = address(env.VITE_NEUTRALIZER_URL, 'https://nutridocumentation-nxdi.vercel.app');
 export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-signatures.vercel.app');
+// A static page without sign-in (pnedzka/commission_analyzer), so its tile links to it directly, not through /sso.
+export const COMMISSION_URL = address(env.VITE_COMMISSION_URL, 'https://commissionanalyzer.vercel.app');
 
 /** Whether an app is switched on here: News, Leave and Phone calls analyser only where VITE_HUB_MODULES lists them (shared/access.ts). */
 export const available = (id: ModuleId, enabledModules: string | undefined = env.VITE_HUB_MODULES) => isAvailable(id, enabledModules);
@@ -64,6 +66,14 @@ export const APPS: AppTile[] = [
     description: 'Find out who owns a company or contact in HubSpot.',
     url: OWNER_LOOKUP_URL,
     icon: UserSearch,
+    audience: 'app',
+  },
+  {
+    id: 'commission',
+    name: 'Commission calculator',
+    description: 'Compare your quarterly pay on the three International Commodity Trader levels.',
+    url: COMMISSION_URL,
+    icon: Calculator,
     audience: 'app',
   },
   {
