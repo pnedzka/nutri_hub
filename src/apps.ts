@@ -1,4 +1,4 @@
-import { Building2, Calculator, CalendarDays, FileText, Newspaper, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, Calculator, CalendarDays, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
@@ -90,6 +90,14 @@ export const APPS: AppTile[] = [
     description: "Leave requests, your balance and the team's absence calendar.",
     url: '/leave',
     icon: CalendarDays,
+    audience: 'app',
+  },
+  {
+    id: 'purchase',
+    name: 'Purchase Manager',
+    description: 'Review AI products and bid sell proposals from supplier offers.',
+    url: '/purchase',
+    icon: PackageSearch,
     audience: 'app',
   },
   {
