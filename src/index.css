@@ -37,3 +37,22 @@ html {
     font-size: 16px;
   }
 }
+
+/* Purchase Manager: a decided review card shows its outcome, then fades out. */
+@keyframes card-decided {
+  0%,
+  55% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+@keyframes card-decided-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}

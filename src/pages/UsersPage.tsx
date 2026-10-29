@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Ban, Check, KeyRound, Mail, Pencil, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { APP_IDS, APP_NAMES, type AppId, type Role } from '../../shared/access.ts';
+import { APP_IDS, APP_NAMES, DEFAULT_APPS, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
 import { available } from '../apps';
 import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
@@ -174,7 +174,7 @@ export function UsersPage() {
   const me = useAuth((s) => s.user);
   const toast = useToast();
   const [users, setUsers] = useState<UserRow[] | null>(null);
-  const emptyForm = () => ({ email: '', fullName: '', password: randomPassword(), role: 'user' as Role, apps: [...APP_IDS] as AppId[], invite: true });
+  const emptyForm = () => ({ email: '', fullName: '', password: randomPassword(), role: 'user' as Role, apps: [...DEFAULT_APPS] as AppId[], invite: true });
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null);

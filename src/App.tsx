@@ -11,6 +11,7 @@ import { LeavePage } from './pages/leave/LeavePage';
 import { LoginPage } from './pages/LoginPage';
 import { NewsPage } from './pages/news/NewsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { PurchasePage } from './pages/purchase/PurchasePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
 import { SetupPage } from './pages/SetupPage';
 import { SsoPage } from './pages/SsoPage';
@@ -32,7 +33,7 @@ function AdminOnly({ children }: { children: ReactNode }) {
   return role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
 }
 
-/** A module of the hub (News, Leave) for the people who may use it; the API checks access again. */
+/** A module of the hub (News, Leave, Purchase Manager) for the people who may use it; the API checks access again. */
 function AppOnly({ app, children }: { app: AppId; children: ReactNode }) {
   const user = useAuth((s) => s.user);
   return user && canUse(user, app) ? <>{children}</> : <Navigate to="/" replace />;
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           {available('news') && <Route path="/news/*" element={<AppOnly app="news"><NewsPage /></AppOnly>} />}
           {available('leave') && <Route path="/leave/*" element={<AppOnly app="leave"><LeavePage /></AppOnly>} />}
+          {available('purchase') && <Route path="/purchase/*" element={<AppOnly app="purchase"><PurchasePage /></AppOnly>} />}
           <Route path="/team" element={<TeamPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />

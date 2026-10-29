@@ -12,7 +12,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - Document neutralizer: https://nutridocumentation-nxdi.vercel.app
   - E-mail signature generator: https://nutri-signatures.vercel.app
   - HubSpot owner lookup: https://whoisowner.vercel.app
-  - Commission calculator (kalkulator prowizji ICT, bez logowania): https://commissionanalyzer.vercel.app
+  - Commission calculator (kalkulator prowizji ICT i BDM, jedno logowanie): https://commissionanalyzer.vercel.app
   - **News** (`/news`) i **Leave** (`/leave`): moduły samego centrum, opisane niżej.
   - **Team** (`/team`, wszyscy zalogowani): katalog pracowników ze zdjęciem, stanowiskiem, działem, biurem, e-mailem, telefonami i LinkedIn; wyszukiwanie i filtr biura. Konta dezaktywowane są ukryte.
   - Intranet: https://intranet.nutripartners.co, w nowej karcie, z plakietką „Separate sign-in” (stary intranet, własna baza kont). Docelowo jego rolę przejmuje centrum.
@@ -26,6 +26,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - **Offices:** lista biur (miasto + adres po angielsku do stopek), z której każdy wybiera swoje biuro;
   - admin ma zawsze wszystkie aplikacje; Intranet w uprawnieniach decyduje tylko o widoczności kafelka starego intranetu (osobne logowanie).
 - **Phone calls analyser** (`/calls`, tylko Admin, sekcja Administration; na produkcji od 23.10.2026): import faktur T-Mobile (PDF) i raport połączeń pracowników. Opis w „Phone calls analyser” niżej.
+- **Purchase Manager** (`/purchase`, uprawnienie `purchase`; na produkcji od 29.10.2026): przegląd produktów AI i propozycji bid sell z centralnej bazy Apex 2.0. Opis w „Purchase Manager” niżej.
 - **Linki z e-maili** (zaproszenie 24 h, reset hasła 1 h) otwierają centrum: ustawiasz hasło i od razu jesteś zalogowany.
 - Nasze aplikacje otwierają się w tej samej karcie. Logo i przycisk „All apps” („Wszystkie aplikacje”) w ich nagłówkach prowadzą z powrotem tutaj.
 - **Moduły centrum (od 20.10.2026):** News i Leave działają w samym centrum, bez osobnego logowania i projektu Vercel (decyzja właściciela: centrum stanie się intranetem). Szczegóły w „Moduły: News i Leave”.
@@ -56,7 +57,7 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 - **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, e-maile w `api/_lib/notify.ts`.
 - **Dane:** tabele `leave_*` i `news_*` oraz prywatny bucket Storage `intranet` (`db/schema.sql`). Mają RLS bez polityk: czyta i zapisuje je tylko serwer centrum kluczem secret, po sprawdzeniu dostępu (`requireApp` w `api/_lib/auth.ts`).
 - **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z uprawnieniem `intranet` dostały oba (`db/schema.sql`; w dev i na produkcji zrobione 20.10.2026).
-- **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 12 (ostatnia: `api/people.ts`, Team, My profile, zdjęcia i biura). Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`, historia konta `GET /api/admin/users?history=<id>`, Phone calls analyser `/api/admin/users?resource=calls`).
+- **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 12 (ostatnia: `api/people.ts`, Team, My profile, zdjęcia i biura). Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`, historia konta `GET /api/admin/users?history=<id>`, Phone calls analyser `/api/admin/users?resource=calls`, Purchase Manager `/api/admin/users?resource=purchase`).
 
 ## Phone calls analyser
 
@@ -71,6 +72,21 @@ Admin wgrywa miesięczną fakturę T-Mobile (PDF), a centrum pokazuje, kto ile d
 - **Technicznie:** strona `src/pages/calls/`, API w `api/_lib/calls.ts` wpięte w `api/admin/users.ts` (`?resource=calls`, bo limit 12 funkcji), reguły z testami w `shared/calls.ts` i `shared/tmobile.ts` (fixtury syntetyczne: `shared/tmobile.fixtures.ts`).
 - **Dane:** tabele `phone_invoices`, `phone_invoice_lines` (numery pracowników na fakturze), `phone_usage` (sumy na numer i kategorię), `phone_call_records` (pusta, na przyszłe bilingi), funkcja `import_phone_invoice` (import w jednej transakcji, tylko `service_role`) i widok `v_phone_monthly_kpi` (`db/schema.sql`). RLS bez polityk: tylko serwer centrum.
 - **Prywatność:** czas rozmów pracowników to dane osobowe z monitoringu pracy: dostęp tylko dla adminów, w logach i Sentry tylko kody błędów, bez numerów i danych o rozmowach. **Do repo (publicznego) nie trafiają faktury ani prawdziwe numery.** Pracownicy powinni być o tym poinformowani (regulamin, RODO).
+
+## Purchase Manager
+
+Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centralnej bazie** (Supabase `nutri-central-db`, `blbcudymvackpudywdyy`), nie w bazie użytkowników centrum, i ta sama w dev i na produkcji. Wydany 29.10.2026 (usunięty z `DEV_MODULES`, więc działa bez `VITE_HUB_MODULES`).
+
+- **Products to review:** otwarte pozycje `core.review_queue` (nowe produkty AI i niepewne dopasowania nazw), najpierw te z największą liczbą ofert. Przy każdej: nazwa z oferty, propozycja AI, pewność, uzasadnienie, liczba ofert i do 5 podobnych produktów z katalogu.
+  - Akcje: **Approve**, **Edit and approve** (nazwa, kategoria), **Merge into this** / **Merge with…** (duplikat), **Match to this** / **Other product…** (złe dopasowanie), **Not a product**.
+  - **Approve selected:** masowe zatwierdzenie pozycji, których AI jest pewne w co najmniej 90% (inne serwer pomija).
+  - Filtry: typ, kategoria, pewność poniżej 90% / 80%, tylko z ofertami, wyszukiwanie po nazwie.
+  - **Undo** (pasek na dole ekranu): cofa ostatnią własną decyzję, kolejne kliknięcia cofają wcześniejsze. Każda decyzja zapisuje przed wykonaniem migawkę zmienianych wierszy (`core.review_undo_log`, `db/central/purchase_undo.sql`), a cofnięcie ją przywraca (produkty, aliasy, oferty, zapytania, propozycje bid sell, kolejka nazw). Decyzji sprzed uruchomienia tego pliku nie da się cofnąć.
+- **Bid sell proposals:** BID BUY z Apex Bid z najtańszymi świeżymi ofertami dostawców na ten sam produkt. Purchase Manager wybiera ofertę i zatwierdza propozycję albo ją odrzuca (z powodem); decyzję można cofnąć. **Tylko ceny zakupu:** sugerowana cena sprzedaży, marża i transport są poza zakresem (decyzja z 28.10.2026), więc ekran ich nie pokazuje.
+- Każda decyzja zapisuje e-mail osoby, która ją podjęła (`decided_by`, `reviewed_by`). Logika decyzji jest w bazie (funkcje `core.review_*` z `central-db/product_review.sql` projektu Apex 2.0).
+- **Technicznie:** ekrany `src/pages/purchase/`, API `api/_lib/purchase.ts` wpięte w `api/admin/users.ts` (`?resource=purchase`, limit 12 funkcji; dostęp: `requireApp(…, 'purchase')`, nie tylko admini), typy i walidacja z testami w `shared/purchaseApi.ts`.
+- **Połączenie z bazą:** serwer woła tylko funkcje schematu `purchase_api` (`db/central/purchase_api.sql`, SECURITY DEFINER, wykonuje je tylko `service_role`) kluczem secret centralnej bazy. Zmienne (Production i Preview, ta sama baza): `CENTRAL_DB_URL` = `https://blbcudymvackpudywdyy.supabase.co`, `CENTRAL_DB_SECRET_KEY` = klucz secret `nutri-central-db`.
+- **Uruchomienie:** (1) `db/central/purchase_api.sql`, potem `db/central/purchase_undo.sql` w SQL Editorze `nutri-central-db`; (2) Project Settings → Data API → Exposed schemas: dopisać `purchase_api`; (3) zmienne wyżej w Vercelu; (4) uprawnienie Purchase Manager w User management. Nowe konta nie dostają go domyślnie (`DEFAULT_APPS`).
 
 ## Uprawnienia do aplikacji
 

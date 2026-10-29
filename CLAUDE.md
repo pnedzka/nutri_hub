@@ -12,7 +12,7 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 | Document neutralizer | https://nutridocumentation-nxdi.vercel.app | https://nutridocumentation-nxdi-git-develop-nutri-partners.vercel.app | `nutri_documentation-nxdi` (`prj_cqi64Tsx7I1JsNnzjulk1CEbYVXd`) | `pnedzka/nutri_documentation` |
 | E-mail signature generator (UI po polsku) | https://nutri-signatures.vercel.app | https://nutri-signatures-git-develop-nutri-partners.vercel.app | `nutri-signatures` (`prj_yF2TYN35jQ7vcQz4wqabpjxFs43E`) | `pnedzka/nutri_signatures` |
 | HubSpot owner lookup | https://whoisowner.vercel.app | https://whoisowner-git-develop-nutri-partners.vercel.app | `whoisowner` (`prj_Zp4K089NIbc4GOG49fLII8V6DjaW`) | `pnedzka/nutripartners` |
-| Commission calculator (kalkulator prowizji ICT, UI po polsku; statyczna strona bez logowania, kafelek prowadzi wprost, nie przez `/sso`) | https://commissionanalyzer.vercel.app | – (podglądy gałęzi PR) | `commission_analyzer` (`prj_jwteEKdTPcLBTOeRV3xU54rZoxvi`) | `pnedzka/commission_analyzer` |
+| Commission calculator (kalkulator prowizji ICT i BDM, UI po polsku; logowanie przez `/sso`, liczby podaje jego `api/standards` po sprawdzeniu uprawnienia `commission`) | https://commissionanalyzer.vercel.app | – (podglądy gałęzi PR, z hubem dev i `nutri-dev`) | `commission_analyzer` (`prj_jwteEKdTPcLBTOeRV3xU54rZoxvi`) | `pnedzka/commission_analyzer` |
 | Intranet (stary, osobna baza kont; docelowo zastąpi go samo centrum, zob. „Moduły centrum”) | https://intranet.nutripartners.co | – | poza Vercelem | – |
 
 `nutri-partners` to prywatne konto Vercel właściciela (plan Hobby), nie zespół. Projekt `nutri-partners1/nutripartners` to duplikat na innym koncie Vercel, poza naszym dostępem; buduje się z `pnedzka/nutripartners`, ale niczego nie blokuje.
@@ -21,7 +21,7 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 
 - Kafelki są w `src/apps.ts` (`audience: 'app' | 'everyone' | 'admin'`, `newTab` tylko dla starego intranetu; `everyone` to Team). Nowa aplikacja to jeden wpis; moduł centrum ma `url` ze ścieżką (`/news`, `/leave`).
 - **Zarządzanie kontami jest tylko w centrum** (`/users`, decyzja z 17.10.2026): zakładanie, zaproszenia, reset haseł, role, imiona i **uprawnienia do aplikacji**. Neutralizator już tego nie ma.
-- Uprawnienia: `profiles.apps text[]` (`shared/access.ts`: `neutralizer`, `signatures`, `owner-lookup`, `commission`, `news`, `leave`, `intranet`). Admin ma wszystko. Każda aplikacja sprawdza dostęp sama (News i Leave: `requireApp` w `api/_lib/auth.ts`); Intranet to tylko widoczność kafelka starego intranetu. Konta sprzed zmiany dostały wszystkie aplikacje, domyślna wartość kolumny to `'{}'`.
+- Uprawnienia: `profiles.apps text[]` (`shared/access.ts`: `neutralizer`, `signatures`, `owner-lookup`, `commission`, `news`, `leave`, `purchase`, `intranet`). Admin ma wszystko. Każda aplikacja sprawdza dostęp sama (News i Leave: `requireApp` w `api/_lib/auth.ts`); Intranet to tylko widoczność kafelka starego intranetu. Konta sprzed zmiany dostały wszystkie aplikacje, domyślna wartość kolumny to `'{}'`.
 - **Profile (od 21.10.2026, decyzja właściciela: wszystkie propozycje):** kolumny `profiles` `job_title`, `department`, `phone`, `mobile`, `linkedin_url`, `office_id` (tabela `offices`: miasto + adres po angielsku do stopek, prowadzą admini), `avatar_path` (bucket `intranet`, `avatars/<id>/…jpg`, linki podpisane na dobę), `deactivated_at`; historia zmian w `profile_events`. Schemat w `db/schema.sql` tego repo; zastosowany na `nutri-dev` i na produkcji (21.10.2026, migracje `hub_profiles_offices` i `hub_profiles_columns`). Biura na start: Rzeszów (Lwowska 114/2) i Lublin (Lubelskich Olimpijczyków 1/8), bez kodów pocztowych.
 - **Profile na produkcji od 21.10.2026** (PR #30, wydanie #31; stopki: PR #33, wydanie #34).
   - E-mail firmowy = adres logowania (bez osobnego pola). Pracownik sam zmienia swoje dane w **My profile** (`/profile`, także imię); adres logowania, rolę i aplikacje zmienia tylko admin (User management → Edit, `/users/<id>`).
@@ -34,6 +34,9 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
   - Połączenia = krajowe wychodzące + wykonane w roamingu, **bez „Połączenia inne”** (decyzja z 23.10.2026, `NOT_COUNTED` w `shared/calls.ts` i widok; ich koszt się liczy). Dlatego wyniki mogą być niższe niż w starym `report.html`.
   - Tabele `phone_*`, funkcja `import_phone_invoice`, widok `v_phone_monthly_kpi` (`db/schema.sql`); zastosowane na `nutri-dev` (22–23.10.2026) i na produkcji (23.10.2026), migracje `hub_phone_calls`, `hub_phone_calls_import` (dev też `hub_phone_calls_view_without_other`; na produkcji widok od razu w tej wersji).
   - Repo jest publiczne: **żadnych faktur, prawdziwych numerów ani danych o rozmowach** w kodzie, testach i Sentry (fixtury są syntetyczne, logi tylko z kodem błędu).
+- **Purchase Manager** (`/purchase`, uprawnienie `purchase`, w dev od 28.10.2026, **na produkcji od 29.10.2026**, poza `DEV_MODULES`): interfejs Purchase Managera (Michał Roman, m.roman@nutripartners.co) projektu Apex 2.0: przegląd produktów AI i propozycji bid sell. Dane w osobnej bazie `nutri-central-db` (`blbcudymvackpudywdyy`, schematy `raw`/`core`); serwer woła tylko funkcje `purchase_api` (`db/central/purchase_api.sql`, kopia w plikach projektu Apex 2.0: `central-db/purchase_api.sql`) zmiennymi `CENTRAL_DB_URL` + `CENTRAL_DB_SECRET_KEY`. DDL tej bazy uruchamia właściciel w SQL Editorze; schemat `purchase_api` musi być w Data API → Exposed schemas.
+  - Zasady właściciela: przegląd i scalanie produktów robi wyłącznie Purchase Manager w interfejsie (Claude nie zatwierdza produktów). Ceny sprzedaży, marże i transport są poza zakresem: ekran pokazuje tylko ceny zakupu.
+  - `purchase` nie jest zaznaczane nowym kontom (`DEFAULT_APPS` w `shared/access.ts`).
 - Serwer centrum (`api/`) używa `SUPABASE_SECRET_KEY` i `RESEND_API_KEY`. Linki z e-maili prowadzą do centrum.
 - Nasze aplikacje otwierają się w tej samej karcie. W ich nagłówkach logo i „All apps” prowadzą z powrotem (`HUB_URL` / `VITE_HUB_URL`). Stary intranet otwiera się w nowej karcie.
 - `/?q=…` przekierowuje na whoisowner (`src/lib/legacy.ts`), bo dawniej ta domena należała do owner lookup.
@@ -137,11 +140,12 @@ Decyzje właściciela: osobna baza dev, wersje dev widzi tylko on, na produkcję
   - centrum i neutralizator: `SUPABASE_SECRET_KEY` (klucz tajny `nutri-dev`, wpisuje go właściciel);
   - whoisowner i stopki: `SUPABASE_ANON_KEY`;
   - linki między aplikacjami: `VITE_HUB_URL` (neutralizator, whoisowner, stopki) → centrum dev; w centrum `VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL` → aplikacje dev (`VITE_INTRANET_URL` z czasów `nutri_intranet` nie jest już czytana; do usunięcia);
-  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures)-[a-z0-9-]+-nutri-partners\.vercel\.app` (wpis `nutri-intranet` jest zbędny) (jedno logowanie wraca też na podglądy PR-ów aplikacji);
+  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures|nutri-intranet|commissionanalyzer|commission-analyzer)-[a-z0-9-]+-nutri-partners\.vercel\.app` (wpis `nutri-intranet` jest zbędny) (jedno logowanie wraca też na podglądy PR-ów aplikacji);
   - neutralizator: `ANTHROPIC_API_KEY` także w Preview; whoisowner: HubSpot i Claude mają te same klucze w obu środowiskach (HubSpot tylko do odczytu);
   - stopki: `BLOB_READ_WRITE_TOKEN` tylko w Production i Development, więc w dev zapisane stopki zostają w przeglądarce i nie zmieniają wspólnej listy zespołu.
   - wszystkie 4 projekty: `SENTRY_DSN`, `VITE_SENTRY_DSN` (ten sam DSN w Production i Preview);
-  - centrum: `VITE_HUB_MODULES` = `news,leave,calls` w Preview i Development, a w Production osobna zmienna = `calls` (wydane moduły; kolejny dopisać dopiero na polecenie właściciela);
+  - centrum: `CENTRAL_DB_URL`, `CENTRAL_DB_SECRET_KEY` (Purchase Manager, ta sama baza `nutri-central-db` w obu środowiskach);
+  - centrum: `VITE_HUB_MODULES` = `news,leave,calls,purchase` w Preview i Development, a w Production osobna zmienna = `calls` (wydane moduły; kolejny dopisać dopiero na polecenie właściciela);
   - Nowa zmienna o różnych wartościach w dev i na produkcji: dodać osobno dla Production i dla Preview. Zmienne działają od następnego wdrożenia.
 
 ### Procedura
