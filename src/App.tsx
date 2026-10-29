@@ -33,6 +33,12 @@ function AdminOnly({ children }: { children: ReactNode }) {
   return role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
 }
 
+/** User management: administrators, and people with "Create user accounts" (only the form for a new account). */
+function AccountCreatorsOnly({ children }: { children: ReactNode }) {
+  const user = useAuth((s) => s.user);
+  return user && canUse(user, 'create-users') ? <>{children}</> : <Navigate to="/" replace />;
+}
+
 /** A module of the hub (News, Leave, Purchase Manager) for the people who may use it; the API checks access again. */
 function AppOnly({ app, children }: { app: AppId; children: ReactNode }) {
   const user = useAuth((s) => s.user);
@@ -58,7 +64,7 @@ export default function App() {
           {available('purchase') && <Route path="/purchase/*" element={<AppOnly app="purchase"><PurchasePage /></AppOnly>} />}
           <Route path="/team" element={<TeamPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
+          <Route path="/users" element={<AccountCreatorsOnly><UsersPage /></AccountCreatorsOnly>} />
           <Route path="/users/:id" element={<AdminOnly><UserEditPage /></AdminOnly>} />
           {available('calls') && <Route path="/calls" element={<AdminOnly><CallsPage /></AdminOnly>} />}
           <Route path="/sso" element={<SsoPage />} />

@@ -1,4 +1,6 @@
-// User accounts (administrator only). There is no public sign-up: the administrator creates every account.
+// User accounts (administrator only). There is no public sign-up: an administrator creates every account, or someone
+// with the "Create user accounts" permission (POST only: invitations to users with apps they have themselves,
+// newAccountProblem in shared/access.ts).
 //
 // By default a new account gets an invitation e-mail with a link to set the password (see _lib/mail.ts). A start
 // password set by the administrator remains as a fallback.
@@ -21,8 +23,8 @@
 // (api/_lib/purchase.ts, not only administrators), here because the Hobby plan's 12 functions are used.
 
 import type { User } from '@supabase/supabase-js';
-import { toApps } from '../../shared/access.js';
-import { PROFILE_COLUMNS, requireAdmin, toProfile, type Profile } from '../_lib/auth.js';
+import { newAccountProblem, toApps } from '../../shared/access.js';
+import { PROFILE_COLUMNS, requireAdmin, requireUser, toProfile, type Profile } from '../_lib/auth.js';
 import { HttpError, appUrl, handle, json, readJson } from '../_lib/http.js';
 import { createInvitedUser, issueAccountLink } from '../_lib/accountLinks.js';
 import { sendAccountMail } from '../_lib/mail.js';
@@ -117,14 +119,21 @@ export function POST(request: Request): Promise<Response> {
   if (isCallsRequest(request)) return callsPost(request);
   if (isPurchaseRequest(request)) return purchasePost(request);
   return handle(async () => {
-    const admin = await requireAdmin(request);
+    const creator = await requireUser(request);
     const body = await readJson<{ email?: unknown; fullName?: unknown; password?: unknown; role?: unknown; apps?: unknown; invite?: unknown }>(request);
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const fullName = typeof body.fullName === 'string' && body.fullName.trim() ? body.fullName.trim().slice(0, 200) : null;
     const invite = body.invite !== false;
     const password = typeof body.password === 'string' ? body.password : '';
+    const problem = newAccountProblem(creator, { role: role(body.role), apps: toApps(body.apps), invite });
+    if (problem) throw new HttpError(403, problem);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'Invalid e-mail address.');
     if (!invite && password.length < MIN_PASSWORD) throw new HttpError(400, `The password must be at least ${MIN_PASSWORD} characters long.`);
+    // Supabase reuses an account that was invited but never signed in, so without this the profile below would
+    // overwrite its role and apps.
+    const { data: existing, error: existingError } = await db().from('profiles').select('id').eq('email', email).maybeSingle();
+    if (existingError) throw existingError;
+    if (existing) throw new HttpError(400, 'A user with this address already exists.');
 
     const created = invite
       ? await createInvitedUser(email, fullName)
@@ -138,7 +147,7 @@ export function POST(request: Request): Promise<Response> {
     const profile: Profile = { id: created.user.id, email, full_name: fullName, role: role(body.role), apps: toApps(body.apps) };
     const { error: profileError } = await db().from('profiles').upsert(profile);
     if (profileError) throw profileError;
-    await logProfileEvent(profile.id, admin.id, 'created', { role: profile.role, apps: profile.apps });
+    await logProfileEvent(profile.id, creator.id, 'created', { role: profile.role, apps: profile.apps });
     if (invite) {
       try {
         const url = await issueAccountLink('invite', created.user.id, appUrl(request));
@@ -147,13 +156,14 @@ export function POST(request: Request): Promise<Response> {
           email,
           url,
           appUrl: appUrl(request),
-          invitedBy: admin.full_name || admin.email,
+          invitedBy: creator.full_name || creator.email,
           apps: profile.role === 'admin' ? 'all' : profile.apps,
         });
-        await logProfileEvent(profile.id, admin.id, 'invited');
+        await logProfileEvent(profile.id, creator.id, 'invited');
       } catch (error) {
         const reason = error instanceof HttpError ? error.message : 'sending failed.';
-        throw new HttpError(502, `The account was created, but the invitation was not sent: ${reason} Send it again with the "Send link" button in the account list.`);
+        const again = creator.role === 'admin' ? 'Send it again from the account list ("⋯" → Resend invitation).' : 'Ask an administrator to send it again.';
+        throw new HttpError(502, `The account was created, but the invitation was not sent: ${reason} ${again}`);
       }
     }
     return json({ user: profile, invited: invite }, 201);

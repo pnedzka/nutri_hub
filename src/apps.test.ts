@@ -11,6 +11,11 @@ describe('sectionsFor', () => {
     expect(ids({ role: 'user', apps: ['neutralizer', 'intranet'] })).toEqual([['Your apps', ['neutralizer', 'team', 'intranet']]]);
   });
 
+  it('shows the New user accounts tile to people allowed to create accounts, not to administrators', () => {
+    expect(ids({ role: 'user', apps: ['signatures', 'create-users'] })).toEqual([['Your apps', ['signatures', 'team', 'create-users']]]);
+    expect(ids({ role: 'admin', apps: ['create-users'] })[0][1]).not.toContain('create-users');
+  });
+
   it('shows only Team to a user without apps', () => {
     expect(ids({ role: 'user', apps: [] })).toEqual([['Your apps', ['team']]]);
   });
@@ -40,6 +45,7 @@ describe('sectionsFor', () => {
 describe('APPS', () => {
   it('has a tile for every app id', () => {
     expect(APPS.filter((a) => a.audience === 'app').map((a) => a.id)).toEqual([...APP_IDS]);
+    expect(APPS.find((a) => a.id === 'create-users')?.url).toBe('/users');
   });
 
   it('has unique ids, https addresses or hub paths', () => {
