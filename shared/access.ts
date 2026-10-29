@@ -3,13 +3,14 @@
 // News, Leave and Purchase Manager are modules of the hub itself (/news, /leave, /purchase); their API checks access
 // with requireApp.
 
-export const APP_IDS = ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'purchase', 'intranet'] as const;
+export const APP_IDS = ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'news', 'leave', 'purchase', 'intranet'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 export const APP_NAMES: Record<AppId, string> = {
   neutralizer: 'Document neutralizer',
   signatures: 'E-mail signature generator',
   'owner-lookup': 'HubSpot owner lookup',
+  commission: 'Commission calculator',
   news: 'News',
   leave: 'Leave',
   purchase: 'Purchase Manager',

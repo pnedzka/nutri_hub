@@ -23,7 +23,7 @@ describe('sectionsFor', () => {
 
   it('hides News, Leave, Phone calls analyser and Purchase Manager where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'team', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'team', 'intranet']],
       ['Administration', ['users']],
     ]);
     expect(ids({ role: 'user', apps: ['news', 'leave', 'purchase', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'team']]]);
@@ -31,7 +31,7 @@ describe('sectionsFor', () => {
 
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'purchase', 'team', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'news', 'leave', 'purchase', 'team', 'intranet']],
       ['Administration', ['users', 'calls']],
     ]);
   });

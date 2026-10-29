@@ -12,6 +12,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - Document neutralizer: https://nutridocumentation-nxdi.vercel.app
   - E-mail signature generator: https://nutri-signatures.vercel.app
   - HubSpot owner lookup: https://whoisowner.vercel.app
+  - Commission calculator (kalkulator prowizji ICT i BDM, jedno logowanie): https://commissionanalyzer.vercel.app
   - **News** (`/news`) i **Leave** (`/leave`): moduły samego centrum, opisane niżej.
   - **Team** (`/team`, wszyscy zalogowani): katalog pracowników ze zdjęciem, stanowiskiem, działem, biurem, e-mailem, telefonami i LinkedIn; wyszukiwanie i filtr biura. Konta dezaktywowane są ukryte.
   - Intranet: https://intranet.nutripartners.co, w nowej karcie, z plakietką „Separate sign-in” (stary intranet, własna baza kont). Docelowo jego rolę przejmuje centrum.

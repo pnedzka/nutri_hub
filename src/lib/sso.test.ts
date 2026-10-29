@@ -9,6 +9,10 @@ describe('ssoTarget', () => {
     expect(ssoTarget('neutralizer', null, null, undefined)?.url.href).toBe('https://nutridocumentation-nxdi.vercel.app/');
   });
 
+  it('opens the commission calculator through sign-in too', () => {
+    expect(ssoTarget('commission', '/', null, undefined)?.url.href).toBe('https://commissionanalyzer.vercel.app/');
+  });
+
   it('refuses unknown apps and the intranet', () => {
     expect(ssoTarget('intranet', '/', null, undefined)).toBeNull();
     expect(ssoTarget('evil', '/', null, undefined)).toBeNull();
