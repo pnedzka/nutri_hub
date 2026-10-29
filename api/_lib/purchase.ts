@@ -16,6 +16,7 @@ import {
   purchaseAction,
   reviewFilters,
   type PurchaseAction,
+  type ReviewSummary,
 } from '../../shared/purchaseApi.js';
 import { requireApp } from './auth.js';
 import { HttpError, handle, json, readJson } from './http.js';
@@ -55,13 +56,25 @@ async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   );
 }
 
+/** The header numbers, plus how many items each category has open (one count per category, in parallel). */
+async function reviewSummary(): Promise<ReviewSummary> {
+  const summary = await call<Omit<ReviewSummary, 'openByCategory'>>('product_review_summary', {});
+  const counts = await Promise.all(
+    summary.categories.map(async (category) => {
+      const page = await call<{ total: number }>('product_review_list', { p_category: category, p_limit: 1 });
+      return [category, Number(page.total)] as const;
+    }),
+  );
+  return { ...summary, openByCategory: Object.fromEntries(counts.filter(([, total]) => total > 0)) };
+}
+
 export function purchaseGet(request: Request): Promise<Response> {
   return handle(async () => {
     const person = await requireApp(request, 'purchase');
     const params = new URL(request.url).searchParams;
     switch (params.get('view')) {
       case 'summary':
-        return json(await call('product_review_summary', {}));
+        return json(await reviewSummary());
       case 'review': {
         const f = reviewFilters(params);
         return json(
