@@ -20,7 +20,8 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
 - **Kafelki według uprawnień:** user widzi tylko aplikacje z `profiles.apps`, admin wszystkie. Bez żadnej aplikacji widać komunikat „You don't have access to any apps yet”.
 - **User management** (`/users`, tylko Admin):
   - nowe konto: e-mail, imię i nazwisko, rola, **aplikacje** (pola wyboru), zaproszenie e-mailem albo hasło startowe;
-  - lista kont: zdjęcie, stanowisko, data ostatniego logowania; zmiana imienia (ołówek), roli i **aplikacji** (ołówek przy aplikacjach → pola wyboru → Save), „Resend invitation” albo „Reset password” (link e-mailem), nowe hasło, usunięcie konta bez dokumentów;
+  - lista kont: zdjęcie, stanowisko, data ostatniego logowania; zmiana roli i **aplikacji** (ołówek przy aplikacjach → pola wyboru → Save); pozostałe działania w menu „⋯”: Edit (też imię i nazwisko), „Resend invitation” albo „Reset password” (link e-mailem), nowe hasło, dezaktywacja, usunięcie konta bez dokumentów;
+  - listy rozwijalne wyglądają tak samo w każdej przeglądarce (jeden styl `select` w `src/index.css`, tak samo w pozostałych aplikacjach);
   - **Edit** (`/users/<id>`): dane kontaktowe i zdjęcie osoby (te same pola co My profile) oraz **historia** konta: kto i kiedy założył konto, wysłał link, zmienił rolę, aplikacje, hasło, dane albo dezaktywował konto (`profile_events`);
   - **Deactivate / Reactivate:** dla osób, które odchodzą. Konto jest zablokowane w Supabase Auth (`ban_duration`) i ma `profiles.deactivated_at`: nie zaloguje się (w już otwartych aplikacjach najpóźniej po godzinie, gdy wygaśnie token), znika z Team i modułów, a jego dokumenty, urlopy i wpisy zostają. Reaktywacja przywraca dostęp;
   - **Offices:** lista biur (miasto + adres po angielsku do stopek), z której każdy wybiera swoje biuro;
