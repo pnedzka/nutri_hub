@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import {
   PROPOSALS_PAGE_SIZE,
@@ -38,6 +39,8 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
   const [busy, setBusy] = useState(false);
   const open = p.status === 'pending_review';
   const decided = p.status === 'approved' || p.status === 'rejected';
+  // Missing until db/central/bid_option_reject.sql runs in the central database.
+  const rejected = p.rejected ?? [];
 
   const decide = async (action: PurchaseAction, done: string) => {
     setBusy(true);
@@ -94,6 +97,11 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
               <th className={th}>Purchase price</th>
               <th className={th}>Terms</th>
               <th className={th}>Offer</th>
+              {open && (
+                <th className={`${th} w-10`}>
+                  <span className="sr-only">Not this product</span>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -129,12 +137,59 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                     <p className="whitespace-nowrap">{dateAgo(o.offeredAt)}</p>
                     <p className="text-xs text-gray-500">{sourceName(o.source)}</p>
                   </td>
+                  {open && (
+                    <td className={`${td} text-right`}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        title="Not this product: hide offers with this name from this product's cards and send the name to Products to review"
+                        aria-label={`Not this product: ${o.productName ?? o.supplier ?? `option ${o.rank}`}`}
+                        onClick={() =>
+                          void decide({ action: 'rejectOption', optionId: o.id }, 'Offer hidden. The name is waiting in Products to review.')
+                        }
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-[#CC1F1F] disabled:opacity-50 sm:min-h-8 sm:min-w-8"
+                      >
+                        <X className="h-4 w-4" aria-hidden />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      {open && p.options.length === 0 && (
+        <p className="mt-3 text-sm text-gray-500">No supplier offers left for this product. Reject the proposal or wait for new offers.</p>
+      )}
+      {rejected.length > 0 && (
+        <details className="mt-3 text-sm">
+          <summary className="cursor-pointer select-none text-xs text-gray-500">
+            {rejected.length === 1 ? '1 offer name' : `${rejected.length} offer names`} marked as not this product
+          </summary>
+          <ul className="mt-1 divide-y divide-gray-100 rounded-lg bg-gray-50">
+            {rejected.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-gray-900 [overflow-wrap:anywhere]">{r.productName}</p>
+                  <p className="text-xs text-gray-500">
+                    {[r.supplier, `${r.rejectedBy}, ${formatDateTime(r.rejectedAt)}`].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="min-h-11 sm:min-h-0"
+                  disabled={busy}
+                  onClick={() => void decide({ action: 'restoreOption', rejectionId: r.id }, 'Offer restored')}
+                >
+                  Restore
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {(p.reviewedBy || p.reviewNote) && (
         <p className="mt-3 text-xs text-gray-500">
@@ -222,7 +277,8 @@ export function Proposals() {
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
         Each BID BUY from Apex Bid with the cheapest recent supplier offers for the same product (purchase prices only). Approve the offer you would
-        send to the sales rep, or reject the proposal.
+        send to the sales rep, or reject the proposal. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
+        for this product, and the name goes to Products to review.
       </p>
       <nav className="-mx-4 overflow-x-auto sm:mx-0" aria-label="Status">
         <div className="flex gap-2 px-4 sm:flex-wrap sm:px-0">

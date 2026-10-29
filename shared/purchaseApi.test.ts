@@ -46,6 +46,8 @@ describe('purchaseAction', () => {
       optionId: undefined,
       note: 'too old',
     });
+    expect(purchaseAction({ action: 'rejectOption', optionId: '7', proposalId: 5 })).toEqual({ action: 'rejectOption', optionId: 7 });
+    expect(purchaseAction({ action: 'restoreOption', rejectionId: 3 })).toEqual({ action: 'restoreOption', rejectionId: 3 });
   });
 
   it('rejects incomplete or unknown actions', () => {
@@ -55,6 +57,8 @@ describe('purchaseAction', () => {
     expect(() => purchaseAction({ action: 'approveBulk', itemIds: Array.from({ length: 101 }, (_, i) => i + 1) })).toThrow('at most 100');
     expect(() => purchaseAction({ action: 'decide', proposalId: 5, status: 'approved' })).toThrow('supplier option');
     expect(() => purchaseAction({ action: 'decide', proposalId: 5, status: 'sent' })).toThrow('Unknown decision');
+    expect(() => purchaseAction({ action: 'rejectOption' })).toThrow('Offer is missing');
+    expect(() => purchaseAction({ action: 'restoreOption', rejectionId: 0 })).toThrow(PurchaseInputError);
     expect(() => purchaseAction({ action: 'drop' })).toThrow('Unknown action');
     expect(() => purchaseAction(null)).toThrow('Unknown action');
   });

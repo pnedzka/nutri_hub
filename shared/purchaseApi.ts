@@ -106,6 +106,18 @@ export interface ProposalOption {
   productName: string | null;
 }
 
+/**
+ * An offer name hidden from the cards of this product ("Not this product"). Offers named like this no longer show up
+ * for the product, and the name waits in Products to review as an uncertain match.
+ */
+export interface RejectedOffer {
+  id: number;
+  productName: string;
+  supplier: string | null;
+  rejectedBy: string;
+  rejectedAt: string;
+}
+
 /** A BID BUY from Apex Bid with the best supplier offers for it. */
 export interface Proposal {
   id: number;
@@ -128,6 +140,7 @@ export interface Proposal {
   reviewNote: string | null;
   chosenOptionId: number | null;
   options: ProposalOption[];
+  rejected: RejectedOffer[];
 }
 
 export interface ProposalPage {
@@ -136,7 +149,10 @@ export interface ProposalPage {
   items: Proposal[];
 }
 
-/** POST body. Every action closes the item or the proposal and saves who decided (the signed-in person). */
+/**
+ * POST body. Every action closes the item or the proposal and saves who decided (the signed-in person).
+ * rejectOption hides an offer that is not the product of the BID BUY (see RejectedOffer); restoreOption brings it back.
+ */
 export type PurchaseAction =
   | { action: 'approve'; itemId: number; name?: string; category?: string }
   | { action: 'merge'; itemId: number; targetId: number }
@@ -144,6 +160,8 @@ export type PurchaseAction =
   | { action: 'remap'; itemId: number; targetId: number }
   | { action: 'approveBulk'; itemIds: number[] }
   | { action: 'decide'; proposalId: number; status: 'approved' | 'rejected' | 'pending_review'; optionId?: number; note?: string }
+  | { action: 'rejectOption'; optionId: number }
+  | { action: 'restoreOption'; rejectionId: number }
   | { action: 'undo' };
 
 /** The latest review decision of the signed-in person that can still be undone (GET view=lastDecision). */
@@ -231,6 +249,10 @@ export function purchaseAction(body: unknown): PurchaseAction {
       if (status === 'approved' && !optionId) throw new PurchaseInputError('Choose a supplier option.');
       return { action: 'decide', proposalId: id(b.proposalId, 'Proposal'), status, optionId, note: text(b.note, 500) };
     }
+    case 'rejectOption':
+      return { action: 'rejectOption', optionId: id(b.optionId, 'Offer') };
+    case 'restoreOption':
+      return { action: 'restoreOption', rejectionId: id(b.rejectionId, 'Rejected offer') };
     case 'undo':
       return { action: 'undo' };
     default:
