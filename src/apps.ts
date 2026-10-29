@@ -1,4 +1,4 @@
-import { Building2, Calculator, CalendarDays, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, Calculator, CalendarDays, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
@@ -119,6 +119,15 @@ export const APPS: AppTile[] = [
     note: 'Separate sign-in',
   },
   {
+    // The "Create user accounts" permission: User management with only the form for a new account.
+    id: 'create-users',
+    name: 'New user accounts',
+    description: 'Invite new colleagues and choose which of your apps they can use.',
+    url: '/users',
+    icon: UserPlus,
+    audience: 'app',
+  },
+  {
     id: 'users',
     name: 'User management',
     description: 'Invite people, choose their apps, reset passwords and assign roles.',
@@ -151,7 +160,10 @@ export function sectionsFor(
     {
       title: 'Your apps',
       apps: apps.filter(
-        (a) => a.audience === 'everyone' || (a.audience === 'app' && isAppId(a.id) && available(a.id, enabledModules) && canUse(user, a.id)),
+        (a) =>
+          a.audience === 'everyone' ||
+          // Administrators create accounts in User management (Administration).
+          (a.audience === 'app' && isAppId(a.id) && available(a.id, enabledModules) && canUse(user, a.id) && !(a.id === 'create-users' && user.role === 'admin')),
       ),
     },
   ];

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Ban, KeyRound, Mail, Pencil, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { APP_IDS, APP_NAMES, DEFAULT_APPS, type AppId, type Role } from '../../shared/access.ts';
+import { APP_IDS, APP_NAMES, DEFAULT_APPS, grantableApps, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
 import { available } from '../apps';
 import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
@@ -56,17 +56,39 @@ function UserName({ user }: { user: UserRow }) {
   );
 }
 
-/** Checkboxes for the apps a person may use. Administrators may use every app, so the list is then fixed. */
-function AppPicker({ value, onChange, admin, disabled }: { value: AppId[]; onChange: (apps: AppId[]) => void; admin: boolean; disabled?: boolean }) {
+const APP_NOTES: Partial<Record<AppId, string>> = {
+  intranet: '(tile only, separate sign-in)',
+  'create-users': '(invites new people, with apps they have themselves)',
+};
+
+/**
+ * Checkboxes for the apps a person may use. Administrators may use every app, so the list is then fixed. `options`
+ * limits the list (someone who is not an administrator gives only their own apps).
+ */
+function AppPicker({
+  value,
+  onChange,
+  admin,
+  disabled,
+  options = APP_IDS,
+}: {
+  value: AppId[];
+  onChange: (apps: AppId[]) => void;
+  admin: boolean;
+  disabled?: boolean;
+  options?: readonly AppId[];
+}) {
   const toggle = (id: AppId, on: boolean) => onChange(APP_IDS.filter((a) => (a === id ? on : value.includes(a))));
   return (
     <fieldset className="space-y-1" disabled={disabled}>
       <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Apps</legend>
-      {APP_IDS.filter((id) => available(id)).map((id) => (
-        <label key={id} className="flex items-center gap-2 min-h-8 pointer-coarse:min-h-11 text-sm text-gray-700">
-          <input type="checkbox" checked={admin || value.includes(id)} disabled={admin} onChange={(e) => toggle(id, e.target.checked)} />
-          {APP_NAMES[id]}
-          {id === 'intranet' && <span className="text-xs text-gray-400">(tile only, separate sign-in)</span>}
+      {options.filter((id) => available(id)).map((id) => (
+        <label key={id} className="flex items-start gap-2 py-1 min-h-8 pointer-coarse:min-h-11 text-sm text-gray-700">
+          <input type="checkbox" className="mt-0.5" checked={admin || value.includes(id)} disabled={admin} onChange={(e) => toggle(id, e.target.checked)} />
+          <span>
+            {APP_NAMES[id]}
+            {APP_NOTES[id] && <span className="ml-1 text-xs text-gray-400">{APP_NOTES[id]}</span>}
+          </span>
         </label>
       ))}
       {admin && <p className="text-xs text-gray-500">Administrators can use every app.</p>}
@@ -126,21 +148,32 @@ function UserApps({ user, onSave }: { user: UserRow; onSave: (apps: AppId[]) => 
 
 export function UsersPage() {
   const me = useAuth((s) => s.user);
+  // Not an administrator: "Create user accounts" only, so the page is just the form for a new account.
+  const isAdmin = me?.role === 'admin';
+  const grantable = me ? grantableApps(me) : [];
   const toast = useToast();
   const [users, setUsers] = useState<UserRow[] | null>(null);
-  const emptyForm = () => ({ email: '', fullName: '', password: randomPassword(), role: 'user' as Role, apps: [...DEFAULT_APPS] as AppId[], invite: true });
+  const emptyForm = () => ({
+    email: '',
+    fullName: '',
+    password: randomPassword(),
+    role: 'user' as Role,
+    apps: DEFAULT_APPS.filter((id) => grantable.includes(id)),
+    invite: true,
+  });
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null);
 
   const load = useCallback(async () => {
+    if (!isAdmin) return;
     try {
       setUsers((await api<{ users: UserRow[] }>('/api/admin/users')).users);
     } catch (e) {
       toast.error('Could not load users', (e as Error).message);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set when the request resolves
@@ -270,9 +303,11 @@ export function UsersPage() {
         <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
           <ArrowLeft size={14} /> All apps
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{isAdmin ? 'Users' : 'New user accounts'}</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Accounts are created here. A new person gets an e-mail with a link to set a password, and then sees only the apps you choose. Contact details and photos are under Edit; everyone can also change their own in My profile.
+          {isAdmin
+            ? 'Accounts are created here. A new person gets an e-mail with a link to set a password, and then sees only the apps you choose. Contact details and photos are under Edit; everyone can also change their own in My profile.'
+            : 'Invite a new colleague: they get an e-mail with a link to set a password, and then see only the apps you choose (from the ones you have). Changes to existing accounts are made by administrators.'}
         </p>
       </div>
       <div className="grid grid-cols-1 gap-6 items-start">
@@ -285,21 +320,26 @@ export function UsersPage() {
             <form onSubmit={create} className="space-y-4">
               <Input label="E-mail" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               <Input label="Full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
-              <label className="flex items-start gap-2 text-sm text-gray-700">
-                <input type="checkbox" className="mt-0.5" checked={form.invite} onChange={(e) => setForm({ ...form, invite: e.target.checked })} />
-                <span>
-                  Send an e-mail invitation
-                  <span className="block text-xs text-gray-500">The user sets their own password via the link in the e-mail.</span>
-                </span>
-              </label>
+              {/* Only administrators may set a start password or create administrators (newAccountProblem). */}
+              {isAdmin && (
+                <label className="flex items-start gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="mt-0.5" checked={form.invite} onChange={(e) => setForm({ ...form, invite: e.target.checked })} />
+                  <span>
+                    Send an e-mail invitation
+                    <span className="block text-xs text-gray-500">The user sets their own password via the link in the e-mail.</span>
+                  </span>
+                </label>
+              )}
               {!form.invite && (
                 <Input label="Initial password" required minLength={10} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
               )}
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" checked={form.role === 'admin'} onChange={(e) => setForm({ ...form, role: e.target.checked ? 'admin' : 'user' })} />
-                Administrator (manages users, can use every app)
-              </label>
-              <AppPicker value={form.apps} onChange={(apps) => setForm({ ...form, apps })} admin={form.role === 'admin'} />
+              {isAdmin && (
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={form.role === 'admin'} onChange={(e) => setForm({ ...form, role: e.target.checked ? 'admin' : 'user' })} />
+                  Administrator (manages users, can use every app)
+                </label>
+              )}
+              <AppPicker value={form.apps} onChange={(apps) => setForm({ ...form, apps })} admin={form.role === 'admin'} options={grantable} />
               <Button type="submit" isLoading={busy}>{form.invite ? 'Send invitation' : 'Create account'}</Button>
             </form>
             {created && (
@@ -312,66 +352,69 @@ export function UsersPage() {
                   </>
                 ) : (
                   <p>
-                    Invitation sent to <span className="font-medium break-all">{created.email}</span>. The link in the e-mail works only once. If it expires, send it again from the account list.
+                    Invitation sent to <span className="font-medium break-all">{created.email}</span>. The link in the e-mail works only once.{' '}
+                    {isAdmin ? 'If it expires, send it again from the account list.' : 'If it expires, an administrator can send it again.'}
                   </p>
                 )}
               </div>
             )}
           </CardBody>
         </Card>
-        <Card>
-          <CardHeader className="flex items-center gap-2">
-            <Users size={16} className="text-[#CC1F1F]" />
-            <h2 className="text-sm font-semibold text-gray-900">Accounts {users ? `(${users.length})` : ''}</h2>
-          </CardHeader>
-          {/* Phones: one card per account. */}
-          <ul className="md:hidden divide-y divide-gray-100">
-            {(users ?? []).map((u) => (
-              <li key={u.id} className="px-4 py-4 space-y-3">
-                <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <UserName user={u} />
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                    {statusPill(u)}
-                    <span>Last sign-in {formatDateTime(u.last_sign_in_at)}</span>
+        {isAdmin && (
+          <Card>
+            <CardHeader className="flex items-center gap-2">
+              <Users size={16} className="text-[#CC1F1F]" />
+              <h2 className="text-sm font-semibold text-gray-900">Accounts {users ? `(${users.length})` : ''}</h2>
+            </CardHeader>
+            {/* Phones: one card per account. */}
+            <ul className="md:hidden divide-y divide-gray-100">
+              {(users ?? []).map((u) => (
+                <li key={u.id} className="px-4 py-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <UserName user={u} />
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                      {statusPill(u)}
+                      <span>Last sign-in {formatDateTime(u.last_sign_in_at)}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="shrink-0 -mr-2 -mt-1">{actions(u)}</div>
-                </div>
-                {roleSelect(u)}
-                <UserApps user={u} onSave={setApps(u)} />
-              </li>
-            ))}
-          </ul>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-100">
-                  <th className="px-6 py-3">User</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Apps</th>
-                  <th className="px-4 py-3">Last sign-in</th>
-                  <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {(users ?? []).map((u) => (
-                  <tr key={u.id} className="border-b border-gray-50 last:border-0">
-                    <td className="px-6 py-3">
-                      <UserName user={u} />
-                      <div className="mt-1">{statusPill(u)}</div>
-                    </td>
-                    <td className="px-4 py-3">{roleSelect(u)}</td>
-                    <td className="px-4 py-3 max-w-[260px]"><UserApps user={u} onSave={setApps(u)} /></td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap" title={`Created ${formatDateTime(u.created_at)}`}>{formatDateTime(u.last_sign_in_at)}</td>
-                    <td className="px-4 py-3 text-right">{actions(u)}</td>
+                  <div className="shrink-0 -mr-2 -mt-1">{actions(u)}</div>
+                  </div>
+                  {roleSelect(u)}
+                  <UserApps user={u} onSave={setApps(u)} />
+                </li>
+              ))}
+            </ul>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                    <th className="px-6 py-3">User</th>
+                    <th className="px-4 py-3">Role</th>
+                    <th className="px-4 py-3">Apps</th>
+                    <th className="px-4 py-3">Last sign-in</th>
+                    <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-        <OfficesCard />
+                </thead>
+                <tbody>
+                  {(users ?? []).map((u) => (
+                    <tr key={u.id} className="border-b border-gray-50 last:border-0">
+                      <td className="px-6 py-3">
+                        <UserName user={u} />
+                        <div className="mt-1">{statusPill(u)}</div>
+                      </td>
+                      <td className="px-4 py-3">{roleSelect(u)}</td>
+                      <td className="px-4 py-3 max-w-[260px]"><UserApps user={u} onSave={setApps(u)} /></td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap" title={`Created ${formatDateTime(u.created_at)}`}>{formatDateTime(u.last_sign_in_at)}</td>
+                      <td className="px-4 py-3 text-right">{actions(u)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+        {isAdmin && <OfficesCard />}
       </div>
     </div>
   );
