@@ -29,6 +29,9 @@ const STATUS_TONE: Record<ProposalStatus, 'amber' | 'green' | 'red' | 'gray' | '
   expired: 'gray',
 };
 
+// Cards list every offer for the product (decision of 29.10.2026), cheapest first; the rest open on demand.
+const SHOWN_OPTIONS = 5;
+
 const th = 'px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap';
 const td = 'px-3 py-2.5 align-top';
 
@@ -37,6 +40,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
   const [note, setNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const open = p.status === 'pending_review';
   const decided = p.status === 'approved' || p.status === 'rejected';
   // Missing until db/central/bid_option_reject.sql runs in the central database.
@@ -105,7 +109,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {p.options.map((o) => {
+            {(showAll ? p.options : p.options.filter((o, i) => i < SHOWN_OPTIONS || o.id === p.chosenOptionId || o.id === option)).map((o) => {
               const chosen = p.chosenOptionId === o.id;
               return (
                 <tr key={o.id} className={chosen ? 'bg-green-50/60' : undefined}>
@@ -124,7 +128,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                     )}
                   </td>
                   <td className={`${td} min-w-40`}>
-                    <p className="font-medium text-gray-900">{o.supplier ?? 'Unknown supplier'}</p>
+                    <p className="font-medium text-gray-900">{o.supplier ?? (o.trader ? `BID SELL from ${o.trader}` : 'Unknown supplier')}</p>
                     {o.productName && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">{o.productName}</p>}
                   </td>
                   <td className={`${td} whitespace-nowrap font-medium text-gray-900`}>{eur(o.priceEurPerKg)}</td>
@@ -159,6 +163,15 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
           </tbody>
         </table>
       </div>
+      {!showAll && p.options.length > SHOWN_OPTIONS && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="mt-2 min-h-11 text-sm font-medium text-[#CC1F1F] hover:underline sm:min-h-0"
+        >
+          Show all {p.options.length} offers
+        </button>
+      )}
       {open && p.options.length === 0 && (
         <p className="mt-3 text-sm text-gray-500">No supplier offers left for this product. Reject the proposal or wait for new offers.</p>
       )}
@@ -276,7 +289,7 @@ export function Proposals() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
-        Each BID BUY from Apex Bid with the cheapest recent supplier offers for the same product (purchase prices only). Approve the offer you would
+        Each BID BUY from Apex Bid with all supplier offers for the same product, cheapest first (purchase prices only). Approve the offer you would
         send to the sales rep, or reject the proposal. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
         for this product, and the name goes to Products to review.
       </p>

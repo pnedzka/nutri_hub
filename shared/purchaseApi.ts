@@ -104,6 +104,8 @@ export interface ProposalOption {
   /** airtable (purchase@) | apex_bid (BID SELL) | … */
   source: string | null;
   productName: string | null;
+  /** Who posted a BID SELL on WhatsApp (Apex Bid does not say which supplier it comes from). */
+  trader?: string | null;
 }
 
 /**
