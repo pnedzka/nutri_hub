@@ -2,13 +2,14 @@
 // administrators may use every app. Each app checks access itself; the hub only shows the tiles a person may use.
 // News and Leave are modules of the hub itself (/news, /leave); their API checks access with requireApp.
 
-export const APP_IDS = ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'intranet'] as const;
+export const APP_IDS = ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'news', 'leave', 'intranet'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 export const APP_NAMES: Record<AppId, string> = {
   neutralizer: 'Document neutralizer',
   signatures: 'E-mail signature generator',
   'owner-lookup': 'HubSpot owner lookup',
+  commission: 'Commission calculator',
   news: 'News',
   leave: 'Leave',
   intranet: 'Intranet',
