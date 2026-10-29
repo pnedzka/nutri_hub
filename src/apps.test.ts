@@ -22,7 +22,7 @@ describe('sectionsFor', () => {
 
   it('hides News, Leave and Phone calls analyser where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'team', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'team', 'intranet']],
       ['Administration', ['users']],
     ]);
     expect(ids({ role: 'user', apps: ['news', 'leave', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'team']]]);
@@ -30,7 +30,7 @@ describe('sectionsFor', () => {
 
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'team', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'news', 'leave', 'team', 'intranet']],
       ['Administration', ['users', 'calls']],
     ]);
   });

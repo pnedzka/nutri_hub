@@ -9,8 +9,9 @@ describe('ssoTarget', () => {
     expect(ssoTarget('neutralizer', null, null, undefined)?.url.href).toBe('https://nutridocumentation-nxdi.vercel.app/');
   });
 
-  it('refuses unknown apps and the intranet', () => {
+  it('refuses unknown apps, the intranet and apps without sign-in', () => {
     expect(ssoTarget('intranet', '/', null, undefined)).toBeNull();
+    expect(ssoTarget('commission', '/', null, undefined)).toBeNull();
     expect(ssoTarget('evil', '/', null, undefined)).toBeNull();
     expect(ssoTarget(null, '/', null, undefined)).toBeNull();
   });
