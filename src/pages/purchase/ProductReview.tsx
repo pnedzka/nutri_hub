@@ -21,8 +21,9 @@ import { useApi } from '../leave/useApi';
 import { PURCHASE_API, percent, whole } from './format';
 import { Pager, Pill, ProductPicker, ProductStatus } from './ui';
 
+// The filter fields and dropdowns share one height; the chevron and the rest come from src/index.css.
 const select =
-  'min-h-11 sm:min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-base sm:text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent';
+  'min-h-11 sm:min-h-10 rounded-lg border border-gray-200 bg-white px-3 text-base sm:text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent';
 
 /** What the item card is showing below its details. */
 type Mode = { kind: 'idle' } | { kind: 'edit' } | { kind: 'merge' } | { kind: 'remap' } | { kind: 'confirmNotProduct' };
@@ -339,6 +340,10 @@ export function ProductReview() {
   const lastDecision = last.data?.last ?? null;
   const bulkable = items.filter((i) => (i.confidence ?? 0) >= BULK_MIN_CONFIDENCE);
   const s = summary.data;
+  // Only categories with something to review (with their counts), so two people can split the work between them.
+  const filterCategories = Object.keys(s?.openByCategory ?? {})
+    .concat(filters.category && !s?.openByCategory?.[filters.category] ? [filters.category] : [])
+    .sort((a, b) => a.localeCompare(b));
 
   return (
     <div className={`space-y-4 ${lastDecision ? 'pb-16' : ''}`}>
@@ -356,7 +361,7 @@ export function ProductReview() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search names…"
-            className="w-full min-h-11 sm:min-h-9 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent"
+            className="w-full min-h-11 sm:min-h-10 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent"
           />
         </div>
         <select aria-label="Type" className={select} value={filters.type ?? ''} onChange={(e) => change({ type: (e.target.value || null) as ReviewFilters['type'] })}>
@@ -366,9 +371,9 @@ export function ProductReview() {
         </select>
         <select aria-label="Category" className={select} value={filters.category ?? ''} onChange={(e) => change({ category: e.target.value || null })}>
           <option value="">All categories</option>
-          {(s?.categories ?? []).map((c) => (
+          {filterCategories.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {c} ({whole(s?.openByCategory?.[c] ?? 0)})
             </option>
           ))}
         </select>

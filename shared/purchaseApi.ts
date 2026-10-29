@@ -60,6 +60,8 @@ export interface ReviewSummary {
   decidedToday: number;
   approvedProducts: number;
   categories: string[];
+  /** Open items per category (only categories that have some), so people can split the review between them. */
+  openByCategory: Record<string, number>;
 }
 
 export interface ReviewFilters {
