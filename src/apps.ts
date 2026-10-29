@@ -36,7 +36,7 @@ export const SIGNATURES_URL = address(env.VITE_SIGNATURES_URL, 'https://nutri-si
 // pnedzka/commission_analyzer: signs in through /sso like the other apps; its server checks the permission.
 export const COMMISSION_URL = address(env.VITE_COMMISSION_URL, 'https://commissionanalyzer.vercel.app');
 
-/** Whether an app is switched on here: News, Leave, Phone calls analyser and Purchase Manager only where VITE_HUB_MODULES lists them (shared/access.ts). */
+/** Whether an app is switched on here: News, Leave and Phone calls analyser only where VITE_HUB_MODULES lists them (shared/access.ts). */
 export const available = (id: ModuleId, enabledModules: string | undefined = env.VITE_HUB_MODULES) => isAvailable(id, enabledModules);
 
 /**

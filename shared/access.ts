@@ -40,7 +40,7 @@ export function toApps(value: unknown): AppId[] {
  * management are hidden and their API answers 404. Releasing a module: add it to VITE_HUB_MODULES in Production,
  * or remove it from this list.
  */
-export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls', 'purchase'];
+export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls'];
 
 /** An app, or a tool of the hub that is not an app in profiles.apps (Phone calls analyser, administrators only). */
 export type ModuleId = AppId | 'calls';

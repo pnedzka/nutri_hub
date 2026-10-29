@@ -26,7 +26,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - **Offices:** lista biur (miasto + adres po angielsku do stopek), z której każdy wybiera swoje biuro;
   - admin ma zawsze wszystkie aplikacje; Intranet w uprawnieniach decyduje tylko o widoczności kafelka starego intranetu (osobne logowanie).
 - **Phone calls analyser** (`/calls`, tylko Admin, sekcja Administration; na produkcji od 23.10.2026): import faktur T-Mobile (PDF) i raport połączeń pracowników. Opis w „Phone calls analyser” niżej.
-- **Purchase Manager** (`/purchase`, uprawnienie `purchase`; od 28.10.2026 tylko w dev): przegląd produktów AI i propozycji bid sell z centralnej bazy Apex 2.0. Opis w „Purchase Manager” niżej.
+- **Purchase Manager** (`/purchase`, uprawnienie `purchase`; na produkcji od 29.10.2026): przegląd produktów AI i propozycji bid sell z centralnej bazy Apex 2.0. Opis w „Purchase Manager” niżej.
 - **Linki z e-maili** (zaproszenie 24 h, reset hasła 1 h) otwierają centrum: ustawiasz hasło i od razu jesteś zalogowany.
 - Nasze aplikacje otwierają się w tej samej karcie. Logo i przycisk „All apps” („Wszystkie aplikacje”) w ich nagłówkach prowadzą z powrotem tutaj.
 - **Moduły centrum (od 20.10.2026):** News i Leave działają w samym centrum, bez osobnego logowania i projektu Vercel (decyzja właściciela: centrum stanie się intranetem). Szczegóły w „Moduły: News i Leave”.
@@ -75,7 +75,7 @@ Admin wgrywa miesięczną fakturę T-Mobile (PDF), a centrum pokazuje, kto ile d
 
 ## Purchase Manager
 
-Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centralnej bazie** (Supabase `nutri-central-db`, `blbcudymvackpudywdyy`), nie w bazie użytkowników centrum. Na razie tylko w dev (`purchase` w `DEV_MODULES`).
+Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centralnej bazie** (Supabase `nutri-central-db`, `blbcudymvackpudywdyy`), nie w bazie użytkowników centrum, i ta sama w dev i na produkcji. Wydany 29.10.2026 (usunięty z `DEV_MODULES`, więc działa bez `VITE_HUB_MODULES`).
 
 - **Products to review:** otwarte pozycje `core.review_queue` (nowe produkty AI i niepewne dopasowania nazw), najpierw te z największą liczbą ofert. Przy każdej: nazwa z oferty, propozycja AI, pewność, uzasadnienie, liczba ofert i do 5 podobnych produktów z katalogu.
   - Akcje: **Approve**, **Edit and approve** (nazwa, kategoria), **Merge into this** / **Merge with…** (duplikat), **Match to this** / **Other product…** (złe dopasowanie), **Not a product**.
@@ -86,7 +86,7 @@ Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centr
 - Każda decyzja zapisuje e-mail osoby, która ją podjęła (`decided_by`, `reviewed_by`). Logika decyzji jest w bazie (funkcje `core.review_*` z `central-db/product_review.sql` projektu Apex 2.0).
 - **Technicznie:** ekrany `src/pages/purchase/`, API `api/_lib/purchase.ts` wpięte w `api/admin/users.ts` (`?resource=purchase`, limit 12 funkcji; dostęp: `requireApp(…, 'purchase')`, nie tylko admini), typy i walidacja z testami w `shared/purchaseApi.ts`.
 - **Połączenie z bazą:** serwer woła tylko funkcje schematu `purchase_api` (`db/central/purchase_api.sql`, SECURITY DEFINER, wykonuje je tylko `service_role`) kluczem secret centralnej bazy. Zmienne (Production i Preview, ta sama baza): `CENTRAL_DB_URL` = `https://blbcudymvackpudywdyy.supabase.co`, `CENTRAL_DB_SECRET_KEY` = klucz secret `nutri-central-db`.
-- **Uruchomienie:** (1) `db/central/purchase_api.sql`, potem `db/central/purchase_undo.sql` w SQL Editorze `nutri-central-db`; (2) Project Settings → Data API → Exposed schemas: dopisać `purchase_api`; (3) zmienne wyżej w Vercelu; (4) `purchase` w `VITE_HUB_MODULES` (Preview); (5) uprawnienie Purchase Manager w User management. Nowe konta nie dostają go domyślnie (`DEFAULT_APPS`).
+- **Uruchomienie:** (1) `db/central/purchase_api.sql`, potem `db/central/purchase_undo.sql` w SQL Editorze `nutri-central-db`; (2) Project Settings → Data API → Exposed schemas: dopisać `purchase_api`; (3) zmienne wyżej w Vercelu; (4) uprawnienie Purchase Manager w User management. Nowe konta nie dostają go domyślnie (`DEFAULT_APPS`).
 
 ## Uprawnienia do aplikacji
 

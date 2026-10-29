@@ -26,8 +26,9 @@ describe('isAvailable', () => {
     expect(isAvailable('leave', 'news')).toBe(false);
     expect(isAvailable('calls', 'news,leave')).toBe(false);
     expect(isAvailable('calls', 'news,leave,calls')).toBe(true);
-    expect(isAvailable('purchase', 'news,leave,calls')).toBe(false);
-    expect(isAvailable('purchase', 'calls,purchase')).toBe(true);
+    // Purchase Manager is released (29.10.2026): available everywhere.
+    expect(isAvailable('purchase', 'news,leave,calls')).toBe(true);
+    expect(isAvailable('purchase', '')).toBe(true);
   });
 });
 
