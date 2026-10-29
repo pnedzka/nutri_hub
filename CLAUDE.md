@@ -137,7 +137,7 @@ Decyzje właściciela: osobna baza dev, wersje dev widzi tylko on, na produkcję
   - centrum i neutralizator: `SUPABASE_SECRET_KEY` (klucz tajny `nutri-dev`, wpisuje go właściciel);
   - whoisowner i stopki: `SUPABASE_ANON_KEY`;
   - linki między aplikacjami: `VITE_HUB_URL` (neutralizator, whoisowner, stopki) → centrum dev; w centrum `VITE_NEUTRALIZER_URL`, `VITE_SIGNATURES_URL`, `VITE_OWNER_LOOKUP_URL` → aplikacje dev (`VITE_INTRANET_URL` z czasów `nutri_intranet` nie jest już czytana; do usunięcia);
-  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures)-[a-z0-9-]+-nutri-partners\.vercel\.app` (wpis `nutri-intranet` jest zbędny) (jedno logowanie wraca też na podglądy PR-ów aplikacji);
+  - centrum: `VITE_SSO_PREVIEW_ORIGINS` = `https://(nutridocumentation-nxdi|whoisowner|nutri-signatures|nutri-intranet|commissionanalyzer|commission-analyzer)-[a-z0-9-]+-nutri-partners\.vercel\.app` (wpis `nutri-intranet` jest zbędny) (jedno logowanie wraca też na podglądy PR-ów aplikacji);
   - neutralizator: `ANTHROPIC_API_KEY` także w Preview; whoisowner: HubSpot i Claude mają te same klucze w obu środowiskach (HubSpot tylko do odczytu);
   - stopki: `BLOB_READ_WRITE_TOKEN` tylko w Production i Development, więc w dev zapisane stopki zostają w przeglądarce i nie zmieniają wspólnej listy zespołu.
   - wszystkie 4 projekty: `SENTRY_DSN`, `VITE_SENTRY_DSN` (ten sam DSN w Production i Preview);
