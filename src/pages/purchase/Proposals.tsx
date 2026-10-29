@@ -29,9 +29,6 @@ const STATUS_TONE: Record<ProposalStatus, 'amber' | 'green' | 'red' | 'gray' | '
   expired: 'gray',
 };
 
-// Cards list every offer for the product (decision of 29.10.2026), cheapest first; the rest open on demand.
-const SHOWN_OPTIONS = 5;
-
 const th = 'px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap';
 const td = 'px-3 py-2.5 align-top';
 
@@ -40,7 +37,6 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
   const [note, setNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [showAll, setShowAll] = useState(false);
   const open = p.status === 'pending_review';
   const decided = p.status === 'approved' || p.status === 'rejected';
   // Missing until db/central/bid_option_reject.sql runs in the central database.
@@ -90,9 +86,10 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
         </details>
       )}
 
-      <div className="mt-3 -mx-4 overflow-x-auto sm:mx-0">
+      {/* Every offer for the product (decision of 29.10.2026), cheapest first; long lists scroll inside the card. */}
+      <div className="mt-3 -mx-4 max-h-[22rem] overflow-auto sm:mx-0">
         <table className="w-full min-w-[36rem] text-sm">
-          <thead className="border-y border-gray-100 bg-gray-50">
+          <thead className="sticky top-0 z-10 border-y border-gray-100 bg-gray-50">
             <tr>
               <th className={`${th} w-10`}>
                 <span className="sr-only">Choose</span>
@@ -109,7 +106,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {(showAll ? p.options : p.options.filter((o, i) => i < SHOWN_OPTIONS || o.id === p.chosenOptionId || o.id === option)).map((o) => {
+            {p.options.map((o) => {
               const chosen = p.chosenOptionId === o.id;
               return (
                 <tr key={o.id} className={chosen ? 'bg-green-50/60' : undefined}>
@@ -163,15 +160,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
           </tbody>
         </table>
       </div>
-      {!showAll && p.options.length > SHOWN_OPTIONS && (
-        <button
-          type="button"
-          onClick={() => setShowAll(true)}
-          className="mt-2 min-h-11 text-sm font-medium text-[#CC1F1F] hover:underline sm:min-h-0"
-        >
-          Show all {p.options.length} offers
-        </button>
-      )}
+      {p.options.length > 5 && <p className="mt-1 text-xs text-gray-500">{p.options.length} offers · scroll the table to see all</p>}
       {open && p.options.length === 0 && (
         <p className="mt-3 text-sm text-gray-500">No supplier offers left for this product. Reject the proposal or wait for new offers.</p>
       )}
