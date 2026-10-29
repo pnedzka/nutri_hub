@@ -1,5 +1,5 @@
 import type { AppId } from '../../shared/access.ts';
-import { NEUTRALIZER_URL, OWNER_LOOKUP_URL, SIGNATURES_URL } from '../apps';
+import { COMMISSION_URL, NEUTRALIZER_URL, OWNER_LOOKUP_URL, SIGNATURES_URL } from '../apps';
 
 // One sign-in for all our apps: an app without a session sends the person to /sso?app=…&to=…&back=…, and the
 // tiles link there too. The hub (signing the person in first if needed) gets a one-time token from /api/sso and
@@ -9,6 +9,7 @@ const APP_URLS: Partial<Record<AppId, string>> = {
   neutralizer: NEUTRALIZER_URL,
   signatures: SIGNATURES_URL,
   'owner-lookup': OWNER_LOOKUP_URL,
+  commission: COMMISSION_URL,
 };
 
 export const isSsoApp = (id: string): id is AppId => id in APP_URLS;

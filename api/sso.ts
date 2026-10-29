@@ -11,14 +11,13 @@ import { HttpError, handle, json, readJson } from './_lib/http.js';
 import { db } from './_lib/supabase.js';
 import { logError } from './_lib/monitoring.js';
 
-const HUB_OWN: AppId[] = ['intranet', 'news', 'leave', 'commission'];
+const HUB_OWN: AppId[] = ['intranet', 'news', 'leave'];
 
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
     const profile = await requireUser(request);
     const body = await readJson<{ app?: unknown }>(request);
-    // The old intranet has its own accounts; News and Leave are parts of the hub and the commission calculator has
-    // no sign-in, so they need no token.
+    // The old intranet has its own accounts and News and Leave are parts of the hub, so they need no token.
     if (!isAppId(body.app) || HUB_OWN.includes(body.app)) throw new HttpError(400, 'Unknown app.');
     if (!canUse(profile, body.app)) throw new HttpError(403, `You don't have access to ${APP_NAMES[body.app]}. Ask your administrator.`);
 
