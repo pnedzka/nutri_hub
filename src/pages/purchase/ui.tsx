@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
-import type { ProductHit } from '../../../shared/purchaseApi.ts';
+import { Mail, Search } from 'lucide-react';
+import type { EmailOf, ProductHit } from '../../../shared/purchaseApi.ts';
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
+import { useToast } from '../../lib/toast';
 import { PURCHASE_API, sourceName, whole } from './format';
 
 export function Pill({ children, tone = 'gray', title }: { children: React.ReactNode; tone?: 'gray' | 'green' | 'amber' | 'red' | 'blue'; title?: string }) {
@@ -129,5 +130,31 @@ export function ProductPicker({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** "Copy e-mail" next to an offer, so Purchase Manager can ask the supplier about availability or price. */
+export function CopyEmail({ email, of }: { email?: string | null; of?: EmailOf | null }) {
+  const toast = useToast();
+  if (!email) return null;
+  const whose = of === 'trader' ? 'trader who posted this BID SELL' : 'supplier';
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(email);
+      toast.success('E-mail copied', email);
+    } catch {
+      toast.error('Could not copy', email);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      title={`Copy the e-mail of the ${whose}: ${email}`}
+      className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 sm:min-h-7"
+    >
+      <Mail className="h-3.5 w-3.5" aria-hidden />
+      {of === 'trader' ? 'Copy trader e-mail' : 'Copy e-mail'}
+    </button>
   );
 }

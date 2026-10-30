@@ -4,7 +4,7 @@ import { OFFER_SEARCH_MIN, type OfferSearchResult, type PurchaseAction } from '.
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
 import { PURCHASE_API, dateAgo, eur, kg, sourceName, whole } from './format';
-import { Pill } from './ui';
+import { CopyEmail, Pill } from './ui';
 
 /**
  * The search on a BID BUY card (decision of 30.10.2026): a phrase looked up in all offers of the database and in the
@@ -101,7 +101,8 @@ export function OfferSearch({
                       <p className="text-xs text-gray-500">{[o.incoterms, o.location].filter(Boolean).join(' ') || '—'}</p>
                       {o.quantityKg !== null && <p className="text-xs text-gray-500">{kg(o.quantityKg)} available</p>}
                     </div>
-                    <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                      <CopyEmail email={o.email} of={o.emailOf} />
                       {open && (
                         <Button
                           size="sm"
