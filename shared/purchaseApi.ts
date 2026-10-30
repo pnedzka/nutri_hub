@@ -7,6 +7,7 @@
 //   GET  ?resource=purchase&view=search&q                                  → { products: ProductHit[] }
 //   GET  ?resource=purchase&view=lastDecision                              → { last: LastDecision | null }
 //   GET  ?resource=purchase&view=proposals&status&page                     → ProposalPage
+//   GET  ?resource=purchase&view=offerSearch&proposal&q                    → OfferSearchResult
 //   POST ?resource=purchase  body PurchaseAction                           → { result }
 //
 // Purchase prices only: suggested sell prices and margins are out of scope (decision of 28.10.2026).
@@ -145,6 +146,52 @@ export interface Proposal {
   rejected: RejectedOffer[];
 }
 
+/** An offer found by the search on a BID BUY card, anywhere in the database (not only the card's product). */
+export interface FoundOffer {
+  offerId: number;
+  supplier: string | null;
+  priceEurPerKg: number | null;
+  incoterms: string | null;
+  location: string | null;
+  leadTime: string | null;
+  quantityKg: number | null;
+  offeredAt: string | null;
+  source: string | null;
+  productName: string | null;
+  trader: string | null;
+  /** The catalogue product the offer is matched to now, if any. */
+  productId: number | null;
+  product: string | null;
+  /** Already matched to the card's product (hidden from the card by ✕, or added after the card was built). */
+  onThisProduct: boolean;
+}
+
+/** A purchase contract from the intranet found by the search (purchase price only). */
+export interface FoundContract {
+  id: number;
+  contractId: string | null;
+  status: string | null;
+  supplier: string | null;
+  productName: string | null;
+  product: string | null;
+  quantityKg: number | null;
+  priceEurPerKg: number | null;
+  incoterms: string | null;
+  date: string | null;
+}
+
+/** Newest first; offers already on the card are left out. */
+export interface OfferSearchResult {
+  q: string;
+  total: number;
+  offers: FoundOffer[];
+  contractsTotal: number;
+  contracts: FoundContract[];
+}
+
+/** The search needs at least this many characters. */
+export const OFFER_SEARCH_MIN = 2;
+
 export interface ProposalPage {
   total: number;
   counts: Partial<Record<ProposalStatus, number>>;
@@ -154,6 +201,8 @@ export interface ProposalPage {
 /**
  * POST body. Every action closes the item or the proposal and saves who decided (the signed-in person).
  * rejectOption hides an offer that is not the product of the BID BUY (see RejectedOffer); restoreOption brings it back.
+ * chooseOffer approves the proposal with an offer found by the search; assignOffer ("Add to this product") moves every
+ * offer with that offer's name to the card's product, so they show up on its cards from now on.
  */
 export type PurchaseAction =
   | { action: 'approve'; itemId: number; name?: string; category?: string }
@@ -164,6 +213,8 @@ export type PurchaseAction =
   | { action: 'decide'; proposalId: number; status: 'approved' | 'rejected' | 'pending_review'; optionId?: number; note?: string }
   | { action: 'rejectOption'; optionId: number }
   | { action: 'restoreOption'; rejectionId: number }
+  | { action: 'chooseOffer'; proposalId: number; offerId: number; note?: string }
+  | { action: 'assignOffer'; proposalId: number; offerId: number }
   | { action: 'undo' };
 
 /** The latest review decision of the signed-in person that can still be undone (GET view=lastDecision). */
@@ -255,6 +306,10 @@ export function purchaseAction(body: unknown): PurchaseAction {
       return { action: 'rejectOption', optionId: id(b.optionId, 'Offer') };
     case 'restoreOption':
       return { action: 'restoreOption', rejectionId: id(b.rejectionId, 'Rejected offer') };
+    case 'chooseOffer':
+      return { action: 'chooseOffer', proposalId: id(b.proposalId, 'Proposal'), offerId: id(b.offerId, 'Offer'), note: text(b.note, 500) };
+    case 'assignOffer':
+      return { action: 'assignOffer', proposalId: id(b.proposalId, 'Proposal'), offerId: id(b.offerId, 'Offer') };
     case 'undo':
       return { action: 'undo' };
     default:
