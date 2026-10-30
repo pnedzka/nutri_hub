@@ -16,6 +16,7 @@ import { useToast } from '../../lib/toast';
 import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { useApi } from '../leave/useApi';
 import { PURCHASE_API, dateAgo, eur, kg, sourceName } from './format';
+import { OfferSearch } from './OfferSearch';
 import { Pager, Pill } from './ui';
 
 type Filter = ProposalStatus | 'all';
@@ -47,6 +48,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
     const ok = await onDecide(action, done);
     setBusy(false);
     if (ok) setRejecting(false);
+    return ok;
   };
 
   const request = [kg(p.requestedKg), [p.requestedIncoterms, p.requestedLocation].filter(Boolean).join(' '), p.targetPriceEurPerKg !== null && `target ${eur(p.targetPriceEurPerKg)}`]
@@ -193,6 +195,8 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
         </details>
       )}
 
+      <OfferSearch proposalId={p.id} open={open} busy={busy} onDecide={decide} />
+
       {(p.reviewedBy || p.reviewNote) && (
         <p className="mt-3 text-xs text-gray-500">
           {p.reviewedBy && `${PROPOSAL_STATUS_NAMES[p.status]} by ${p.reviewedBy}, ${formatDateTime(p.reviewedAt)}`}
@@ -280,7 +284,8 @@ export function Proposals() {
       <p className="text-sm text-gray-600">
         Each BID BUY from Apex Bid with all supplier offers for the same product, cheapest first (purchase prices only). Approve the offer you would
         send to the sales rep, or reject the proposal. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
-        for this product, and the name goes to Products to review.
+        for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
+        card: approve the one you found, or add it to the card's product.
       </p>
       <nav className="-mx-4 overflow-x-auto sm:mx-0" aria-label="Status">
         <div className="flex gap-2 px-4 sm:flex-wrap sm:px-0">
