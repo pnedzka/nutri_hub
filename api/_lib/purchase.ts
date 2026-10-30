@@ -9,6 +9,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   BULK_MIN_CONFIDENCE,
+  OFFER_SEARCH_MIN,
   PROPOSALS_PAGE_SIZE,
   PurchaseInputError,
   REVIEW_PAGE_SIZE,
@@ -96,6 +97,13 @@ export function purchaseGet(request: Request): Promise<Response> {
         if (q.length < 2) return json({ products: [] });
         return json({ products: await call('search_products', { p_q: q, p_limit: 10 }) });
       }
+      case 'offerSearch': {
+        const proposal = Number.parseInt(params.get('proposal') ?? '', 10);
+        if (!(proposal > 0)) throw new HttpError(400, 'Proposal is missing.');
+        const q = params.get('q')?.trim().replace(/\s+/g, ' ').slice(0, 100) ?? '';
+        if (q.length < OFFER_SEARCH_MIN) return json({ q, total: 0, offers: [], contractsTotal: 0, contracts: [] });
+        return json(await call('offer_search', { p_proposal_id: proposal, p_q: q, p_limit: 50 }));
+      }
       case 'proposals': {
         const status = params.get('status');
         const page = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1);
@@ -131,6 +139,10 @@ function run(action: PurchaseAction, by: string): Promise<unknown> {
       return call('bid_option_reject', { p_option_id: action.optionId, p_by: by });
     case 'restoreOption':
       return call('bid_option_restore', { p_rejection_id: action.rejectionId, p_by: by });
+    case 'chooseOffer':
+      return call('bid_proposal_choose_offer', { p_id: action.proposalId, p_offer_id: action.offerId, p_by: by, p_note: action.note ?? null });
+    case 'assignOffer':
+      return call('offer_assign_product', { p_proposal_id: action.proposalId, p_offer_id: action.offerId, p_by: by });
     case 'decide':
       return call('bid_proposal_decide', {
         p_id: action.proposalId,
