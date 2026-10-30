@@ -107,11 +107,14 @@ export function purchaseGet(request: Request): Promise<Response> {
       case 'proposals': {
         const status = params.get('status');
         const page = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1);
+        const q = params.get('q')?.trim().replace(/\s+/g, ' ').slice(0, 100) ?? '';
         return json(
           await call('bid_proposal_list', {
             p_status: status === 'all' ? null : (proposalStatus(status) ?? 'pending_review'),
             p_limit: PROPOSALS_PAGE_SIZE,
             p_offset: (page - 1) * PROPOSALS_PAGE_SIZE,
+            // Only with a phrase, so the list keeps working before db/central/bid_search.sql runs.
+            ...(q.length >= OFFER_SEARCH_MIN && { p_q: q }),
           }),
         );
       }

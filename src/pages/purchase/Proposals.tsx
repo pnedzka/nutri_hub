@@ -1,6 +1,7 @@
-import { X } from 'lucide-react';
-import { useState } from 'react';
+import { Search, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
+  OFFER_SEARCH_MIN,
   PROPOSALS_PAGE_SIZE,
   PROPOSAL_STATUS_NAMES,
   type Proposal,
@@ -266,7 +267,22 @@ export function Proposals() {
   const toast = useToast();
   const [filter, setFilter] = useState<Filter>('pending_review');
   const [page, setPage] = useState(1);
-  const { data, error, reload } = useApi<ProposalPage>(`${PURCHASE_API}&view=proposals&status=${filter}&page=${page}`);
+  // The BID BUY search (decision of 30.10.2026): looks through every card on every page; the counts follow it.
+  const [q, setQ] = useState('');
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    const phrase = q.trim().replace(/\s+/g, ' ');
+    const next = phrase.length >= OFFER_SEARCH_MIN ? phrase : '';
+    if (next === query) return;
+    const timer = setTimeout(() => {
+      setQuery(next);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q, query]);
+  const { data, error, reload } = useApi<ProposalPage>(
+    `${PURCHASE_API}&view=proposals&status=${filter}&page=${page}${query ? `&q=${encodeURIComponent(query)}` : ''}`,
+  );
 
   const onDecide = async (action: PurchaseAction, done: string) => {
     try {
@@ -290,6 +306,18 @@ export function Proposals() {
         for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
         card: approve the one you found, or add it to the card's product.
       </p>
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          aria-label="Search BID BUY"
+          placeholder="Search all BID BUY: product, customer, sales rep or message text"
+          maxLength={100}
+          className="w-full min-h-11 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent"
+        />
+      </div>
       <nav className="-mx-4 overflow-x-auto sm:mx-0" aria-label="Status">
         <div className="flex gap-2 px-4 sm:flex-wrap sm:px-0">
           {FILTERS.map((f) => {
@@ -316,7 +344,9 @@ export function Proposals() {
       </nav>
       {error && <ErrorNote>{error}</ErrorNote>}
       {!data && !error && <Loading />}
-      {data && data.items.length === 0 && <Empty>No proposals here.</Empty>}
+      {data && data.items.length === 0 && (
+        <Empty>{query ? `No BID BUY matching “${query}” here. Other statuses may have some: see the counts above.` : 'No proposals here.'}</Empty>
+      )}
       <ul className="space-y-3">
         {data?.items.map((p) => (
           <li key={`${p.id}-${p.status}`}>
