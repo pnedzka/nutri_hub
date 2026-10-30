@@ -107,7 +107,13 @@ export interface ProposalOption {
   productName: string | null;
   /** Who posted a BID SELL on WhatsApp (Apex Bid does not say which supplier it comes from). */
   trader?: string | null;
+  /** Whom to write about the offer (db/central/offer_email.sql): the supplier's contact, or the trader of a BID SELL. */
+  email?: string | null;
+  emailOf?: EmailOf | null;
 }
+
+/** supplier: the contact the offer came from (or another contact of that company); trader: who posted the BID SELL. */
+export type EmailOf = 'supplier' | 'trader';
 
 /**
  * An offer name hidden from the cards of this product ("Not this product"). Offers named like this no longer show up
@@ -159,6 +165,8 @@ export interface FoundOffer {
   source: string | null;
   productName: string | null;
   trader: string | null;
+  email?: string | null;
+  emailOf?: EmailOf | null;
   /** The catalogue product the offer is matched to now, if any. */
   productId: number | null;
   product: string | null;

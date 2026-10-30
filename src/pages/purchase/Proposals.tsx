@@ -17,7 +17,7 @@ import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { useApi } from '../leave/useApi';
 import { PURCHASE_API, dateAgo, eur, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';
-import { Pager, Pill } from './ui';
+import { CopyEmail, Pager, Pill } from './ui';
 
 type Filter = ProposalStatus | 'all';
 const FILTERS: Filter[] = ['pending_review', 'approved', 'rejected', 'expired', 'all'];
@@ -129,6 +129,9 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                   <td className={`${td} min-w-40`}>
                     <p className="font-medium text-gray-900">{o.supplier ?? (o.trader ? `BID SELL from ${o.trader}` : 'Unknown supplier')}</p>
                     {o.productName && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">{o.productName}</p>}
+                    <div className="-ml-2">
+                      <CopyEmail email={o.email} of={o.emailOf} />
+                    </div>
                   </td>
                   <td className={`${td} whitespace-nowrap font-medium text-gray-900`}>{eur(o.priceEurPerKg)}</td>
                   <td className={`${td} text-gray-700`}>
