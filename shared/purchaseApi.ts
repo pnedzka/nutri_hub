@@ -6,7 +6,7 @@
 //   GET  ?resource=purchase&view=review&type&category&maxConfidence&withOffers&q&page → ReviewPage
 //   GET  ?resource=purchase&view=search&q                                  → { products: ProductHit[] }
 //   GET  ?resource=purchase&view=lastDecision                              → { last: LastDecision | null }
-//   GET  ?resource=purchase&view=proposals&status&page                     → ProposalPage
+//   GET  ?resource=purchase&view=proposals&status&page&q                   → ProposalPage (q: BID BUY search, all pages)
 //   GET  ?resource=purchase&view=offerSearch&proposal&q                    → OfferSearchResult
 //   POST ?resource=purchase  body PurchaseAction                           → { result }
 //
@@ -197,7 +197,7 @@ export interface OfferSearchResult {
   contracts: FoundContract[];
 }
 
-/** The search needs at least this many characters. */
+/** Both searches (offers on a card, BID BUY cards in the list) need at least this many characters. */
 export const OFFER_SEARCH_MIN = 2;
 
 export interface ProposalPage {
