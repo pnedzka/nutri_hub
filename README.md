@@ -78,6 +78,8 @@ Admin wgrywa miesięczną fakturę T-Mobile (PDF), a centrum pokazuje, kto ile d
 
 Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centralnej bazie** (Supabase `nutri-central-db`, `blbcudymvackpudywdyy`), nie w bazie użytkowników centrum, i ta sama w dev i na produkcji. Wydany 29.10.2026 (usunięty z `DEV_MODULES`, więc działa bez `VITE_HUB_MODULES`).
 
+Zakładki: **Bid sell proposals** (`/purchase`, ekran domyślny od 30.10.2026; stary adres `/purchase/proposals` przekierowuje) i **Products to review** (`/purchase/products`).
+
 - **Products to review:** otwarte pozycje `core.review_queue` (nowe produkty AI i niepewne dopasowania nazw), najpierw te z największą liczbą ofert. Przy każdej: nazwa z oferty, propozycja AI, pewność, uzasadnienie, liczba ofert i do 5 podobnych produktów z katalogu.
   - Akcje: **Approve**, **Edit and approve** (nazwa, kategoria), **Merge into this** / **Merge with…** (duplikat), **Match to this** / **Other product…** (złe dopasowanie), **Not a product**.
   - **Approve selected:** masowe zatwierdzenie pozycji, których AI jest pewne w co najmniej 90% (inne serwer pomija).

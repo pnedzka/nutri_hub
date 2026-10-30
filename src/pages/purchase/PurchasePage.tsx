@@ -1,13 +1,16 @@
 import { ArrowLeft } from 'lucide-react';
-import { Link, NavLink, Route, Routes } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { ProductReview } from './ProductReview';
 import { Proposals } from './Proposals';
 
-/** Purchase Manager: products AI proposed (the catalogue every match depends on) and bid sell proposals. */
+/**
+ * Purchase Manager: bid sell proposals (the default screen, decision of 30.10.2026) and products AI proposed (the
+ * catalogue every match depends on). /purchase/proposals is the old address of the proposals and still works.
+ */
 export function PurchasePage() {
   const tabs = [
-    { to: '/purchase', label: 'Products to review' },
-    { to: '/purchase/proposals', label: 'Bid sell proposals' },
+    { to: '/purchase', label: 'Bid sell proposals' },
+    { to: '/purchase/products', label: 'Products to review' },
   ];
   return (
     <div className="space-y-6">
@@ -37,8 +40,9 @@ export function PurchasePage() {
         </div>
       </nav>
       <Routes>
-        <Route index element={<ProductReview />} />
-        <Route path="proposals" element={<Proposals />} />
+        <Route index element={<Proposals />} />
+        <Route path="products" element={<ProductReview />} />
+        <Route path="proposals" element={<Navigate to="/purchase" replace />} />
       </Routes>
     </div>
   );
