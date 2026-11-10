@@ -143,6 +143,21 @@ export interface ProposalSale {
   text: string | null;
 }
 
+/** A line of a purchase contract from the intranet for the card's product: what we last paid, and to whom. Not an offer. */
+export interface ProposalPurchase {
+  id: number;
+  contractId: string | null;
+  status: string | null;
+  supplier: string | null;
+  /** Who bought. */
+  buyer: string | null;
+  productName: string | null;
+  quantityKg: number | null;
+  priceEurPerKg: number | null;
+  incoterms: string | null;
+  date: string | null;
+}
+
 /** Cards show this many best offers; the rest waits behind "Show all". */
 export const TOP_OPTIONS = 5;
 
@@ -177,6 +192,10 @@ export interface Proposal {
   options: ProposalOption[];
   /** Missing until bid_card_ranking.sql runs in the central database. */
   sold?: ProposalSale[];
+  /** The three latest purchase contracts for the product. Missing until bid_card_purchases.sql runs. */
+  purchases?: ProposalPurchase[];
+  /** How many purchase contract lines the product has in all. */
+  purchasesTotal?: number;
   rejected: RejectedOffer[];
 }
 
