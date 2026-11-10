@@ -94,7 +94,10 @@ export const PROPOSAL_STATUS_NAMES: Record<ProposalStatus, string> = {
 /** A supplier offer proposed for a BID BUY. */
 export interface ProposalOption {
   id: number;
+  /** Position on the card, best first (db/central/bid_card_ranking.sql). */
   rank: number;
+  /** The ranking score behind the position; missing until bid_card_ranking.sql runs in the central database. */
+  score?: number | null;
   supplier: string | null;
   priceEurPerKg: number | null;
   incoterms: string | null;
@@ -127,6 +130,27 @@ export interface RejectedOffer {
   rejectedAt: string;
 }
 
+/** A sale from Apex Bid (BID SOLD) linked to the card's BID BUY. Only a marker: the Purchase Manager closes the card. */
+export interface ProposalSale {
+  dealId: number;
+  soldAt: string | null;
+  trader: string | null;
+  quantityKg: number | null;
+  /** False when the link to this BID BUY is a guess (same product and chat, close in time). */
+  certain: boolean;
+  /** The option of the card that was sold, when it is on the card. */
+  optionId: number | null;
+  text: string | null;
+}
+
+/** Cards show this many best offers; the rest waits behind "Show all". */
+export const TOP_OPTIONS = 5;
+
+/** The offers a card shows before "Show all": the best ones, plus any the card must not hide (chosen, sold). */
+export function topOptions(options: ProposalOption[], keep: ReadonlyArray<number | null | undefined> = [], limit = TOP_OPTIONS): ProposalOption[] {
+  return options.filter((o, index) => index < limit || keep.includes(o.id));
+}
+
 /** A BID BUY from Apex Bid with the best supplier offers for it. */
 export interface Proposal {
   id: number;
@@ -136,6 +160,8 @@ export interface Proposal {
   product: string;
   category: string | null;
   bidBuyAt: string | null;
+  /** When the card expires: 7 days after the BID BUY's validity in Apex Bid. Missing until bid_card_ranking.sql runs. */
+  openUntil?: string | null;
   salesRep: string | null;
   customer: string | null;
   requestedKg: number | null;
@@ -149,6 +175,8 @@ export interface Proposal {
   reviewNote: string | null;
   chosenOptionId: number | null;
   options: ProposalOption[];
+  /** Missing until bid_card_ranking.sql runs in the central database. */
+  sold?: ProposalSale[];
   rejected: RejectedOffer[];
 }
 
@@ -223,7 +251,17 @@ export type PurchaseAction =
   | { action: 'restoreOption'; rejectionId: number }
   | { action: 'chooseOffer'; proposalId: number; offerId: number; note?: string }
   | { action: 'assignOffer'; proposalId: number; offerId: number }
-  | { action: 'undo' };
+  | { action: 'undo' }
+  | { action: 'refreshBids' };
+
+/** What "Check Apex Bid now" did (POST refreshBids): the cards after reading Apex Bid again. */
+export interface BidRefresh {
+  /** New BID BUY cards. */
+  new: number;
+  /** Cards closed because their BID BUY is no longer valid. */
+  expired: number;
+  checkedAt: string;
+}
 
 /** The latest review decision of the signed-in person that can still be undone (GET view=lastDecision). */
 export interface LastDecision {
@@ -320,6 +358,8 @@ export function purchaseAction(body: unknown): PurchaseAction {
       return { action: 'assignOffer', proposalId: id(b.proposalId, 'Proposal'), offerId: id(b.offerId, 'Offer') };
     case 'undo':
       return { action: 'undo' };
+    case 'refreshBids':
+      return { action: 'refreshBids' };
     default:
       throw new PurchaseInputError('Unknown action.');
   }

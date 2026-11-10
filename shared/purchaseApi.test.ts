@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PurchaseInputError, proposalStatus, purchaseAction, reviewFilters, reviewQuery } from './purchaseApi';
+import { PurchaseInputError, proposalStatus, purchaseAction, reviewFilters, reviewQuery, topOptions, type ProposalOption } from './purchaseApi';
 
 describe('reviewFilters', () => {
   it('reads known filters and ignores the rest', () => {
@@ -39,6 +39,7 @@ describe('purchaseAction', () => {
     expect(purchaseAction({ action: 'merge', itemId: 1, targetId: 2 })).toEqual({ action: 'merge', itemId: 1, targetId: 2 });
     expect(purchaseAction({ action: 'approveBulk', itemIds: [3, 3, '4', -1, 'x'] })).toEqual({ action: 'approveBulk', itemIds: [3, 4] });
     expect(purchaseAction({ action: 'undo', itemId: 5 })).toEqual({ action: 'undo' });
+    expect(purchaseAction({ action: 'refreshBids', url: 'x' })).toEqual({ action: 'refreshBids' });
     expect(purchaseAction({ action: 'decide', proposalId: 5, status: 'rejected', note: ' too old ' })).toEqual({
       action: 'decide',
       proposalId: 5,
@@ -77,5 +78,15 @@ describe('proposalStatus', () => {
   it('accepts known statuses only', () => {
     expect(proposalStatus('approved')).toBe('approved');
     expect(proposalStatus('all')).toBeNull();
+  });
+});
+
+describe('topOptions', () => {
+  const options = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, rank: i + 1 }) as ProposalOption);
+
+  it('shows the best offers and keeps the chosen and the sold ones', () => {
+    expect(topOptions(options).map((o) => o.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(topOptions(options, [7, null, undefined, 2]).map((o) => o.id)).toEqual([1, 2, 3, 4, 5, 7]);
+    expect(topOptions(options.slice(0, 3))).toHaveLength(3);
   });
 });
