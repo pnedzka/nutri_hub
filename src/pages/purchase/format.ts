@@ -10,6 +10,8 @@ export const kg = (value: number | null) => (value === null ? null : `${Math.rou
 
 const DAY = 86_400_000;
 const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+/** "21 Oct 2026" */
+export const day = (iso: string) => dateFormat.format(new Date(iso));
 /** "21 Oct 2026 · 7 days ago" */
 export function dateAgo(iso: string | null): string {
   if (!iso) return '—';

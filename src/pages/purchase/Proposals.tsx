@@ -3,6 +3,8 @@ import { useState } from 'react';
 import {
   PROPOSALS_PAGE_SIZE,
   PROPOSAL_STATUS_NAMES,
+  TOP_OPTIONS,
+  topOptions,
   type Proposal,
   type ProposalPage,
   type ProposalStatus,
@@ -15,7 +17,7 @@ import { formatDateTime } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { useApi } from '../leave/useApi';
-import { PURCHASE_API, dateAgo, eur, kg, sourceName } from './format';
+import { PURCHASE_API, dateAgo, day, eur, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';
 import { CopyEmail, Pager, Pill } from './ui';
 
@@ -38,10 +40,17 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
   const [note, setNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const open = p.status === 'pending_review';
   const decided = p.status === 'approved' || p.status === 'rejected';
   // Missing until db/central/bid_option_reject.sql runs in the central database.
   const rejected = p.rejected ?? [];
+  // Missing until db/central/bid_card_ranking.sql runs in the central database.
+  const sold = p.sold ?? [];
+  const soldOptions = sold.map((s) => s.optionId);
+  // The best offers first; the chosen and the sold ones stay visible wherever they rank.
+  const options = showAll ? p.options : topOptions(p.options, [p.chosenOptionId, option, ...soldOptions]);
+  const hidden = p.options.length - options.length;
 
   const decide = async (action: PurchaseAction, done: string) => {
     setBusy(true);
@@ -61,7 +70,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
         <div className="min-w-0">
           <h3 className="text-base font-semibold text-gray-900 [overflow-wrap:anywhere]">{p.product}</h3>
           <p className="mt-0.5 text-xs text-gray-500">
-            {[p.category, `BID BUY ${dateAgo(p.bidBuyAt)}`].filter(Boolean).join(' · ')}
+            {[p.category, `BID BUY ${dateAgo(p.bidBuyAt)}`, open && p.openUntil && `open until ${day(p.openUntil)}`].filter(Boolean).join(' · ')}
           </p>
         </div>
         <Pill tone={STATUS_TONE[p.status]}>{PROPOSAL_STATUS_NAMES[p.status]}</Pill>
@@ -81,6 +90,28 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
           <dd className="text-gray-900">{request || '—'}</dd>
         </div>
       </dl>
+      {sold.map((s) => (
+        <div key={s.dealId} className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900">
+          <p className="font-medium">
+            {s.certain ? 'Sold in Apex Bid' : 'Probably sold in Apex Bid'}
+            <span className="font-normal">
+              {' · '}
+              {[dateAgo(s.soldAt), s.trader, kg(s.quantityKg)].filter(Boolean).join(' · ')}
+            </span>
+          </p>
+          <p className="text-xs text-green-800">
+            {s.certain ? 'Apex Bid linked this sale to the BID BUY.' : 'Matched by product, chat and time, so check the message.'}{' '}
+            {s.optionId ? 'The sold offer is marked below.' : 'The sold offer is not on this card.'}
+            {open && ' The card stays open until you approve or reject it.'}
+          </p>
+          {s.text && (
+            <details className="mt-1">
+              <summary className="cursor-pointer select-none text-xs text-green-800">BID SOLD message</summary>
+              <pre className="mt-1 whitespace-pre-wrap font-sans text-sm [overflow-wrap:anywhere]">{s.text}</pre>
+            </details>
+          )}
+        </div>
+      ))}
       {p.bidBuyText && (
         <details className="mt-2 text-sm">
           <summary className="cursor-pointer select-none text-xs text-gray-500">BID BUY message</summary>
@@ -88,7 +119,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
         </details>
       )}
 
-      {/* Every offer for the product (decision of 29.10.2026), cheapest first; long lists scroll inside the card. */}
+      {/* The best offers by rank (decision of 10.11.2026); "Show all" brings every offer for the product, scrolling inside the card. */}
       <div className="mt-3 -mx-4 max-h-[22rem] overflow-auto sm:mx-0">
         <table className="w-full min-w-[36rem] text-sm">
           <thead className="sticky top-0 z-10 border-y border-gray-100 bg-gray-50">
@@ -108,7 +139,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {p.options.map((o) => {
+            {options.map((o) => {
               const chosen = p.chosenOptionId === o.id;
               return (
                 <tr key={o.id} className={chosen ? 'bg-green-50/60' : undefined}>
@@ -129,6 +160,11 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                   <td className={`${td} min-w-40`}>
                     <p className="font-medium text-gray-900">{o.supplier ?? (o.trader ? `BID SELL from ${o.trader}` : 'Unknown supplier')}</p>
                     {o.productName && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">{o.productName}</p>}
+                    {soldOptions.includes(o.id) && (
+                      <p className="mt-1">
+                        <Pill tone="green">Sold</Pill>
+                      </p>
+                    )}
                     <div className="-ml-2">
                       <CopyEmail email={o.email} of={o.emailOf} />
                     </div>
@@ -165,7 +201,14 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
           </tbody>
         </table>
       </div>
-      {p.options.length > 5 && <p className="mt-1 text-xs text-gray-500">{p.options.length} offers · scroll the table to see all</p>}
+      {p.options.length > TOP_OPTIONS && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-3">
+          <Button size="sm" variant="ghost" className="-ml-2 min-h-11 sm:min-h-0" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>
+            {showAll ? `Show the best ${TOP_OPTIONS}` : `Show all ${p.options.length} offers`}
+          </Button>
+          {!showAll && hidden > 0 && <p className="text-xs text-gray-500">{hidden} more, ranked lower</p>}
+        </div>
+      )}
       {open && p.options.length === 0 && (
         <p className="mt-3 text-sm text-gray-500">No supplier offers left for this product. Reject the proposal or wait for new offers.</p>
       )}
@@ -285,8 +328,9 @@ export function Proposals() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
-        Each BID BUY from Apex Bid with all supplier offers for the same product, cheapest first (purchase prices only). Approve the offer you would
-        send to the sales rep, or reject the proposal. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
+        Each BID BUY from Apex Bid with the {TOP_OPTIONS} best supplier offers for the same product (purchase prices only): offers close in time to
+        the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest. Approve the offer you would
+        send to the sales rep, or reject the proposal. A green note means Apex Bid recorded a sale for the BID BUY. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
         for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
         card: approve the one you found, or add it to the card's product.
       </p>
