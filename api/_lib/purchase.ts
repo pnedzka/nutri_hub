@@ -16,6 +16,7 @@ import {
   proposalStatus,
   purchaseAction,
   reviewFilters,
+  type BidRefresh,
   type PurchaseAction,
   type ReviewSummary,
 } from '../../shared/purchaseApi.js';
@@ -121,6 +122,37 @@ export function purchaseGet(request: Request): Promise<Response> {
   });
 }
 
+/**
+ * "Check Apex Bid now": asks n8n to read Apex Bid right away instead of waiting for the hourly run, then to work the
+ * cards out again. The central database hands out a one-time token and the address of the n8n webhook
+ * (db/central/bid_refresh.sql); n8n runs only for a token it finds there, so the address alone starts nothing.
+ */
+async function refreshBids(by: string): Promise<BidRefresh> {
+  const { token, url } = await call<{ token: string; url: string }>('bid_refresh_begin', { p_by: by });
+  const failed = new HttpError(502, 'Apex Bid could not be checked right now. Try again in a moment.');
+  let answer: { result?: { manual?: boolean; cards?: { new?: number; expired?: number }; checkedAt?: string } };
+  try {
+    if (!url.startsWith('https://')) throw new Error('the webhook address is not https');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!response.ok) throw new Error(`n8n answered ${response.status}`);
+    answer = (await response.json()) as typeof answer;
+  } catch (error) {
+    logError('purchase.refreshBids', error);
+    throw failed;
+  }
+  const result = answer.result;
+  if (!result?.manual) {
+    logError('purchase.refreshBids', new Error('n8n did not confirm the refresh'));
+    throw failed;
+  }
+  return { new: Number(result.cards?.new ?? 0), expired: Number(result.cards?.expired ?? 0), checkedAt: result.checkedAt ?? new Date().toISOString() };
+}
+
 function run(action: PurchaseAction, by: string): Promise<unknown> {
   switch (action.action) {
     case 'approve':
@@ -143,6 +175,8 @@ function run(action: PurchaseAction, by: string): Promise<unknown> {
       return call('bid_proposal_choose_offer', { p_id: action.proposalId, p_offer_id: action.offerId, p_by: by, p_note: action.note ?? null });
     case 'assignOffer':
       return call('offer_assign_product', { p_proposal_id: action.proposalId, p_offer_id: action.offerId, p_by: by });
+    case 'refreshBids':
+      return refreshBids(by);
     case 'decide':
       return call('bid_proposal_decide', {
         p_id: action.proposalId,

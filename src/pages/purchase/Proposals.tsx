@@ -1,10 +1,11 @@
-import { X } from 'lucide-react';
+import { RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 import {
   PROPOSALS_PAGE_SIZE,
   PROPOSAL_STATUS_NAMES,
   TOP_OPTIONS,
   topOptions,
+  type BidRefresh,
   type Proposal,
   type ProposalPage,
   type ProposalStatus,
@@ -323,6 +324,22 @@ export function Proposals() {
     }
   };
 
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState<BidRefresh | null>(null);
+  // Reads Apex Bid right now instead of waiting for the hourly run (about ten seconds), then shows the cards again.
+  const checkApex = async () => {
+    setChecking(true);
+    try {
+      const { result } = await api<{ result: BidRefresh }>(PURCHASE_API, { method: 'POST', body: { action: 'refreshBids' } satisfies PurchaseAction });
+      setChecked(result);
+      toast.success('Apex Bid checked', result.new > 0 ? `${result.new} new BID BUY ${result.new === 1 ? 'card' : 'cards'}.` : 'No new BID BUY.');
+      reload();
+    } catch (e) {
+      toast.error('Apex Bid not checked', (e as Error).message);
+    }
+    setChecking(false);
+  };
+
   const count = (f: Filter) => (f === 'all' ? Object.values(data?.counts ?? {}).reduce((a, b) => a + (b ?? 0), 0) : (data?.counts[f] ?? 0));
 
   return (
@@ -334,6 +351,19 @@ export function Proposals() {
         for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
         card: approve the one you found, or add it to the card's product.
       </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Button size="sm" variant="secondary" className="min-h-11 sm:min-h-0" isLoading={checking} onClick={() => void checkApex()}>
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          Check Apex Bid now
+        </Button>
+        <p className="text-xs text-gray-500" aria-live="polite">
+          {checking
+            ? 'Reading BID BUY and offers from Apex Bid, about ten seconds…'
+            : checked
+              ? `Checked ${formatDateTime(checked.checkedAt)}.`
+              : 'Apex Bid is read every hour. Check now if you expect a new BID BUY.'}
+        </p>
+      </div>
       <nav className="-mx-4 overflow-x-auto sm:mx-0" aria-label="Status">
         <div className="flex gap-2 px-4 sm:flex-wrap sm:px-0">
           {FILTERS.map((f) => {

@@ -251,7 +251,17 @@ export type PurchaseAction =
   | { action: 'restoreOption'; rejectionId: number }
   | { action: 'chooseOffer'; proposalId: number; offerId: number; note?: string }
   | { action: 'assignOffer'; proposalId: number; offerId: number }
-  | { action: 'undo' };
+  | { action: 'undo' }
+  | { action: 'refreshBids' };
+
+/** What "Check Apex Bid now" did (POST refreshBids): the cards after reading Apex Bid again. */
+export interface BidRefresh {
+  /** New BID BUY cards. */
+  new: number;
+  /** Cards closed because their BID BUY is no longer valid. */
+  expired: number;
+  checkedAt: string;
+}
 
 /** The latest review decision of the signed-in person that can still be undone (GET view=lastDecision). */
 export interface LastDecision {
@@ -348,6 +358,8 @@ export function purchaseAction(body: unknown): PurchaseAction {
       return { action: 'assignOffer', proposalId: id(b.proposalId, 'Proposal'), offerId: id(b.offerId, 'Offer') };
     case 'undo':
       return { action: 'undo' };
+    case 'refreshBids':
+      return { action: 'refreshBids' };
     default:
       throw new PurchaseInputError('Unknown action.');
   }
