@@ -6,7 +6,6 @@
 // only the functions of its schema purchase_api (db/central/purchase_api.sql) with that project's secret key:
 // CENTRAL_DB_URL and CENTRAL_DB_SECRET_KEY. Every decision is saved with the e-mail of the person who made it.
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   BULK_MIN_CONFIDENCE,
   OFFER_SEARCH_MIN,
@@ -21,31 +20,18 @@ import {
   type ReviewSummary,
 } from '../../shared/purchaseApi.js';
 import { requireApp } from './auth.js';
+import { centralDb } from './central.js';
 import { HttpError, handle, json, readJson } from './http.js';
 import { logError } from './monitoring.js';
-import { isPublicKey } from './supabase.js';
 
 export const isPurchaseRequest = (request: Request) => new URL(request.url).searchParams.get('resource') === 'purchase';
-
-let client: SupabaseClient | null = null;
-
-/** The central database, schema purchase_api, with the secret key (only service_role may call its functions). */
-function central(): SupabaseClient {
-  if (client) return client;
-  const url = process.env.CENTRAL_DB_URL?.trim();
-  const key = process.env.CENTRAL_DB_SECRET_KEY?.trim();
-  if (!url || !key) throw new HttpError(503, 'Purchase Manager is not configured (CENTRAL_DB_URL or CENTRAL_DB_SECRET_KEY is missing).');
-  if (isPublicKey(key)) throw new HttpError(503, 'Purchase Manager is misconfigured: CENTRAL_DB_SECRET_KEY holds a public key. Use the secret key.');
-  client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  return client;
-}
 
 /**
  * Calls a function of purchase_api. The functions raise exceptions with a message meant for the person (P0001, e.g.
  * "the item is already closed"), which go back as 409; anything else is logged and reported as a server error.
  */
 async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
-  const { data, error } = await central().schema('purchase_api').rpc(fn, args);
+  const { data, error } = await centralDb().schema('purchase_api').rpc(fn, args);
   if (!error) return data as T;
   if (error.code === 'P0001') throw new HttpError(409, error.message);
   // PGRST106/PGRST202: the schema is not exposed in the Data API, or the SQL has not been run yet.

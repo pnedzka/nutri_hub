@@ -97,6 +97,24 @@ Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centr
 - **Połączenie z bazą:** serwer woła tylko funkcje schematu `purchase_api` (`db/central/purchase_api.sql`, SECURITY DEFINER, wykonuje je tylko `service_role`) kluczem secret centralnej bazy. Zmienne (Production i Preview, ta sama baza): `CENTRAL_DB_URL` = `https://blbcudymvackpudywdyy.supabase.co`, `CENTRAL_DB_SECRET_KEY` = klucz secret `nutri-central-db`.
 - **Uruchomienie:** (1) `db/central/purchase_api.sql`, potem `db/central/purchase_undo.sql`, `db/central/bid_option_reject.sql`, `db/central/bid_all_offers.sql`, `db/central/offer_search.sql`, `db/central/offer_email.sql` `db/central/bid_card_ranking.sql`, `db/central/bid_card_notify.sql`, `db/central/bid_refresh.sql` i `db/central/bid_card_purchases.sql` w SQL Editorze `nutri-central-db`; (2) Project Settings → Data API → Exposed schemas: dopisać `purchase_api`; (3) zmienne wyżej w Vercelu; (4) uprawnienie Purchase Manager w User management. Nowe konta nie dostają go domyślnie (`DEFAULT_APPS`).
 
+## Skrzynka w bazie wiedzy (My profile)
+
+Pracownik sam podłącza swoją firmową skrzynkę do centralnej bazy (`nutri-central-db`), zamiast podawać hasło administratorowi (decyzja z 11.11.2026). Karta **Mailbox in the knowledge base** na stronie My profile; adres to adres logowania do centrum (tylko domeny z `MAILBOX_DOMAINS`, domyślnie `nutripartners.co`).
+
+- **Podłączenie:** pracownik wpisuje hasło do poczty i zaznacza zgodę. Serwer centrum:
+  1. sprawdza limit prób (5 nieudanych na 15 minut na skrzynkę, `mailbox_api.connect_begin`);
+  2. loguje się do serwera poczty przez IMAP (`imapflow`), żeby sprawdzić hasło i znaleźć folder Wysłane; nic nie czyta;
+  3. zakłada w n8n dane logowania IMAP (`<adres> (centrum)`) i workflow **„Central DB - Mail ingest - &lt;adres&gt;”** (Odebrane i Wysłane → `raw.emails`, bez oznaczania jako przeczytane; ten sam zapis co w „Central DB - Mail ingest” dla j.chrobak@), i go włącza;
+  4. zapisuje stan w `core.mailbox_connections` i dopisuje skrzynkę do `core.mailbox_owners` (zespół `sales`, oferty do `core`), a osobę do `core.employees`, jeśli jej tam nie ma.
+- **Hasło zna tylko n8n** (szyfruje dane logowania). Centrum go nie zapisuje ani nie loguje, w bazie są tylko identyfikatory z n8n.
+- **Historia:** przy pierwszym podłączeniu z ostatnich `MAILBOX_HISTORY_DAYS` dni (domyślnie 30). Przy ponownym podłączeniu (np. po zmianie hasła) workflow czyta od dnia przed ostatnim zapisanym mailem, żeby nie płacić w n8n drugi raz za te same maile.
+- **Stan na karcie:** liczba maili, ostatni odebrany i wysłany, czekające na AI. „Collecting stopped”, gdy workflow w n8n jest wyłączony albo go nie ma; ostrzeżenie, gdy przez 4 dni nie przyszedł żaden mail (zwykle zmiana hasła). Przyciski „I changed my password” (ponowne podłączenie) i „Disconnect” (usuwa workflow i dane logowania w n8n; pobrane maile zostają w bazie).
+- Skrzynki dodane ręcznie w n8n (j.chrobak@, purchase@) widać jako „Connected by administrator”; pracownik nie może ich podłączyć ani odłączyć sam. Admini widzą pod spodem tabelę **Team mailboxes** (wszystkie skrzynki, ostatnie maile).
+- **Technicznie:** API `api/_lib/mailbox.ts` wpięte w `api/people.ts` (`?resource=mailbox`, limit 12 funkcji), typy, walidacja i szablon workflow z testami w `shared/mailboxApi.ts`, ekran `src/components/MailboxCard.tsx`. Baza: schemat `mailbox_api` (`db/central/mailbox_api.sql`, SECURITY DEFINER, tylko `service_role`), klient `api/_lib/central.ts` (te same `CENTRAL_DB_URL` i `CENTRAL_DB_SECRET_KEY` co Purchase Manager).
+- **Uruchomienie:** (1) `db/central/mailbox_api.sql` w SQL Editorze `nutri-central-db`; (2) Data API → Exposed schemas: dopisać `mailbox_api`; (3) zmienne w Vercelu (Production i Preview, ta sama baza i ten sam n8n): `MAIL_IMAP_HOST` (serwer poczty, jak w danych logowania j.chrobak@ w n8n), opcjonalnie `MAIL_IMAP_PORT` (993), `N8N_API_URL` = `https://nutripartners.app.n8n.cloud`, `N8N_API_KEY` (n8n → Settings → n8n API), opcjonalnie `N8N_CENTRAL_DB_CREDENTIAL_ID` / `N8N_CENTRAL_DB_CREDENTIAL_NAME` (domyślnie dane logowania „Supabase nutri-central-db”), `N8N_ERROR_WORKFLOW_ID`, `MAILBOX_DOMAINS`, `MAILBOX_HISTORY_DAYS`.
+- **Koszt n8n:** każdy pobrany mail to jedno wykonanie workflow w n8n Cloud. Skrzynka handlowca to kilkaset maili miesięcznie, więc przy kolejnych osobach warto pilnować limitu wykonań planu.
+- **Pracownicy:** analiza służbowej poczty to monitoring (art. 22³ Kodeksu pracy): obowiązek informacyjny i zapis w regulaminie są po stronie firmy; zgoda na karcie tego nie zastępuje.
+
 ## Uprawnienia do aplikacji
 
 - Kolumna `profiles.apps` (`text[]`) w Supabase neutralizatora: identyfikatory z `shared/access.ts` (`neutralizer`, `signatures`, `owner-lookup`, `commission`, `news`, `leave`, `purchase`, `intranet`, `create-users`). Admin (`role = 'admin'`) ma dostęp do wszystkiego.

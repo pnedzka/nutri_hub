@@ -6,12 +6,15 @@
 //   PUT    /api/people   body { id?, name, address } → { offices: Office[] }   add or rename an office (admins)
 //   DELETE /api/people   body { id } → { offices: Office[] }   remove an office; its people get none (admins)
 //
+// `?resource=mailbox` is "Mailbox in the knowledge base" on My profile (api/_lib/mailbox.ts, shared/mailboxApi.ts).
+//
 // Deactivated accounts are left out of Team. One function for all of it: the Hobby plan allows 12 functions.
 
 import { randomUUID } from 'node:crypto';
 import { avatarPath, cleanOffice, isUuid, ProfileError, type Office, type ProfileInput } from '../shared/profile.js';
 import { requireAdmin, requireUser, type Profile } from './_lib/auth.js';
 import { handle, HttpError, json, readJson } from './_lib/http.js';
+import { isMailboxRequest, mailboxDelete, mailboxGet, mailboxPost } from './_lib/mailbox.js';
 import { MEMBER_COLUMNS, saveProfile, signAvatars, toTeamMember } from './_lib/profiles.js';
 import { db } from './_lib/supabase.js';
 
@@ -30,6 +33,7 @@ function target(viewer: Profile, id: unknown): string {
 }
 
 export function GET(request: Request): Promise<Response> {
+  if (isMailboxRequest(request)) return mailboxGet(request);
   return handle(async () => {
     const viewer = await requireUser(request);
     const [{ data, error }, officeList] = await Promise.all([
@@ -56,6 +60,7 @@ export function PATCH(request: Request): Promise<Response> {
 }
 
 export function POST(request: Request): Promise<Response> {
+  if (isMailboxRequest(request)) return mailboxPost(request);
   return handle(async () => {
     const viewer = await requireUser(request);
     const body = await readJson<{ id?: unknown }>(request);
@@ -93,6 +98,7 @@ export function PUT(request: Request): Promise<Response> {
 }
 
 export function DELETE(request: Request): Promise<Response> {
+  if (isMailboxRequest(request)) return mailboxDelete(request);
   return handle(async () => {
     await requireAdmin(request);
     const body = await readJson<{ id?: unknown }>(request);
