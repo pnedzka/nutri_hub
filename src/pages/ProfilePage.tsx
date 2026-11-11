@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ArrowLeft, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardBody, CardHeader } from '../components/Card';
+import { MailboxCard } from '../components/MailboxCard';
 import { ProfileForm } from '../components/ProfileForm';
 import { RoleBadge } from '../components/RoleBadge';
 import { useAuth } from '../lib/auth';
@@ -44,6 +45,7 @@ export function ProfilePage() {
           )}
         </CardBody>
       </Card>
+      <MailboxCard admin={user?.role === 'admin'} />
     </div>
   );
 }

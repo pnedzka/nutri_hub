@@ -49,6 +49,8 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
   // Missing until db/central/bid_card_ranking.sql runs in the central database.
   const sold = p.sold ?? [];
   const soldOptions = sold.map((s) => s.optionId);
+  // Missing until db/central/bid_card_purchases.sql runs in the central database.
+  const purchases = p.purchases ?? [];
   // The best offers first; the chosen and the sold ones stay visible wherever they rank.
   const options = showAll ? p.options : topOptions(p.options, [p.chosenOptionId, option, ...soldOptions]);
   const hidden = p.options.length - options.length;
@@ -118,6 +120,28 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
           <summary className="cursor-pointer select-none text-xs text-gray-500">BID BUY message</summary>
           <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-sans text-sm text-gray-800 [overflow-wrap:anywhere]">{p.bidBuyText}</pre>
         </details>
+      )}
+
+      {/* What we last paid for the product: purchase contracts from the intranet. Information next to the offers, not an offer. */}
+      {purchases.length > 0 && (
+        <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
+          <p className="text-xs font-medium text-gray-500">
+            Last purchases (contracts)
+            {(p.purchasesTotal ?? 0) > purchases.length && <span className="font-normal"> · latest {purchases.length} of {p.purchasesTotal}</span>}
+          </p>
+          <ul className="mt-1 space-y-1">
+            {purchases.map((c) => (
+              <li key={c.id} className="text-gray-800 [overflow-wrap:anywhere]">
+                <span className="font-medium">{eur(c.priceEurPerKg)}</span>
+                {' · '}
+                {[c.supplier ?? 'Unknown supplier', kg(c.quantityKg), c.incoterms, c.date && dateAgo(c.date)].filter(Boolean).join(' · ')}
+                <span className="block text-xs text-gray-500">
+                  {[c.contractId && `Contract ${c.contractId}`, c.buyer, c.productName !== p.product && c.productName].filter(Boolean).join(' · ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {/* The best offers by rank (decision of 10.11.2026); "Show all" brings every offer for the product, scrolling inside the card. */}
@@ -347,7 +371,7 @@ export function Proposals() {
       <p className="text-sm text-gray-600">
         Each BID BUY from Apex Bid with the {TOP_OPTIONS} best supplier offers for the same product (purchase prices only): offers close in time to
         the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest. Approve the offer you would
-        send to the sales rep, or reject the proposal. A green note means Apex Bid recorded a sale for the BID BUY. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
+        send to the sales rep, or reject the proposal. A green note means Apex Bid recorded a sale for the BID BUY. Last purchases shows what we paid for the product in our latest purchase contracts. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
         for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
         card: approve the one you found, or add it to the card's product.
       </p>
