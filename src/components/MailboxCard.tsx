@@ -103,11 +103,15 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
   const [busy, setBusy] = useState(false);
 
   const [available, setAvailable] = useState(true);
+  const [missing, setMissing] = useState<string[]>([]);
 
   const load = useCallback(() => {
-    api<MailboxStatus | { available: false }>(PATH)
+    api<MailboxStatus | { available: false; missing?: string[] }>(PATH)
       .then((s) => {
-        if ('available' in s) return setAvailable(false);
+        if ('available' in s) {
+          setMissing(s.missing ?? []);
+          return setAvailable(false);
+        }
         setStatus(s);
         setError(null);
       })
@@ -132,7 +136,27 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
   const quiet = status ? isQuiet(status) : false;
   const showForm = status && status.source !== 'manual' && (!connected || status.stopped || reconnecting);
 
-  if (!available) return null;
+  if (!available) {
+    if (!admin || !missing.length) return null;
+    return (
+      <Card>
+        <CardHeader className="flex items-center gap-2">
+          <Mail size={16} className="text-[#CC1F1F]" />
+          <h2 className="text-sm font-semibold text-gray-900">Mailbox in the knowledge base</h2>
+          <span className="text-xs text-gray-500">administrators</span>
+        </CardHeader>
+        <CardBody>
+          <p className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <span>
+              Not set up yet, so people do not see this card. Missing in Vercel (this environment): {missing.join(', ')}. Add them and
+              redeploy.
+            </span>
+          </p>
+        </CardBody>
+      </Card>
+    );
+  }
   return (
     <>
       <Card>

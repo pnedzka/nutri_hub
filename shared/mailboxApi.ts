@@ -4,7 +4,8 @@
 // The central database (db/central/mailbox_api.sql) keeps only the state of the connection.
 //
 //   GET    /api/people?resource=mailbox            → MailboxStatus (the signed-in person's mailbox), or
-//                                                   { available: false } until the hub is set up for it
+//                                                   { available: false, missing? } until the hub is set up for it
+//                                                   (missing: names of the settings, for administrators only)
 //   GET    /api/people?resource=mailbox&view=all   → { mailboxes: MailboxOverview[] } (administrators)
 //   POST   /api/people?resource=mailbox  body { password, consent: true } → MailboxStatus
 //   DELETE /api/people?resource=mailbox            → MailboxStatus (stops collecting; e-mails already saved stay)

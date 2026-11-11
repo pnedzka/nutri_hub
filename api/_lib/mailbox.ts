@@ -282,8 +282,11 @@ export function mailboxGet(request: Request): Promise<Response> {
     }
     const person = await requireUser(request);
     // Until the hub is set up for it (or for people outside the company domains) the card is not shown at all.
-    const ready = env('MAIL_IMAP_HOST') && env('N8N_API_URL') && env('N8N_API_KEY');
-    if (!ready || !isCompanyMailbox(person.email.trim().toLowerCase(), domains())) return json({ available: false });
+    const missing = ['MAIL_IMAP_HOST', 'N8N_API_URL', 'N8N_API_KEY'].filter((name) => !env(name));
+    if (missing.length || !isCompanyMailbox(person.email.trim().toLowerCase(), domains())) {
+      // Administrators are told what is missing (names only, never values), so they can finish the set-up.
+      return json({ available: false, ...(person.role === 'admin' && missing.length ? { missing } : {}) });
+    }
     const mailbox = companyMailbox(person);
     const stored = await call<StoredStatus>('status', { p_mailbox: mailbox });
     return json(toStatus(stored, await isStopped(stored)));
