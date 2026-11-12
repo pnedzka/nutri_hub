@@ -188,6 +188,29 @@ returns jsonb language sql stable security definer set search_path = core, raw, 
   left join e on e.mailbox = b.mailbox
 $$;
 
+-- Historia skrzynki pobierana przez centrum (od 12.11.2026): wyzwalacz IMAP w n8n nie czyta historii od podanej daty,
+-- więc przy podłączeniu serwer centrum sam czyta Odebrane i Wysłane (IMAP, tylko do odczytu) i zapisuje paczki maili
+-- tutaj. Ten sam zapis co w workflow n8n; duplikaty (mailbox + message_id) są pomijane. Zwraca liczbę nowych maili.
+create or replace function mailbox_api.save_emails(p_mailbox text, p_emails jsonb)
+returns int language plpgsql security definer set search_path = raw, core, public as $$
+declare v_count int;
+begin
+  if not exists (select 1 from core.mailbox_connections where mailbox = lower(trim(p_mailbox)) and status = 'connected') then
+    raise exception 'The mailbox is not connected.' using errcode = 'P0001';
+  end if;
+  insert into raw.emails (mailbox, message_id, thread_key, in_reply_to, direction, from_address, to_addresses,
+    cc_addresses, subject, body_text, attachments, sent_at)
+  select lower(trim(p_mailbox)), j->>'messageId', j->>'thread', j->>'inReplyTo', j->>'direction', lower(j->>'from'),
+    array(select lower(jsonb_array_elements_text(coalesce(j->'to', '[]'::jsonb)))),
+    array(select lower(jsonb_array_elements_text(coalesce(j->'cc', '[]'::jsonb)))),
+    j->>'subject', j->>'body', coalesce(j->'attachments', '[]'::jsonb), (j->>'date')::timestamptz
+  from jsonb_array_elements(p_emails) j
+  where j->>'direction' in ('in', 'out') and coalesce(j->>'messageId', '') <> ''
+  on conflict (mailbox, message_id) do nothing;
+  get diagnostics v_count = row_count;
+  return v_count;
+end $$;
+
 revoke all on all functions in schema mailbox_api from public, anon, authenticated;
 grant execute on all functions in schema mailbox_api to service_role;
 revoke all on core.mailbox_connections, core.mailbox_connect_attempts from public, anon, authenticated;

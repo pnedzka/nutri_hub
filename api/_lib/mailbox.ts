@@ -16,9 +16,17 @@ import {
   MailboxInputError,
   buildIngestWorkflow,
   connectInput,
+  historyEmail,
+  historyInput,
   isCompanyMailbox,
   pickSentFolder,
+  pickBodyPart,
   readFrom,
+  type BodyNode,
+  type HistoryCursor,
+  type HistoryEmail,
+  type HistoryFolder,
+  type HistoryProgress,
   type MailboxOverview,
   type MailboxSource,
   type MailboxStatus,
@@ -111,8 +119,8 @@ function imapConfig() {
   return { host, port, secure: port === 993 };
 }
 
-/** Logs in to the mailbox to check the password, and finds the Sent folder. Reads nothing else. */
-async function checkLogin(mailbox: string, password: string): Promise<{ sentFolder: string }> {
+/** Logs in to the mailbox (checks the password) and finds the Sent folder. The caller logs out. */
+async function openMailbox(mailbox: string, password: string): Promise<{ client: ImapFlow; sentFolder: string }> {
   const { host, port, secure } = imapConfig();
   const client = new ImapFlow({
     host,
@@ -123,14 +131,15 @@ async function checkLogin(mailbox: string, password: string): Promise<{ sentFold
     disableAutoIdle: true,
     connectionTimeout: 10_000,
     greetingTimeout: 8_000,
-    socketTimeout: 15_000,
+    socketTimeout: 20_000,
   });
   client.on('error', () => undefined);
   try {
     await client.connect();
     const folders = await client.list();
-    return { sentFolder: pickSentFolder(folders.map((f) => ({ path: f.path, specialUse: f.specialUse }))) };
+    return { client, sentFolder: pickSentFolder(folders.map((f) => ({ path: f.path, specialUse: f.specialUse }))) };
   } catch (error) {
+    await client.logout().catch(() => client.close());
     if ((error as { authenticationFailed?: boolean }).authenticationFailed) {
       await failed(mailbox, 'wrong_password');
       throw new HttpError(400, 'The mail server did not accept this password. Use the password you sign in to your company e-mail with.');
@@ -138,9 +147,90 @@ async function checkLogin(mailbox: string, password: string): Promise<{ sentFold
     await failed(mailbox, 'unreachable');
     logError('mailbox.imap', new Error('The mail server did not answer'), { code: (error as { code?: string }).code });
     throw new HttpError(502, 'The mail server did not answer. Try again in a moment.');
-  } finally {
-    await client.logout().catch(() => client.close());
   }
+}
+
+const closeMailbox = (client: ImapFlow) => client.logout().catch(() => client.close());
+
+// --- history ------------------------------------------------------------------------------------------------------
+
+/** One request reads the history for at most this long (the function may run 30 s; connecting takes a few). */
+const HISTORY_BUDGET_MS = 18_000;
+const HISTORY_BATCH = 20;
+/** The body of one e-mail is read up to this size (enough for the text; bigger parts are mostly embedded images). */
+const BODY_MAX_BYTES = 256 * 1024;
+
+async function readStream(stream: NodeJS.ReadableStream): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+async function saveEmails(mailbox: string, emails: HistoryEmail[]): Promise<number> {
+  if (!emails.length) return 0;
+  return Number(await call<number>('save_emails', { p_mailbox: mailbox, p_emails: emails }));
+}
+
+/**
+ * Reads the history of Inbox and then Sent from `since`, read-only (nothing is marked as read), and saves it in
+ * raw.emails, until done or until the time budget runs out; then returns the cursor to continue from.
+ */
+async function readHistory(
+  client: ImapFlow,
+  mailbox: string,
+  sentFolder: string,
+  since: Date,
+  cursor: HistoryCursor | null,
+  deadline: number,
+): Promise<HistoryProgress> {
+  const folders: { key: HistoryFolder; path: string }[] = [
+    { key: 'in', path: 'INBOX' },
+    { key: 'out', path: sentFolder },
+  ];
+  let saved = 0;
+  let read = 0;
+  const from = cursor?.folder;
+  const start = from ? folders.findIndex((f) => f.key === from) : 0;
+  for (let i = Math.max(0, start); i < folders.length; i++) {
+    const folder = folders[i];
+    let lastUid = cursor?.folder === folder.key ? cursor.uid : 0;
+    const lock = await client.getMailboxLock(folder.path, { readOnly: true }).catch(() => null);
+    if (!lock) continue; // no such folder: nothing to read there
+    try {
+      const found = await client.search({ since }, { uid: true });
+      const uids = (found || []).filter((uid) => uid > lastUid).sort((a, b) => a - b);
+      for (let b = 0; b < uids.length; b += HISTORY_BATCH) {
+        if (Date.now() > deadline) return { done: false, saved, read, cursor: { folder: folder.key, uid: lastUid } };
+        const batch = uids.slice(b, b + HISTORY_BATCH);
+        const messages = [];
+        for await (const m of client.fetch(batch, { uid: true, envelope: true, bodyStructure: true, internalDate: true, headers: ['references'] }, { uid: true })) {
+          messages.push(m);
+        }
+        const emails: HistoryEmail[] = [];
+        for (const m of messages.sort((x, y) => x.uid - y.uid)) {
+          const chosen = pickBodyPart(m.bodyStructure as BodyNode | undefined);
+          let body: { text: string; html: boolean } | null = null;
+          if (chosen) {
+            try {
+              const { content } = await client.download(String(m.uid), chosen.part, { uid: true, maxBytes: BODY_MAX_BYTES });
+              if (content) body = { text: await readStream(content), html: chosen.html };
+            } catch {
+              body = null; // the e-mail is still saved, without its text
+            }
+          }
+          const references = m.headers ? m.headers.toString('utf8').replace(/^references:\s*/i, '').replace(/\r?\n\s+/g, ' ').trim() : undefined;
+          emails.push(historyEmail(mailbox, folder.key, { envelope: m.envelope, internalDate: m.internalDate, references, bodyStructure: m.bodyStructure as BodyNode | undefined }, body));
+        }
+        saved += await saveEmails(mailbox, emails);
+        read += emails.length;
+        lastUid = batch[batch.length - 1];
+      }
+    } finally {
+      lock.release();
+    }
+    cursor = null;
+  }
+  return { done: true, saved, read, cursor: null };
 }
 
 // --- state --------------------------------------------------------------------------------------------------------
@@ -191,7 +281,24 @@ async function connect(person: Profile, password: string): Promise<MailboxStatus
   const state = await call<StoredStatus>('connect_begin', { p_mailbox: mailbox });
   if (state.source === 'manual') throw new HttpError(409, 'Your mailbox is already connected by your administrator.');
 
-  const { sentFolder } = await checkLogin(mailbox, password);
+  const started = Date.now();
+  const { client, sentFolder } = await openMailbox(mailbox, password);
+  try {
+    return await connectWith(client, sentFolder, person, mailbox, password, state, started);
+  } finally {
+    await closeMailbox(client);
+  }
+}
+
+async function connectWith(
+  client: ImapFlow,
+  sentFolder: string,
+  person: Profile,
+  mailbox: string,
+  password: string,
+  state: StoredStatus,
+  started: number,
+): Promise<MailboxStatus> {
   const { host, port, secure } = imapConfig();
 
   let credentialId: string | null = null;
@@ -209,7 +316,8 @@ async function connect(person: Profile, password: string): Promise<MailboxStatus
       imapCredential: { id: credential.id, name: credential.name },
       dbCredential: dbCredential(),
       sentFolder,
-      since: { in: readFrom(state.lastInAt, historyDays()), out: readFrom(state.lastOutAt, historyDays()) },
+      // The hub reads the history itself (readHistory); n8n only has to pick up what arrives from now on.
+      since: { in: readFrom(null, 1), out: readFrom(null, 1) },
       errorWorkflowId: env('N8N_ERROR_WORKFLOW_ID') ?? '3TIzvOWuUfuIYzFk',
     });
     if (workflowId) {
@@ -254,7 +362,38 @@ async function connect(person: Profile, password: string): Promise<MailboxStatus
   if (state.credentialId && state.credentialId !== credentialId) {
     await remove(`/credentials/${encodeURIComponent(state.credentialId)}`).catch((e) => logError('mailbox.oldCredential', e));
   }
-  return toStatus(finished, false);
+  const history = await historyFrom(client, mailbox, sentFolder, finished.historySince, null, started).catch((error) => {
+    // The mailbox is connected; the page continues reading the history with the next request.
+    logError('mailbox.history', error);
+    return { done: false, saved: 0, read: 0, cursor: null } satisfies HistoryProgress;
+  });
+  return { ...toStatus(await call<StoredStatus>('status', { p_mailbox: mailbox }), false), history };
+}
+
+/** The first day of the history: as stored for the mailbox, otherwise MAILBOX_HISTORY_DAYS back. */
+const historyStart = (historySince: string | null) => (historySince ? new Date(`${historySince}T00:00:00Z`) : readFrom(null, historyDays()));
+
+const historyFrom = (client: ImapFlow, mailbox: string, sentFolder: string, historySince: string | null, cursor: HistoryCursor | null, started: number) =>
+  readHistory(client, mailbox, sentFolder, historyStart(historySince), cursor, started + HISTORY_BUDGET_MS);
+
+/** Continues reading the history of a connected mailbox (POST …&action=history). */
+async function continueHistory(person: Profile, password: string, cursor: HistoryCursor | null): Promise<MailboxStatus> {
+  const mailbox = companyMailbox(person);
+  imapConfig();
+  const state = await call<StoredStatus>('connect_begin', { p_mailbox: mailbox });
+  if (state.source !== 'hub' || state.status !== 'connected') throw new HttpError(409, 'Connect your mailbox first.');
+  const started = Date.now();
+  const { client, sentFolder } = await openMailbox(mailbox, password);
+  try {
+    const history = await historyFrom(client, mailbox, state.sentFolder ?? sentFolder, state.historySince ?? null, cursor, started);
+    return { ...toStatus(await call<StoredStatus>('status', { p_mailbox: mailbox }), false), history };
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    logError('mailbox.history', error);
+    throw new HttpError(502, 'Reading older e-mails stopped. Try again in a moment; nothing is read twice.');
+  } finally {
+    await closeMailbox(client);
+  }
 }
 
 async function disconnect(person: Profile): Promise<MailboxStatus> {
@@ -296,14 +435,19 @@ export function mailboxGet(request: Request): Promise<Response> {
 export function mailboxPost(request: Request): Promise<Response> {
   return handle(async () => {
     const person = await requireUser(request);
-    let password: string;
+    const history = new URL(request.url).searchParams.get('action') === 'history';
     try {
-      ({ password } = connectInput(await readJson(request)));
+      const body = await readJson(request);
+      if (history) {
+        const { password, cursor } = historyInput(body);
+        return json(await continueHistory(person, password, cursor));
+      }
+      const { password } = connectInput(body);
+      return json(await connect(person, password));
     } catch (error) {
       if (error instanceof MailboxInputError) throw new HttpError(400, error.message);
       throw error;
     }
-    return json(await connect(person, password));
   });
 }
 
