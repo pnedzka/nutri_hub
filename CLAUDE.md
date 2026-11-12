@@ -46,7 +46,7 @@ Właściciel: Paweł Nędzka. Rozmawiamy po polsku, interfejs jest po angielsku.
 - **Jedno logowanie przez centrum, na `*.vercel.app`** (decyzja z 18.10.2026; subdomeny `nutripartners.co` odrzucone). Kafelek i aplikacja bez sesji prowadzą do `/sso`; centrum daje aplikacji jednorazowy token Supabase (`magiclink`) w `#sso=…`, a aplikacja zakłada z niego **własną** sesję. Szczegóły w README („Logowanie”).
   - Nie przekazywać samej sesji (access/refresh token) w linku: rotacja refresh tokenów wylogowałaby obie aplikacje.
   - Wylogowanie w aplikacji prowadzi do `/logout` centrum. Preview: `VITE_SSO_PREVIEW_ORIGINS` pozwala wracać na podglądy PR-ów.
-- Design: Vite + React 19 + Tailwind v4 + TypeScript, `lucide-react`, `zustand`. Inter, tło `#F5F5F5`, tekst `#1A1A1A`, marka `#CC1F1F`, białe karty `border-gray-100`. Na telefonach pola dotykowe ≥ 44 px, `.safe-x`, `.safe-bottom`, pola 16 px.
+- Design: Vite + React 19 + Tailwind v4 + TypeScript, `lucide-react`, `zustand`. Inter, tło `#F5F5F5`, tekst `#1A1A1A`, marka `#CC1F1F`, białe karty `border-gray-100`. Na telefonach pola dotykowe ≥ 44 px, `.safe-x`, `.safe-bottom`, pola 16 px. Na dole każdej strony stopka (od 12.11.2026, wzór z whoisowner): „© rok Nutri Partners · nazwa aplikacji”, linki „All apps” i „My profile”, wersja (skrót commita z `VITE_VERCEL_GIT_COMMIT_SHA`), poza produkcją znaczek „Dev”; w centrum `src/components/Footer.tsx` (w `Layout`, więc na wszystkich ekranach i modułach; na logowaniu i ustawianiu hasła bez linków), tak samo w neutralizatorze i generatorze stopek (po polsku).
 
 ## Stan (20.10.2026)
 

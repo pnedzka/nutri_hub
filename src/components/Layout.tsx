@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useMyProfile, usePeople } from '../lib/people';
 import { Avatar } from './Avatar';
+import { Footer } from './Footer';
 import { RoleBadge } from './RoleBadge';
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -45,7 +46,8 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 w-full max-w-6xl mx-auto safe-x sm:px-6 py-6 sm:py-12 safe-bottom">{children}</main>
+      <main className="flex-1 w-full max-w-6xl mx-auto safe-x sm:px-6 py-6 sm:py-12">{children}</main>
+      <Footer />
     </div>
   );
 }
