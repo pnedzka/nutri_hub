@@ -77,8 +77,10 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
     event.preventDefault();
     setBusy(true);
     setError(null);
+    // Local, not state: the state values of this render do not change while the request runs.
+    let connected: MailboxStatus | null = pending;
     try {
-      const connected = pending ?? (await api<MailboxStatus>(PATH, { method: 'POST', body: { password, consent } }));
+      connected ??= await api<MailboxStatus>(PATH, { method: 'POST', body: { password, consent } });
       const { status, saved } = await readHistory(connected);
       setPassword('');
       setProgress(null);
@@ -89,7 +91,7 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
       onDone(status);
     } catch (e) {
       setError(
-        progress || pending
+        connected
           ? `${(e as Error).message} Your mailbox is connected; press the button again to continue reading older e-mails.`
           : (e as Error).message,
       );
