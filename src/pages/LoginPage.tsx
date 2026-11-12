@@ -105,7 +105,7 @@ export function LoginPage() {
           </Card>
         </div>
       </div>
-      <Footer links={false} />
+      <Footer appName="Apps" hubUrl="" links={false} />
     </div>
   );
 }

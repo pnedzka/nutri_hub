@@ -64,7 +64,7 @@ export function SetPasswordPage() {
           </Card>
         </div>
       </div>
-      <Footer links={false} />
+      <Footer appName="Apps" hubUrl="" links={false} />
     </div>
   );
 }
