@@ -109,10 +109,19 @@ alter table public.news_posts enable row level security;
 alter table public.news_comments enable row level security;
 alter table public.news_likes enable row level security;
 
--- Files: private bucket, no storage policies (the server signs uploads and downloads).
+-- Files: private bucket, the server signs uploads and downloads.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('intranet', 'intranet', false, 10485760, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
+
+-- Profile photos (avatars/<id>/…) may be read by anyone signed in, so every app can show the person's photo in the
+-- shared top bar (AppHeader) with a link it signs itself. Team already shows these photos to everyone signed in.
+-- News photos and uploads stay server-only.
+do $$ begin
+  create policy intranet_avatars_read on storage.objects for select to authenticated
+    using (bucket_id = 'intranet' and name like 'avatars/%');
+exception when duplicate_object then null;
+end $$;
 
 -- Profiles (User management, My profile, Team): company contact details of each account. The login e-mail is the
 -- company e-mail. Only the hub's server writes these columns (profiles has no update policy); the person reads
