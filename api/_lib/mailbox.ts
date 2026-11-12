@@ -19,6 +19,8 @@ import {
   isCompanyMailbox,
   pickSentFolder,
   readFrom,
+  finishCatchUp,
+  CATCH_UP_MINUTES,
   type MailboxOverview,
   type MailboxSource,
   type MailboxStatus,
@@ -151,19 +153,47 @@ function companyMailbox(person: Profile): string {
   return mailbox;
 }
 
-/** Whether the n8n workflow of a mailbox connected in the hub is missing or switched off. */
+interface N8nWorkflow {
+  name: string;
+  active?: boolean;
+  nodes: Parameters<typeof finishCatchUp>[0][number][];
+  connections: unknown;
+  settings?: Record<string, unknown>;
+}
+
+/**
+ * Whether the n8n workflow of a mailbox connected in the hub is missing or switched off. Once the history has been
+ * read (CATCH_UP_MINUTES after connecting) it also turns "Fetch Only New Emails" on (finishCatchUp in shared/).
+ */
 async function isStopped(stored: StoredStatus): Promise<boolean> {
   if (stored.source !== 'hub' || stored.status !== 'connected') return false;
   if (!stored.workflowId) return true;
+  const path = `/workflows/${encodeURIComponent(stored.workflowId)}`;
+  let workflow: N8nWorkflow;
   try {
-    const workflow = await n8n<{ active?: boolean }>('GET', `/workflows/${encodeURIComponent(stored.workflowId)}`);
-    return workflow.active !== true;
+    workflow = await n8n<N8nWorkflow>('GET', path);
   } catch (error) {
     if (error instanceof N8nError && error.status === 404) return true;
     // n8n not answering does not mean collecting stopped; the page still shows the mail already saved.
     logError('mailbox.isStopped', error);
     return false;
   }
+  if (workflow.active !== true) return true;
+  const connectedAt = stored.connectedAt ? new Date(stored.connectedAt).getTime() : 0;
+  const nodes = Date.now() - connectedAt > CATCH_UP_MINUTES * 60_000 ? finishCatchUp(workflow.nodes) : null;
+  if (nodes) {
+    try {
+      const { executionOrder, timezone, errorWorkflow } = workflow.settings ?? {};
+      await n8n('POST', `${path}/deactivate`);
+      await n8n('PUT', path, { name: workflow.name, nodes, connections: workflow.connections, settings: { executionOrder, timezone, errorWorkflow } });
+      await n8n('POST', `${path}/activate`);
+    } catch (error) {
+      logError('mailbox.finishCatchUp', error);
+      // A failed PUT leaves the workflow off: switch it back on as it was, so collecting goes on.
+      await n8n('POST', `${path}/activate`).catch((e) => logError('mailbox.finishCatchUp', e));
+    }
+  }
+  return false;
 }
 
 function toStatus(stored: StoredStatus, stopped: boolean): MailboxStatus {
@@ -209,6 +239,7 @@ async function connect(person: Profile, password: string): Promise<MailboxStatus
       imapCredential: { id: credential.id, name: credential.name },
       dbCredential: dbCredential(),
       sentFolder,
+      catchUp: true,
       since: { in: readFrom(state.lastInAt, historyDays()), out: readFrom(state.lastOutAt, historyDays()) },
       errorWorkflowId: env('N8N_ERROR_WORKFLOW_ID') ?? '3TIzvOWuUfuIYzFk',
     });

@@ -117,6 +117,28 @@ export interface IngestWorkflowInput {
   /** Where Inbox and Sent start being read (readFrom). */
   since: { in: Date; out: Date };
   errorWorkflowId?: string;
+  /**
+   * The first read after connecting: n8n's IMAP trigger (2.1) with "Fetch Only New Emails" on adds SINCE <day of
+   * activation> until it has read once, which drops the history. So a new workflow starts with it off and
+   * finishCatchUp() turns it on once the history is in (afterwards n8n only reads mail above the last UID).
+   */
+  catchUp?: boolean;
+}
+
+/** How long after connecting the history is surely read and "Fetch Only New Emails" can be turned on. */
+export const CATCH_UP_MINUTES = 15;
+
+type WorkflowNode = { type?: string; parameters?: { options?: Record<string, unknown> } & Record<string, unknown> } & Record<string, unknown>;
+
+/** The nodes with "Fetch Only New Emails" turned back on, or null when no IMAP trigger still has it off. */
+export function finishCatchUp<T extends WorkflowNode>(nodes: readonly T[]): T[] | null {
+  let changed = false;
+  const next = nodes.map((node) => {
+    if (node.type !== 'n8n-nodes-base.emailReadImap' || node.parameters?.options?.trackLastMessageId !== false) return node;
+    changed = true;
+    return { ...node, parameters: { ...node.parameters, options: { ...node.parameters.options, trackLastMessageId: true } } };
+  });
+  return changed ? next : null;
 }
 
 /** The n8n workflow of one mailbox: Inbox and Sent (not marked as read) → raw.emails. */
@@ -141,7 +163,7 @@ export function buildIngestWorkflow(input: IngestWorkflowInput) {
           postProcessAction: 'nothing',
           format: 'resolved',
           dataPropertyAttachmentsPrefixName: 'attachment_',
-          options: { customEmailConfig: JSON.stringify(['ALL', ['SINCE', imapSince(input.since[f.key])]]), trackLastMessageId: true },
+          options: { customEmailConfig: JSON.stringify(['ALL', ['SINCE', imapSince(input.since[f.key])]]), trackLastMessageId: !input.catchUp },
         },
         credentials: { imap: input.imapCredential },
       },

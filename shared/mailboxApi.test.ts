@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildIngestWorkflow, connectInput, imapSince, isCompanyMailbox, isQuiet, pickSentFolder, readFrom, workflowName } from './mailboxApi';
+import { buildIngestWorkflow, finishCatchUp, connectInput, imapSince, isCompanyMailbox, isQuiet, pickSentFolder, readFrom, workflowName } from './mailboxApi';
 
 describe('connectInput', () => {
   it('needs consent and a password', () => {
@@ -77,5 +77,34 @@ describe('buildIngestWorkflow', () => {
     expect(String(save.parameters.query)).toContain('on conflict (mailbox, message_id) do nothing');
     expect(String((save.parameters.options as { queryReplacement: string }).queryReplacement)).toContain(String.raw`/<style[\s\S]*?<\/style>/gi`);
     for (const n of [...imap, ...marks]) expect(workflow.connections[n.name]).toBeDefined();
+  });
+});
+
+describe('catching up the history', () => {
+  const input = {
+    mailbox: 'a.nowak@nutripartners.co',
+    imapCredential: { id: 'c1', name: 'a' },
+    dbCredential: { id: 'd1', name: 'db' },
+    sentFolder: 'Sent',
+    since: { in: new Date('2026-10-12T00:00:00Z'), out: new Date('2026-10-12T00:00:00Z') },
+  };
+  type Node = { type?: string; parameters?: { options?: Record<string, unknown> } };
+  const nodesOf = (catchUp?: boolean) => buildIngestWorkflow({ ...input, catchUp }).nodes as unknown as Node[];
+  const imapOptions = (nodes: Node[]) =>
+    nodes
+      .filter((n) => n.type === 'n8n-nodes-base.emailReadImap')
+      .map((n) => (n.parameters as { options: { trackLastMessageId: boolean } }).options.trackLastMessageId);
+
+  it('starts with "Fetch Only New Emails" off, so n8n does not add SINCE <today> on the first read', () => {
+    expect(imapOptions(nodesOf(true))).toEqual([false, false]);
+    expect(imapOptions(nodesOf())).toEqual([true, true]);
+  });
+
+  it('turns it back on once, leaving the rest of the workflow as it was', () => {
+    const nodes = nodesOf(true);
+    const next = finishCatchUp(nodes);
+    expect(next && imapOptions(next)).toEqual([true, true]);
+    expect(next?.filter((n) => n.type !== 'n8n-nodes-base.emailReadImap')).toEqual(nodes.filter((n) => n.type !== 'n8n-nodes-base.emailReadImap'));
+    expect(finishCatchUp(next ?? [])).toBeNull();
   });
 });
