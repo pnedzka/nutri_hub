@@ -52,17 +52,47 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [progress, setProgress] = useState<{ read: number; saved: number } | null>(null);
+  // Connected, but reading the older e-mails stopped part-way: the next press continues from here.
+  const [pending, setPending] = useState<MailboxStatus | null>(null);
+
+  /** Reads the older e-mails in parts (each request has a time limit) until done; the password stays in memory only. */
+  const readHistory = async (first: MailboxStatus) => {
+    let status = first;
+    let read = (progress?.read ?? 0) + (pending ? 0 : (status.history?.read ?? 0));
+    let saved = (progress?.saved ?? 0) + (pending ? 0 : (status.history?.saved ?? 0));
+    setProgress({ read, saved });
+    while (status.history && !status.history.done) {
+      setPending(status);
+      status = await api<MailboxStatus>(`${PATH}&action=history`, { method: 'POST', body: { password, cursor: status.history.cursor } });
+      read += status.history?.read ?? 0;
+      saved += status.history?.saved ?? 0;
+      setProgress({ read, saved });
+    }
+    setPending(null);
+    return { status, saved };
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const status = await api<MailboxStatus>(PATH, { method: 'POST', body: { password, consent } });
+      const connected = pending ?? (await api<MailboxStatus>(PATH, { method: 'POST', body: { password, consent } }));
+      const { status, saved } = await readHistory(connected);
       setPassword('');
-      toast.success(reconnect ? 'Mailbox reconnected' : 'Mailbox connected', 'Your e-mails will appear in the knowledge base within minutes.');
+      setProgress(null);
+      toast.success(
+        reconnect ? 'Mailbox reconnected' : 'Mailbox connected',
+        `${saved} older e-mails added to the knowledge base. New e-mails will appear within minutes.`,
+      );
       onDone(status);
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        progress || pending
+          ? `${(e as Error).message} Your mailbox is connected; press the button again to continue reading older e-mails.`
+          : (e as Error).message,
+      );
     } finally {
       setBusy(false);
     }
@@ -86,6 +116,11 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
           read by AI to find inquiries, offers and orders. I can disconnect the mailbox here at any time.
         </span>
       </label>
+      {progress && busy && (
+        <p className="text-sm text-gray-600">
+          Reading older e-mails… {progress.read} read, {progress.saved} added. Keep this page open.
+        </p>
+      )}
       {error && <ErrorNote>{error}</ErrorNote>}
       <Button type="submit" isLoading={busy} disabled={!password || !consent} className="w-full sm:w-auto min-h-11 sm:min-h-0">
         {reconnect ? 'Reconnect mailbox' : 'Connect mailbox'}

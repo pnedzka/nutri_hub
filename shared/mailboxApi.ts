@@ -7,7 +7,9 @@
 //                                                   { available: false, missing? } until the hub is set up for it
 //                                                   (missing: names of the settings, for administrators only)
 //   GET    /api/people?resource=mailbox&view=all   → { mailboxes: MailboxOverview[] } (administrators)
-//   POST   /api/people?resource=mailbox  body { password, consent: true } → MailboxStatus
+//   POST   /api/people?resource=mailbox  body { password, consent: true } → MailboxStatus (+ history: the first part
+//                                                   of the older e-mails is read right away)
+//   POST   /api/people?resource=mailbox&action=history  body { password, cursor } → MailboxStatus (+ history), until done
 //   DELETE /api/people?resource=mailbox            → MailboxStatus (stops collecting; e-mails already saved stay)
 
 /** hub: connected in the hub; manual: added by an administrator in n8n (e.g. j.chrobak@); none: never connected. */
@@ -26,6 +28,8 @@ export interface MailboxStatus {
   lastInAt: string | null;
   lastOutAt: string | null;
   waitingForAi: number;
+  /** After connecting or POST …&action=history: how far reading the older e-mails got. */
+  history?: HistoryProgress;
 }
 
 export interface MailboxOverview {
@@ -199,5 +203,145 @@ export function buildIngestWorkflow(input: IngestWorkflowInput) {
       timezone: 'Europe/Warsaw',
       ...(input.errorWorkflowId ? { errorWorkflow: input.errorWorkflowId } : {}),
     },
+  };
+}
+
+// --- history, read by the hub ---------------------------------------------------------------------------------------
+// The IMAP trigger of n8n does not read a folder's history from the SINCE date (it starts with what arrives after it
+// is switched on), so the hub reads the history itself when a mailbox is connected: Inbox first, then Sent, in
+// batches that fit one request. The page keeps calling `POST …&action=history` with the password (kept only in the
+// page's memory) and the cursor until `done`. Duplicates of what n8n already saved are skipped by the database.
+
+export type HistoryFolder = 'in' | 'out';
+
+/** Where reading the history stopped: the folder and the last UID read in it. */
+export interface HistoryCursor {
+  folder: HistoryFolder;
+  uid: number;
+}
+
+export interface HistoryProgress {
+  done: boolean;
+  /** E-mails new to the knowledge base in this request. */
+  saved: number;
+  /** E-mails read in this request (new and already saved). */
+  read: number;
+  cursor: HistoryCursor | null;
+}
+
+/** The body of POST …&action=history. */
+export function historyInput(body: unknown): { password: string; cursor: HistoryCursor | null } {
+  const b = (body ?? {}) as { password?: unknown; cursor?: unknown };
+  if (typeof b.password !== 'string' || !b.password || b.password.length > 256) throw new MailboxInputError('Enter the password of your mailbox.');
+  const c = b.cursor as { folder?: unknown; uid?: unknown } | null | undefined;
+  if (c == null) return { password: b.password, cursor: null };
+  if ((c.folder !== 'in' && c.folder !== 'out') || typeof c.uid !== 'number' || !Number.isInteger(c.uid) || c.uid < 0) {
+    throw new MailboxInputError('The history cursor is not valid.');
+  }
+  return { password: b.password, cursor: { folder: c.folder, uid: c.uid } };
+}
+
+/** The part of a message's structure the hub uses (as imapflow returns it). */
+export interface BodyNode {
+  part?: string;
+  type?: string;
+  size?: number;
+  disposition?: string;
+  dispositionParameters?: Record<string, string>;
+  parameters?: Record<string, string>;
+  childNodes?: BodyNode[];
+}
+
+const fileName = (n: BodyNode) => n.dispositionParameters?.filename ?? n.parameters?.name ?? null;
+const isAttachment = (n: BodyNode) => n.disposition?.toLowerCase() === 'attachment' || (!!fileName(n) && !n.type?.startsWith('multipart/'));
+
+function leaves(node: BodyNode): BodyNode[] {
+  return node.childNodes?.length ? node.childNodes.flatMap(leaves) : [node];
+}
+
+/** The part to read as the body: the first text/plain that is not an attachment, otherwise the first text/html. */
+export function pickBodyPart(root: BodyNode | undefined): { part: string; html: boolean } | null {
+  if (!root) return null;
+  const parts = leaves(root).filter((n) => !isAttachment(n));
+  const plain = parts.find((n) => n.type?.toLowerCase() === 'text/plain');
+  const html = parts.find((n) => n.type?.toLowerCase() === 'text/html');
+  const chosen = plain ?? html;
+  if (!chosen) return null;
+  // A message that is not multipart has no part number: its body is part 1.
+  return { part: chosen.part ?? '1', html: !plain };
+}
+
+/** Attachments as the n8n workflow lists them: name, type and size ("114 kB"), without the files. */
+export function listAttachments(root: BodyNode | undefined): { name: string; type: string; size: string }[] {
+  if (!root) return [];
+  return leaves(root)
+    .filter(isAttachment)
+    .map((n) => ({
+      name: fileName(n) ?? 'attachment',
+      type: n.type?.toLowerCase() ?? 'application/octet-stream',
+      // The size on the server is of the encoded part; base64 is a third larger than the file.
+      size: `${Math.max(1, Math.round(((n.size ?? 0) * 0.75) / 1000))} kB`,
+    }));
+}
+
+/** Plain text of an HTML body, the same way the n8n workflow does it. */
+export function htmlToText(html: string): string {
+  return html.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+}
+
+/** The first Message-ID of a References header (the thread), or null. */
+export function firstReference(header: string | undefined): string | null {
+  const match = header?.match(/<[^<>\s]+>/);
+  return match ? match[0] : null;
+}
+
+export interface HistoryEmail {
+  direction: HistoryFolder;
+  messageId: string;
+  inReplyTo: string | null;
+  thread: string | null;
+  from: string | null;
+  to: string[];
+  cc: string[];
+  subject: string | null;
+  body: string;
+  attachments: { name: string; type: string; size: string }[];
+  date: string | null;
+}
+
+interface Address {
+  address?: string;
+}
+
+/** One e-mail as mailbox_api.save_emails expects it (the same fields the n8n workflow writes). */
+export function historyEmail(
+  mailbox: string,
+  direction: HistoryFolder,
+  message: {
+    envelope?: { messageId?: string; inReplyTo?: string; subject?: string; date?: Date | string; from?: Address[]; to?: Address[]; cc?: Address[] };
+    internalDate?: Date | string;
+    references?: string;
+    bodyStructure?: BodyNode;
+  },
+  body: { text: string; html: boolean } | null,
+): HistoryEmail {
+  const e = message.envelope ?? {};
+  const date = e.date && !Number.isNaN(new Date(e.date).getTime()) ? new Date(e.date) : message.internalDate ? new Date(message.internalDate) : null;
+  const dateIso = date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
+  const messageId = e.messageId || `${mailbox}:${dateIso ?? ''}:${e.subject ?? ''}`;
+  const addresses = (list?: Address[]) => (list ?? []).map((a) => a.address).filter((a): a is string => !!a);
+  const text = body ? (body.html ? htmlToText(body.text) : body.text) : '';
+  return {
+    direction,
+    messageId,
+    inReplyTo: e.inReplyTo || null,
+    thread: firstReference(message.references) ?? (e.inReplyTo || null) ?? messageId,
+    from: addresses(e.from)[0] ?? null,
+    to: addresses(e.to),
+    cc: addresses(e.cc),
+    subject: e.subject || null,
+    body: text.slice(0, 100_000),
+    attachments: listAttachments(message.bodyStructure),
+    date: dateIso,
   };
 }
