@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardBody, CardHeader } from '../components/Card';
 import { MailboxCard } from '../components/MailboxCard';
 import { ProfileForm } from '../components/ProfileForm';
-import { RoleBadge } from '../components/RoleBadge';
+import { RoleBadge } from '../components/AppHeader';
 import { useAuth } from '../lib/auth';
 import { useMyProfile, usePeople } from '../lib/people';
 import { ErrorNote, Loading } from './leave/ui';
