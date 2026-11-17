@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { PurchaseInputError, proposalStatus, purchaseAction, reviewFilters, reviewQuery, topOptions, type ProposalOption } from './purchaseApi';
+import {
+  DEFAULT_OPTION_SORT,
+  PurchaseInputError,
+  nextOptionSort,
+  proposalStatus,
+  purchaseAction,
+  reviewFilters,
+  reviewQuery,
+  sortOptions,
+  topOptions,
+  type ProposalOption,
+} from './purchaseApi';
 
 describe('reviewFilters', () => {
   it('reads known filters and ignores the rest', () => {
@@ -88,5 +99,46 @@ describe('topOptions', () => {
     expect(topOptions(options).map((o) => o.id)).toEqual([1, 2, 3, 4, 5]);
     expect(topOptions(options, [7, null, undefined, 2]).map((o) => o.id)).toEqual([1, 2, 3, 4, 5, 7]);
     expect(topOptions(options.slice(0, 3))).toHaveLength(3);
+  });
+});
+
+describe('sortOptions', () => {
+  const option = (o: Partial<ProposalOption>) => ({ supplier: null, priceEurPerKg: null, quantityKg: null, incoterms: null, location: null, offeredAt: null, ...o }) as ProposalOption;
+  const options = [
+    option({ id: 1, rank: 1, supplier: 'beta', priceEurPerKg: 3, quantityKg: 1000, incoterms: 'FCA', offeredAt: '2026-11-10T10:00:00Z' }),
+    option({ id: 2, rank: 2, supplier: 'Alpha', priceEurPerKg: null, quantityKg: 5000, incoterms: 'DAP', location: 'Lublin', offeredAt: '2026-11-15T10:00:00Z' }),
+    option({ id: 3, rank: 3, trader: 'Jan', priceEurPerKg: 2.5, offeredAt: null }),
+    option({ id: 4, rank: 4, supplier: 'Gamma', priceEurPerKg: 2.5, quantityKg: 2000, incoterms: 'CIF' }),
+  ];
+  const ids = (key: Parameters<typeof nextOptionSort>[1], direction: 'asc' | 'desc') => sortOptions(options, { key, direction }).map((o) => o.id);
+
+  it('keeps the ranking by default', () => {
+    expect(sortOptions([...options].reverse(), DEFAULT_OPTION_SORT).map((o) => o.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('sorts by price, ties by rank, offers without a price last in both directions', () => {
+    expect(ids('price', 'asc')).toEqual([3, 4, 1, 2]);
+    expect(ids('price', 'desc')).toEqual([1, 3, 4, 2]);
+  });
+
+  it('sorts by supplier (BID SELL by its trader), quantity, terms and offer date', () => {
+    expect(ids('supplier', 'asc')).toEqual([2, 1, 3, 4]);
+    expect(ids('quantity', 'desc')).toEqual([2, 4, 1, 3]);
+    expect(ids('terms', 'asc')).toEqual([4, 2, 1, 3]);
+    expect(ids('offered', 'desc')).toEqual([2, 1, 3, 4]);
+  });
+
+  it('does not change the list it gets', () => {
+    sortOptions(options, { key: 'price', direction: 'asc' });
+    expect(options.map((o) => o.id)).toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe('nextOptionSort', () => {
+  it('turns the same column around and starts another one in its own direction', () => {
+    expect(nextOptionSort(DEFAULT_OPTION_SORT, 'rank')).toEqual({ key: 'rank', direction: 'desc' });
+    expect(nextOptionSort(DEFAULT_OPTION_SORT, 'price')).toEqual({ key: 'price', direction: 'asc' });
+    expect(nextOptionSort({ key: 'price', direction: 'asc' }, 'offered')).toEqual({ key: 'offered', direction: 'desc' });
+    expect(nextOptionSort({ key: 'quantity', direction: 'desc' }, 'quantity')).toEqual({ key: 'quantity', direction: 'asc' });
   });
 });
