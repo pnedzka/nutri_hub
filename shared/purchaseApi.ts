@@ -166,6 +166,68 @@ export function topOptions(options: ProposalOption[], keep: ReadonlyArray<number
   return options.filter((o, index) => index < limit || keep.includes(o.id));
 }
 
+/** Columns of the offers table on a BID BUY card that sort on a click (decision of 17.11.2026). */
+export type OptionSortKey = 'rank' | 'supplier' | 'price' | 'quantity' | 'terms' | 'offered';
+export type SortDirection = 'asc' | 'desc';
+export interface OptionSort {
+  key: OptionSortKey;
+  direction: SortDirection;
+}
+
+/** The ranking order, as the database sends the offers. */
+export const DEFAULT_OPTION_SORT: OptionSort = { key: 'rank', direction: 'asc' };
+
+/** The direction of the first click on a column: the cheapest, the most and the newest first, names from A. */
+export const FIRST_DIRECTION: Record<OptionSortKey, SortDirection> = {
+  rank: 'asc',
+  supplier: 'asc',
+  price: 'asc',
+  quantity: 'desc',
+  terms: 'asc',
+  offered: 'desc',
+};
+
+/** A click on a column header: the same column turns the order around, another one starts in its first direction. */
+export function nextOptionSort(current: OptionSort, key: OptionSortKey): OptionSort {
+  if (current.key === key) return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+  return { key, direction: FIRST_DIRECTION[key] };
+}
+
+function sortValue(o: ProposalOption, key: OptionSortKey): string | number | null {
+  switch (key) {
+    case 'rank':
+      return o.rank;
+    case 'supplier':
+      return (o.supplier ?? (o.trader ? `BID SELL from ${o.trader}` : null))?.trim().toLowerCase() || null;
+    case 'price':
+      return o.priceEurPerKg;
+    case 'quantity':
+      return o.quantityKg;
+    case 'terms':
+      return [o.incoterms, o.location].filter(Boolean).join(' ').trim().toLowerCase() || null;
+    case 'offered': {
+      const time = o.offeredAt ? Date.parse(o.offeredAt) : NaN;
+      return Number.isNaN(time) ? null : time;
+    }
+  }
+}
+
+/** The card's offers in the chosen order. Offers without the value (no price, no date…) always go last; ties keep the ranking. */
+export function sortOptions(options: ProposalOption[], sort: OptionSort): ProposalOption[] {
+  const sign = sort.direction === 'asc' ? 1 : -1;
+  return options
+    .map((o) => ({ o, value: sortValue(o, sort.key) }))
+    .sort((a, b) => {
+      if (a.value === null || b.value === null) {
+        if (a.value === b.value) return a.o.rank - b.o.rank;
+        return a.value === null ? 1 : -1;
+      }
+      const diff = typeof a.value === 'number' && typeof b.value === 'number' ? a.value - b.value : String(a.value).localeCompare(String(b.value));
+      return diff !== 0 ? sign * diff : a.o.rank - b.o.rank;
+    })
+    .map(({ o }) => o);
+}
+
 /** A BID BUY from Apex Bid with the best supplier offers for it. */
 export interface Proposal {
   id: number;
