@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mail, Search } from 'lucide-react';
+import { Mail, MessageSquare, Search } from 'lucide-react';
 import type { EmailOf, ProductHit } from '../../../shared/purchaseApi.ts';
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
@@ -155,6 +155,30 @@ export function CopyEmail({ email, of }: { email?: string | null; of?: EmailOf |
     >
       <Mail className="h-3.5 w-3.5" aria-hidden />
       {of === 'trader' ? 'Copy trader e-mail' : 'Copy e-mail'}
+    </button>
+  );
+}
+
+/** Copies a ready BID SELL message for the Apex Bid WhatsApp group (bidSellMessage in shared/purchaseApi.ts). */
+export function CopyBidSell({ text }: { text: string }) {
+  const toast = useToast();
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('BID SELL copied', 'Paste it into WhatsApp.');
+    } catch {
+      toast.error('Could not copy', text);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      title={`Copy a ready BID SELL message for WhatsApp:\n\n${text}`}
+      className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 sm:min-h-7"
+    >
+      <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+      Copy BID SELL
     </button>
   );
 }
