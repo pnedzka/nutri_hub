@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Mail, MessageSquare, Search } from 'lucide-react';
+import { ExternalLink, Mail, MessageSquare, Search } from 'lucide-react';
+import { sparkLink } from '../../../shared/spark.ts';
 import { eurAtNbp, formatPrice, type EmailOf, type PriceLike, type ProductHit } from '../../../shared/purchaseApi.ts';
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
@@ -157,6 +158,24 @@ export function CopyEmail({ email, of }: { email?: string | null; of?: EmailOf |
       <Mail className="h-3.5 w-3.5" aria-hidden />
       {of === 'trader' ? 'Copy trader e-mail' : 'Copy e-mail'}
     </button>
+  );
+}
+
+/** Opens the e-mail the offer came from in Spark (shared/spark.ts); hidden when the e-mail is not known. */
+export function OpenInSpark({ mailbox, messageId }: { mailbox?: string | null; messageId?: string | null }) {
+  const href = sparkLink(mailbox, messageId);
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Open this e-mail in Spark (works where Spark has ${mailbox} added)`}
+      className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 sm:min-h-7"
+    >
+      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      Open in Spark
+    </a>
   );
 }
 

@@ -28,7 +28,7 @@ import { useApi } from '../leave/useApi';
 import { PURCHASE_API, dateAgo, day, money, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';
 import { useNbpRates } from './nbp';
-import { CopyBidSell, CopyEmail, Pager, Pill, Price } from './ui';
+import { CopyBidSell, CopyEmail, OpenInSpark, Pager, Pill, Price } from './ui';
 
 type Filter = ProposalStatus | 'all';
 const FILTERS: Filter[] = ['pending_review', 'approved', 'rejected', 'expired', 'all'];
@@ -232,6 +232,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                     )}
                     <div className="-ml-2 flex flex-wrap">
                       <CopyEmail email={o.email} of={o.emailOf} />
+                      <OpenInSpark mailbox={o.mailbox} messageId={o.messageId} />
                       <CopyBidSell text={bidSellMessage(o, p.product)} />
                     </div>
                   </td>
