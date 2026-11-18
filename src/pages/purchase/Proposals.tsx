@@ -394,13 +394,14 @@ export function Proposals() {
 
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState<BidRefresh | null>(null);
-  // Reads Apex Bid right now instead of waiting for the hourly run (about ten seconds), then shows the cards again.
+  // Reads Apex Bid right now instead of waiting for the next scheduled run (about ten seconds), then shows the cards again.
   const checkApex = async () => {
     setChecking(true);
     try {
       const { result } = await api<{ result: BidRefresh }>(PURCHASE_API, { method: 'POST', body: { action: 'refreshBids' } satisfies PurchaseAction });
       setChecked(result);
-      toast.success('Apex Bid checked', result.new > 0 ? `${result.new} new BID BUY ${result.new === 1 ? 'card' : 'cards'}.` : 'No new BID BUY.');
+      if (result.recent) toast.success('Apex Bid checked a moment ago', 'The cards are up to date.');
+      else toast.success('Apex Bid checked', result.new > 0 ? `${result.new} new BID BUY ${result.new === 1 ? 'card' : 'cards'}.` : 'No new BID BUY.');
       reload();
     } catch (e) {
       toast.error('Apex Bid not checked', (e as Error).message);
@@ -429,7 +430,7 @@ export function Proposals() {
             ? 'Reading BID BUY and offers from Apex Bid, about ten seconds…'
             : checked
               ? `Checked ${formatDateTime(checked.checkedAt)}.`
-              : 'Apex Bid is read every hour. Check now if you expect a new BID BUY.'}
+              : 'Apex Bid is read every 10 minutes on weekdays from 9:00 to 16:00, otherwise every hour (weekends once, at 18:00). Check now if you expect a new BID BUY.'}
         </p>
       </div>
       <div className="relative">

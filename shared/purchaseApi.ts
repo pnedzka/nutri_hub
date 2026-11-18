@@ -362,6 +362,8 @@ export interface BidRefresh {
   /** Cards closed because their BID BUY is no longer valid. */
   expired: number;
   checkedAt: string;
+  /** Someone checked less than a minute ago, so this check did not run again; the cards are already fresh. */
+  recent?: boolean;
 }
 
 /** The latest review decision of the signed-in person that can still be undone (GET view=lastDecision). */
