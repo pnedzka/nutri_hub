@@ -94,11 +94,15 @@ export function purchaseGet(request: Request): Promise<Response> {
       case 'proposals': {
         const status = params.get('status');
         const page = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1);
+        // The search over all cards (db/central/bid_search_cards.sql); sent only when there is one, so the list keeps
+        // working on a database without that file.
+        const q = params.get('q')?.trim().replace(/\s+/g, ' ').slice(0, 100) ?? '';
         return json(
           await call('bid_proposal_list', {
             p_status: status === 'all' ? null : (proposalStatus(status) ?? 'pending_review'),
             p_limit: PROPOSALS_PAGE_SIZE,
             p_offset: (page - 1) * PROPOSALS_PAGE_SIZE,
+            ...(q ? { p_q: q } : {}),
           }),
         );
       }
