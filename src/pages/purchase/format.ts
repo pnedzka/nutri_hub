@@ -1,11 +1,13 @@
 // Formatting and the API address of Purchase Manager, shared by its screens.
 
+import { formatPrice, type PriceLike } from '../../../shared/purchaseApi';
+
 export const PURCHASE_API = '/api/admin/users?resource=purchase';
 
 export const whole = (value: number) => value.toLocaleString('en-GB');
 export const percent = (value: number | null) => (value === null ? '—' : `${Math.round(value * 100)}%`);
-export const eur = (value: number | null) =>
-  value === null ? '—' : `${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR/kg`;
+/** The price in its own currency and unit (shared/purchaseApi.ts, formatPrice). */
+export const money = (p: PriceLike) => formatPrice(p) ?? '—';
 export const kg = (value: number | null) => (value === null ? null : `${Math.round(value).toLocaleString('en-GB')} kg`);
 
 const DAY = 86_400_000;

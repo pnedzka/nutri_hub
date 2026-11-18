@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  eurAtNbp,
+  formatPrice,
+  nbpEurRates,
   DEFAULT_OPTION_SORT,
   bidSellMessage,
   PurchaseInputError,
@@ -155,5 +158,40 @@ describe('bidSellMessage', () => {
   it('leaves out what the offer does not say and falls back to the card product', () => {
     const bare = { ...base, productName: null, quantityKg: null, priceEurPerKg: null, incoterms: null, location: null, leadTime: null };
     expect(bidSellMessage(bare, 'Betaine anhydrous')).toBe('BID SELL\nBetaine anhydrous');
+  });
+});
+
+describe('original prices and NBP', () => {
+  const nbp = nbpEurRates([
+    { table: 'A', no: '223/A/NBP/2026', effectiveDate: '2026-11-18', rates: [{ code: 'EUR', mid: 4.25 }, { code: 'USD', mid: 3.825 }] },
+  ]);
+
+  it('reads EUR for one unit from NBP table A', () => {
+    expect(nbp?.date).toBe('2026-11-18');
+    expect(nbp?.eurPer.USD).toBeCloseTo(0.9);
+    expect(nbp?.eurPer.PLN).toBeCloseTo(1 / 4.25);
+    expect(nbpEurRates([{ effectiveDate: '2026-11-18', rates: [{ code: 'USD', mid: 3.8 }] }])).toBeNull();
+    expect(nbpEurRates({})).toBeNull();
+  });
+
+  it('shows the price in its own currency and unit, EUR/kg only without one', () => {
+    expect(formatPrice({ priceEurPerKg: 2.7, price: 3, currency: 'USD', priceUnit: 'kg' })).toBe('3.00 USD/kg');
+    expect(formatPrice({ priceEurPerKg: 2.52, price: 2800, currency: 'USD', priceUnit: 'mt' })).toBe('2,800.00 USD/t');
+    expect(formatPrice({ priceEurPerKg: 1.2, price: 5, currency: 'PLN', priceUnit: null })).toBe('5.00 PLN');
+    expect(formatPrice({ priceEurPerKg: 2.7 })).toBe('2.70 EUR/kg');
+    expect(formatPrice({ priceEurPerKg: null })).toBeNull();
+  });
+
+  it('adds EUR at the NBP rate for other currencies, per kg for tonnes', () => {
+    expect(eurAtNbp({ priceEurPerKg: 2.7, price: 3, currency: 'USD', priceUnit: 'kg' }, nbp)).toBe('2.70 EUR/kg');
+    expect(eurAtNbp({ priceEurPerKg: 2.52, price: 2800, currency: 'USD', priceUnit: 'mt' }, nbp)).toBe('2.52 EUR/kg');
+    expect(eurAtNbp({ priceEurPerKg: 1, price: 4.25, currency: 'PLN', priceUnit: 'kg' }, nbp)).toBe('1.00 EUR/kg');
+    expect(eurAtNbp({ priceEurPerKg: 2, price: 2, currency: 'EUR', priceUnit: 'kg' }, nbp)).toBeNull();
+    expect(eurAtNbp({ priceEurPerKg: 2, price: 2, currency: 'CHF', priceUnit: 'kg' }, nbp)).toBeNull();
+    expect(eurAtNbp({ priceEurPerKg: 2.7, price: 3, currency: 'USD', priceUnit: 'kg' }, null)).toBeNull();
+  });
+
+  it('BID SELL message keeps the original currency', () => {
+    expect(bidSellMessage({ id: 1, rank: 1, supplier: 'X', priceEurPerKg: 2.7, price: 3, currency: 'USD', priceUnit: 'kg', incoterms: null, location: null, leadTime: null, quantityKg: null, offeredAt: null, source: null, productName: 'Taurine' } as never, 'Taurine')).toBe('BID SELL\nTaurine\n3.00 USD/kg');
   });
 });
