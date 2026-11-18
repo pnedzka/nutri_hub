@@ -100,6 +100,11 @@ export interface ProposalOption {
   score?: number | null;
   supplier: string | null;
   priceEurPerKg: number | null;
+  /** The price as offered, in its own currency and unit (db/central/bid_original_prices.sql); EUR/kg above is for comparing. */
+  price?: number | null;
+  currency?: string | null;
+  /** kg | mt | pcs */
+  priceUnit?: string | null;
   incoterms: string | null;
   location: string | null;
   leadTime: string | null;
@@ -154,6 +159,11 @@ export interface ProposalPurchase {
   productName: string | null;
   quantityKg: number | null;
   priceEurPerKg: number | null;
+  /** The price as offered, in its own currency and unit (db/central/bid_original_prices.sql); EUR/kg above is for comparing. */
+  price?: number | null;
+  currency?: string | null;
+  /** kg | mt | pcs */
+  priceUnit?: string | null;
   incoterms: string | null;
   date: string | null;
 }
@@ -228,6 +238,77 @@ export function sortOptions(options: ProposalOption[], sort: OptionSort): Propos
     .map(({ o }) => o);
 }
 
+/** A price with its own currency and unit. */
+export interface PriceLike {
+  priceEurPerKg: number | null;
+  price?: number | null;
+  currency?: string | null;
+  priceUnit?: string | null;
+}
+
+const UNIT_LABELS: Record<string, string> = { kg: 'kg', mt: 't', pcs: 'pcs' };
+
+/**
+ * The price as the supplier gave it, in its own currency and unit ("3.20 USD/kg", "2,800.00 EUR/t"), without
+ * converting to EUR (decision of 18.11.2026). EUR/kg only when the original price is unknown (before
+ * bid_original_prices.sql runs, or an offer without a currency).
+ */
+export function formatPrice(p: PriceLike): string | null {
+  const amount = (value: number) => value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (p.price != null && p.currency) {
+    const unit = p.priceUnit ? (UNIT_LABELS[p.priceUnit] ?? p.priceUnit) : null;
+    return `${amount(Number(p.price))} ${p.currency}${unit ? `/${unit}` : ''}`;
+  }
+  return p.priceEurPerKg === null ? null : `${amount(p.priceEurPerKg)} EUR/kg`;
+}
+
+/** EUR for one unit of each currency, from the latest NBP table A (GET view=nbpRates). */
+export interface NbpRates {
+  /** The day of the NBP table, YYYY-MM-DD. */
+  date: string;
+  /** e.g. 223/A/NBP/2026 */
+  table: string;
+  eurPer: Record<string, number>;
+}
+
+/**
+ * EUR for one unit of each currency from an NBP table A answer (rates in PLN for one unit, "mid"):
+ * X in EUR = X's mid / EUR's mid, PLN in EUR = 1 / EUR's mid. Null when the table has no EUR.
+ */
+export function nbpEurRates(answer: unknown): NbpRates | null {
+  const table = Array.isArray(answer) ? answer[0] : null;
+  if (!table || typeof table !== 'object') return null;
+  const { no, effectiveDate, rates } = table as { no?: unknown; effectiveDate?: unknown; rates?: unknown };
+  if (typeof effectiveDate !== 'string' || !Array.isArray(rates)) return null;
+  const mids = new Map<string, number>();
+  for (const r of rates as { code?: unknown; mid?: unknown }[]) {
+    if (typeof r?.code === 'string' && typeof r.mid === 'number' && r.mid > 0) mids.set(r.code.toUpperCase(), r.mid);
+  }
+  const eur = mids.get('EUR');
+  if (!eur) return null;
+  const eurPer: Record<string, number> = { EUR: 1, PLN: 1 / eur };
+  for (const [code, mid] of mids) if (code !== 'EUR') eurPer[code] = mid / eur;
+  return { date: effectiveDate, table: typeof no === 'string' ? no : '', eurPer };
+}
+
+/**
+ * The extra price in EUR at the NBP rate (decision of 18.11.2026), per kg when the unit is kg or a tonne
+ * ("2.73 EUR/kg"), otherwise in the offer's own unit. Null for prices already in EUR or without a rate.
+ */
+export function eurAtNbp(p: PriceLike, rates: NbpRates | null): string | null {
+  if (!rates || p.price == null || !p.currency) return null;
+  const currency = p.currency.toUpperCase();
+  const rate = rates.eurPer[currency];
+  if (currency === 'EUR' || !rate) return null;
+  let value = Number(p.price) * rate;
+  let unit = p.priceUnit ? (UNIT_LABELS[p.priceUnit] ?? p.priceUnit) : null;
+  if (p.priceUnit === 'mt') {
+    value /= 1000;
+    unit = 'kg';
+  }
+  return `${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR${unit ? `/${unit}` : ''}`;
+}
+
 /**
  * A ready BID SELL message for the Apex Bid WhatsApp group, in the group's own format (decision of 18.11.2026):
  * "BID SELL", the product, quantity, purchase price, terms and lead time, one per line. No supplier name: the group
@@ -235,12 +316,11 @@ export function sortOptions(options: ProposalOption[], sort: OptionSort): Propos
  */
 export function bidSellMessage(option: ProposalOption, product: string): string {
   const kg = (value: number) => `${Math.round(value).toLocaleString('en-GB')} kg`;
-  const price = (value: number) => `${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR/kg`;
   return [
     'BID SELL',
     option.productName?.trim() || product,
     option.quantityKg !== null && option.quantityKg > 0 && kg(option.quantityKg),
-    option.priceEurPerKg !== null && price(option.priceEurPerKg),
+    formatPrice(option),
     [option.incoterms, option.location].filter(Boolean).join(' '),
     option.leadTime && `LT ${option.leadTime}`,
   ]
@@ -264,6 +344,10 @@ export interface Proposal {
   requestedKg: number | null;
   /** The price the customer asks for, from the BID BUY (not a price we suggest). */
   targetPriceEurPerKg: number | null;
+  /** The BID BUY's target price in its own currency and unit (db/central/bid_original_prices.sql). */
+  targetPrice?: number | null;
+  targetCurrency?: string | null;
+  targetPriceUnit?: string | null;
   requestedIncoterms: string | null;
   requestedLocation: string | null;
   bidBuyText: string | null;
@@ -286,6 +370,11 @@ export interface FoundOffer {
   offerId: number;
   supplier: string | null;
   priceEurPerKg: number | null;
+  /** The price as offered, in its own currency and unit (db/central/bid_original_prices.sql); EUR/kg above is for comparing. */
+  price?: number | null;
+  currency?: string | null;
+  /** kg | mt | pcs */
+  priceUnit?: string | null;
   incoterms: string | null;
   location: string | null;
   leadTime: string | null;
@@ -313,6 +402,11 @@ export interface FoundContract {
   product: string | null;
   quantityKg: number | null;
   priceEurPerKg: number | null;
+  /** The price as offered, in its own currency and unit (db/central/bid_original_prices.sql); EUR/kg above is for comparing. */
+  price?: number | null;
+  currency?: string | null;
+  /** kg | mt | pcs */
+  priceUnit?: string | null;
   incoterms: string | null;
   date: string | null;
 }

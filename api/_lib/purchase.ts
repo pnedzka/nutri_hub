@@ -14,8 +14,10 @@ import {
   REVIEW_PAGE_SIZE,
   proposalStatus,
   purchaseAction,
+  nbpEurRates,
   reviewFilters,
   type BidRefresh,
+  type NbpRates,
   type PurchaseAction,
   type ReviewSummary,
 } from '../../shared/purchaseApi.js';
@@ -77,6 +79,8 @@ export function purchaseGet(request: Request): Promise<Response> {
           }),
         );
       }
+      case 'nbpRates':
+        return json({ rates: await nbpRates() });
       case 'lastDecision':
         return json({ last: await call('review_last_decision', { p_by: person.email }) });
       case 'search': {
@@ -110,6 +114,29 @@ export function purchaseGet(request: Request): Promise<Response> {
         throw new HttpError(400, 'Unknown view.');
     }
   });
+}
+
+let nbpCache: { at: number; rates: NbpRates | null } | null = null;
+const NBP_TABLE = 'https://api.nbp.pl/api/exchangerates/tables/A/?format=json';
+
+/**
+ * Today's NBP mid rates (table A, the latest one published) as EUR for one unit of each currency, for the extra EUR
+ * price next to offers in other currencies. Kept for an hour; null when NBP does not answer (the screen then shows
+ * only the original price).
+ */
+async function nbpRates(): Promise<NbpRates | null> {
+  if (nbpCache && Date.now() - nbpCache.at < 3_600_000) return nbpCache.rates;
+  try {
+    const response = await fetch(NBP_TABLE, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8_000) });
+    if (!response.ok) throw new Error(`NBP answered ${response.status}`);
+    const rates = nbpEurRates(await response.json());
+    if (!rates) throw new Error('NBP table A without EUR');
+    nbpCache = { at: Date.now(), rates };
+    return rates;
+  } catch (error) {
+    logError('purchase.nbpRates', error);
+    return nbpCache?.rates ?? null;
+  }
 }
 
 /** The message of bid_refresh_begin (db/central/bid_refresh.sql) when the button was pressed less than a minute ago. */

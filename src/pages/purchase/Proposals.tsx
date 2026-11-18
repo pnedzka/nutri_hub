@@ -6,6 +6,7 @@ import {
   PROPOSALS_PAGE_SIZE,
   PROPOSAL_STATUS_NAMES,
   TOP_OPTIONS,
+  eurAtNbp,
   nextOptionSort,
   sortOptions,
   topOptions,
@@ -24,9 +25,10 @@ import { formatDateTime } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { useApi } from '../leave/useApi';
-import { PURCHASE_API, dateAgo, day, eur, kg, sourceName } from './format';
+import { PURCHASE_API, dateAgo, day, money, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';
-import { CopyBidSell, CopyEmail, Pager, Pill } from './ui';
+import { useNbpRates } from './nbp';
+import { CopyBidSell, CopyEmail, Pager, Pill, Price } from './ui';
 
 type Filter = ProposalStatus | 'all';
 const FILTERS: Filter[] = ['pending_review', 'approved', 'rejected', 'expired', 'all'];
@@ -92,7 +94,14 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
     return ok;
   };
 
-  const request = [kg(p.requestedKg), [p.requestedIncoterms, p.requestedLocation].filter(Boolean).join(' '), p.targetPriceEurPerKg !== null && `target ${eur(p.targetPriceEurPerKg)}`]
+  const rates = useNbpRates();
+  const target = { priceEurPerKg: p.targetPriceEurPerKg, price: p.targetPrice, currency: p.targetCurrency, priceUnit: p.targetPriceUnit };
+  const targetEur = eurAtNbp(target, rates);
+  const request = [
+    kg(p.requestedKg),
+    [p.requestedIncoterms, p.requestedLocation].filter(Boolean).join(' '),
+    p.targetPriceEurPerKg !== null && `target ${money(target)}${targetEur ? ` (≈ ${targetEur} NBP)` : ''}`,
+  ]
     .filter(Boolean)
     .join(' · ');
 
@@ -161,7 +170,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
           <ul className="mt-1 space-y-1">
             {purchases.map((c) => (
               <li key={c.id} className="text-gray-800 [overflow-wrap:anywhere]">
-                <span className="font-medium">{eur(c.priceEurPerKg)}</span>
+                <Price price={c} className="font-medium" />
                 {' · '}
                 {[c.supplier ?? 'Unknown supplier', kg(c.quantityKg), c.incoterms, c.date && dateAgo(c.date)].filter(Boolean).join(' · ')}
                 <span className="block text-xs text-gray-500">
@@ -226,7 +235,9 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                       <CopyBidSell text={bidSellMessage(o, p.product)} />
                     </div>
                   </td>
-                  <td className={`${td} whitespace-nowrap font-medium text-gray-900`}>{eur(o.priceEurPerKg)}</td>
+                  <td className={td}>
+                    <Price price={o} />
+                  </td>
                   <td className={`${td} whitespace-nowrap text-gray-700`}>{o.quantityKg !== null ? kg(o.quantityKg) : '—'}</td>
                   <td className={`${td} text-gray-700`}>
                     {[o.incoterms, o.location].filter(Boolean).join(' ') || '—'}

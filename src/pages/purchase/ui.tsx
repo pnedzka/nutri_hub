@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Mail, MessageSquare, Search } from 'lucide-react';
-import type { EmailOf, ProductHit } from '../../../shared/purchaseApi.ts';
+import { eurAtNbp, formatPrice, type EmailOf, type PriceLike, type ProductHit } from '../../../shared/purchaseApi.ts';
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import { PURCHASE_API, sourceName, whole } from './format';
+import { useNbpRates } from './nbp';
 
 export function Pill({ children, tone = 'gray', title }: { children: React.ReactNode; tone?: 'gray' | 'green' | 'amber' | 'red' | 'blue'; title?: string }) {
   const tones = {
@@ -180,5 +181,26 @@ export function CopyBidSell({ text }: { text: string }) {
       <MessageSquare className="h-3.5 w-3.5" aria-hidden />
       Copy BID SELL
     </button>
+  );
+}
+
+const dayMonth = (date: string) => date.split('-').reverse().slice(0, 2).join('.');
+
+/**
+ * A price as offered, in its own currency (decision of 18.11.2026), with the EUR price at today's NBP rate under it
+ * for other currencies.
+ */
+export function Price({ price, className = 'font-medium text-gray-900' }: { price: PriceLike; className?: string }) {
+  const rates = useNbpRates();
+  const extra = eurAtNbp(price, rates);
+  return (
+    <span className="inline-flex flex-col">
+      <span className={`whitespace-nowrap ${className}`}>{formatPrice(price) ?? '—'}</span>
+      {extra && rates && (
+        <span className="whitespace-nowrap text-xs font-normal text-gray-500" title={`NBP table ${rates.table}, mid rate of ${rates.date}`}>
+          ≈ {extra} (NBP {dayMonth(rates.date)})
+        </span>
+      )}
+    </span>
   );
 }
