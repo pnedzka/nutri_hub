@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, X } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, Search, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   DEFAULT_OPTION_SORT,
   bidSellMessage,
@@ -366,7 +366,19 @@ export function Proposals() {
   const toast = useToast();
   const [filter, setFilter] = useState<Filter>('pending_review');
   const [page, setPage] = useState(1);
-  const { data, error, reload } = useApi<ProposalPage>(`${PURCHASE_API}&view=proposals&status=${filter}&page=${page}`);
+  // Search over all cards (decision of 18.11.2026): product, BID BUY, customer, sales rep, offers and suppliers.
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQ(search.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const { data, error, reload } = useApi<ProposalPage>(
+    `${PURCHASE_API}&view=proposals&status=${filter}&page=${page}${q ? `&q=${encodeURIComponent(q)}` : ''}`,
+  );
 
   const onDecide = async (action: PurchaseAction, done: string) => {
     try {
@@ -420,6 +432,18 @@ export function Proposals() {
               : 'Apex Bid is read every hour. Check now if you expect a new BID BUY.'}
         </p>
       </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search all cards: product, supplier, customer, sales rep…"
+          aria-label="Search all cards"
+          maxLength={100}
+          className="min-h-11 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent"
+        />
+      </div>
       <nav className="-mx-4 overflow-x-auto sm:mx-0" aria-label="Status">
         <div className="flex gap-2 px-4 sm:flex-wrap sm:px-0">
           {FILTERS.map((f) => {
@@ -446,7 +470,7 @@ export function Proposals() {
       </nav>
       {error && <ErrorNote>{error}</ErrorNote>}
       {!data && !error && <Loading />}
-      {data && data.items.length === 0 && <Empty>No proposals here.</Empty>}
+      {data && data.items.length === 0 && <Empty>{q ? `No cards match “${q}” here. Try another status or All.` : 'No proposals here.'}</Empty>}
       <ul className="space-y-3">
         {data?.items.map((p) => (
           <li key={`${p.id}-${p.status}`}>
