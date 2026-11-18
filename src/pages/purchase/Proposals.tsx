@@ -154,7 +154,8 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
         </div>
       ))}
       {p.bidBuyText && (
-        <details className="mt-2 text-sm">
+        // Open by default (decision of 18.11.2026): the WhatsApp message is what Michał reads first.
+        <details open className="mt-2 text-sm">
           <summary className="cursor-pointer select-none text-xs text-gray-500">BID BUY message</summary>
           <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-sans text-sm text-gray-800 [overflow-wrap:anywhere]">{p.bidBuyText}</pre>
         </details>
