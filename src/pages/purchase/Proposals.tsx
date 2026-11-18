@@ -1,11 +1,16 @@
-import { RefreshCw, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 import {
+  DEFAULT_OPTION_SORT,
   PROPOSALS_PAGE_SIZE,
   PROPOSAL_STATUS_NAMES,
   TOP_OPTIONS,
+  nextOptionSort,
+  sortOptions,
   topOptions,
   type BidRefresh,
+  type OptionSort,
+  type OptionSortKey,
   type Proposal,
   type ProposalPage,
   type ProposalStatus,
@@ -36,12 +41,32 @@ const STATUS_TONE: Record<ProposalStatus, 'amber' | 'green' | 'red' | 'gray' | '
 const th = 'px-3 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap';
 const td = 'px-3 py-2.5 align-top';
 
+/** A column header that sorts the card's offers on a click; the arrow shows the current order. */
+function SortHeader({ label, column, sort, onSort, className = '' }: { label: string; column: OptionSortKey; sort: OptionSort; onSort: (key: OptionSortKey) => void; className?: string }) {
+  const active = sort.key === column;
+  const Icon = !active ? ArrowUpDown : sort.direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th className={`${th} ${className}`} aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        title={`Sort by ${label.toLowerCase()}`}
+        className={`-mx-1 inline-flex min-h-11 items-center gap-1 rounded px-1 hover:text-gray-900 sm:min-h-0 ${active ? 'text-gray-900' : ''}`}
+      >
+        {label}
+        <Icon className={`h-3.5 w-3.5 ${active ? '' : 'text-gray-300'}`} aria-hidden />
+      </button>
+    </th>
+  );
+}
+
 function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide: (action: PurchaseAction, done: string) => Promise<boolean> }) {
   const [option, setOption] = useState<number | null>(p.chosenOptionId ?? p.options[0]?.id ?? null);
   const [note, setNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [sort, setSort] = useState<OptionSort>(DEFAULT_OPTION_SORT);
   const open = p.status === 'pending_review';
   const decided = p.status === 'approved' || p.status === 'rejected';
   // Missing until db/central/bid_option_reject.sql runs in the central database.
@@ -52,8 +77,11 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
   // Missing until db/central/bid_card_purchases.sql runs in the central database.
   const purchases = p.purchases ?? [];
   // The best offers first; the chosen and the sold ones stay visible wherever they rank.
-  const options = showAll ? p.options : topOptions(p.options, [p.chosenOptionId, option, ...soldOptions]);
-  const hidden = p.options.length - options.length;
+  const shown = showAll ? p.options : topOptions(p.options, [p.chosenOptionId, option, ...soldOptions]);
+  const hidden = p.options.length - shown.length;
+  // Sorting orders the offers on view (the best 5, or all of them after Show all); the ranking stays the default.
+  const options = sortOptions(shown, sort);
+  const onSort = (key: OptionSortKey) => setSort(nextOptionSort(sort, key));
 
   const decide = async (action: PurchaseAction, done: string) => {
     setBusy(true);
@@ -146,16 +174,15 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
 
       {/* The best offers by rank (decision of 10.11.2026); "Show all" brings every offer for the product, scrolling inside the card. */}
       <div className="mt-3 -mx-4 max-h-[22rem] overflow-auto sm:mx-0">
-        <table className="w-full min-w-[36rem] text-sm">
+        <table className="w-full min-w-[42rem] text-sm">
           <thead className="sticky top-0 z-10 border-y border-gray-100 bg-gray-50">
             <tr>
-              <th className={`${th} w-10`}>
-                <span className="sr-only">Choose</span>
-              </th>
-              <th className={th}>Supplier</th>
-              <th className={th}>Purchase price</th>
-              <th className={th}>Terms</th>
-              <th className={th}>Offer</th>
+              <SortHeader label="#" column="rank" sort={sort} onSort={onSort} className="w-14" />
+              <SortHeader label="Supplier" column="supplier" sort={sort} onSort={onSort} />
+              <SortHeader label="Purchase price" column="price" sort={sort} onSort={onSort} />
+              <SortHeader label="Quantity" column="quantity" sort={sort} onSort={onSort} />
+              <SortHeader label="Terms" column="terms" sort={sort} onSort={onSort} />
+              <SortHeader label="Offer" column="offered" sort={sort} onSort={onSort} />
               {open && (
                 <th className={`${th} w-10`}>
                   <span className="sr-only">Not this product</span>
@@ -168,16 +195,19 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
               const chosen = p.chosenOptionId === o.id;
               return (
                 <tr key={o.id} className={chosen ? 'bg-green-50/60' : undefined}>
-                  <td className={td}>
+                  <td className={`${td} whitespace-nowrap`}>
                     {open ? (
-                      <input
-                        type="radio"
-                        name={`proposal-${p.id}`}
-                        aria-label={`Option ${o.rank}`}
-                        className="mt-0.5 h-4 w-4 accent-[#CC1F1F]"
-                        checked={option === o.id}
-                        onChange={() => setOption(o.id)}
-                      />
+                      <label className="inline-flex items-center gap-1.5">
+                        <input
+                          type="radio"
+                          name={`proposal-${p.id}`}
+                          aria-label={`Option ${o.rank}`}
+                          className="mt-0.5 h-4 w-4 accent-[#CC1F1F]"
+                          checked={option === o.id}
+                          onChange={() => setOption(o.id)}
+                        />
+                        <span className="text-xs text-gray-400">{o.rank}</span>
+                      </label>
                     ) : (
                       <span className="text-gray-400">{o.rank}</span>
                     )}
@@ -195,9 +225,9 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                     </div>
                   </td>
                   <td className={`${td} whitespace-nowrap font-medium text-gray-900`}>{eur(o.priceEurPerKg)}</td>
+                  <td className={`${td} whitespace-nowrap text-gray-700`}>{o.quantityKg !== null ? kg(o.quantityKg) : '—'}</td>
                   <td className={`${td} text-gray-700`}>
                     {[o.incoterms, o.location].filter(Boolean).join(' ') || '—'}
-                    {o.quantityKg !== null && <p className="text-xs text-gray-500">{kg(o.quantityKg)} available</p>}
                     {o.leadTime && <p className="text-xs text-gray-500">{o.leadTime}</p>}
                   </td>
                   <td className={`${td} text-gray-700`}>
@@ -370,7 +400,7 @@ export function Proposals() {
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
         Each BID BUY from Apex Bid with the {TOP_OPTIONS} best supplier offers for the same product (purchase prices only): offers close in time to
-        the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest. Approve the offer you would
+        the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest. Click a column header to sort the offers, again to reverse the order. Approve the offer you would
         send to the sales rep, or reject the proposal. A green note means Apex Bid recorded a sale for the BID BUY. Last purchases shows what we paid for the product in our latest purchase contracts. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
         for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
         card: approve the one you found, or add it to the card's product.
