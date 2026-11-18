@@ -228,6 +228,26 @@ export function sortOptions(options: ProposalOption[], sort: OptionSort): Propos
     .map(({ o }) => o);
 }
 
+/**
+ * A ready BID SELL message for the Apex Bid WhatsApp group, in the group's own format (decision of 18.11.2026):
+ * "BID SELL", the product, quantity, purchase price, terms and lead time, one per line. No supplier name: the group
+ * does not name suppliers. Lines without data are left out.
+ */
+export function bidSellMessage(option: ProposalOption, product: string): string {
+  const kg = (value: number) => `${Math.round(value).toLocaleString('en-GB')} kg`;
+  const price = (value: number) => `${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR/kg`;
+  return [
+    'BID SELL',
+    option.productName?.trim() || product,
+    option.quantityKg !== null && option.quantityKg > 0 && kg(option.quantityKg),
+    option.priceEurPerKg !== null && price(option.priceEurPerKg),
+    [option.incoterms, option.location].filter(Boolean).join(' '),
+    option.leadTime && `LT ${option.leadTime}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 /** A BID BUY from Apex Bid with the best supplier offers for it. */
 export interface Proposal {
   id: number;

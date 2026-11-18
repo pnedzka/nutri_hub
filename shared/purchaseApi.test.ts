@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_OPTION_SORT,
+  bidSellMessage,
   PurchaseInputError,
   nextOptionSort,
   proposalStatus,
@@ -140,5 +141,19 @@ describe('nextOptionSort', () => {
     expect(nextOptionSort(DEFAULT_OPTION_SORT, 'price')).toEqual({ key: 'price', direction: 'asc' });
     expect(nextOptionSort({ key: 'price', direction: 'asc' }, 'offered')).toEqual({ key: 'offered', direction: 'desc' });
     expect(nextOptionSort({ key: 'quantity', direction: 'desc' }, 'quantity')).toEqual({ key: 'quantity', direction: 'asc' });
+  });
+});
+
+describe('bidSellMessage', () => {
+  const base = { id: 1, rank: 1, supplier: 'Secret Supplier Ltd', priceEurPerKg: 4.1, quantityKg: 9000, incoterms: 'FCA', location: 'PL', leadTime: 'prompt', productName: 'WPC 35' } as ProposalOption;
+
+  it('writes the group format without the supplier', () => {
+    expect(bidSellMessage(base, 'Whey protein concentrate 35%')).toBe('BID SELL\nWPC 35\n9,000 kg\n4.10 EUR/kg\nFCA PL\nLT prompt');
+    expect(bidSellMessage(base, 'x')).not.toContain('Secret');
+  });
+
+  it('leaves out what the offer does not say and falls back to the card product', () => {
+    const bare = { ...base, productName: null, quantityKg: null, priceEurPerKg: null, incoterms: null, location: null, leadTime: null };
+    expect(bidSellMessage(bare, 'Betaine anhydrous')).toBe('BID SELL\nBetaine anhydrous');
   });
 });
