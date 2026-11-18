@@ -112,13 +112,27 @@ export function purchaseGet(request: Request): Promise<Response> {
   });
 }
 
+/** The message of bid_refresh_begin (db/central/bid_refresh.sql) when the button was pressed less than a minute ago. */
+const RECENTLY_CHECKED = /checked less than a minute ago/i;
+
 /**
  * "Check Apex Bid now": asks n8n to read Apex Bid right away instead of waiting for the hourly run, then to work the
  * cards out again. The central database hands out a one-time token and the address of the n8n webhook
  * (db/central/bid_refresh.sql); n8n runs only for a token it finds there, so the address alone starts nothing.
  */
 async function refreshBids(by: string): Promise<BidRefresh> {
-  const { token, url } = await call<{ token: string; url: string }>('bid_refresh_begin', { p_by: by });
+  let begun: { token: string; url: string };
+  try {
+    begun = await call<{ token: string; url: string }>('bid_refresh_begin', { p_by: by });
+  } catch (error) {
+    // Someone pressed the button less than a minute ago (the database allows one check a minute): the cards are
+    // already fresh, so the screen just shows them again instead of an error.
+    if (error instanceof HttpError && error.status === 409 && RECENTLY_CHECKED.test(error.message)) {
+      return { new: 0, expired: 0, checkedAt: new Date().toISOString(), recent: true };
+    }
+    throw error;
+  }
+  const { token, url } = begun;
   const failed = new HttpError(502, 'Apex Bid could not be checked right now. Try again in a moment.');
   let answer: { result?: { manual?: boolean; cards?: { new?: number; expired?: number }; checkedAt?: string } };
   try {
