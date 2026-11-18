@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 import {
   DEFAULT_OPTION_SORT,
+  bidSellMessage,
   PROPOSALS_PAGE_SIZE,
   PROPOSAL_STATUS_NAMES,
   TOP_OPTIONS,
@@ -25,7 +26,7 @@ import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { useApi } from '../leave/useApi';
 import { PURCHASE_API, dateAgo, day, eur, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';
-import { CopyEmail, Pager, Pill } from './ui';
+import { CopyBidSell, CopyEmail, Pager, Pill } from './ui';
 
 type Filter = ProposalStatus | 'all';
 const FILTERS: Filter[] = ['pending_review', 'approved', 'rejected', 'expired', 'all'];
@@ -220,8 +221,9 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                         <Pill tone="green">Sold</Pill>
                       </p>
                     )}
-                    <div className="-ml-2">
+                    <div className="-ml-2 flex flex-wrap">
                       <CopyEmail email={o.email} of={o.emailOf} />
+                      <CopyBidSell text={bidSellMessage(o, p.product)} />
                     </div>
                   </td>
                   <td className={`${td} whitespace-nowrap font-medium text-gray-900`}>{eur(o.priceEurPerKg)}</td>
@@ -400,7 +402,7 @@ export function Proposals() {
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
         Each BID BUY from Apex Bid with the {TOP_OPTIONS} best supplier offers for the same product (purchase prices only): offers close in time to
-        the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest. Click a column header to sort the offers, again to reverse the order. Approve the offer you would
+        the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest. Click a column header to sort the offers, again to reverse the order. Copy BID SELL puts a ready WhatsApp message for the offer on the clipboard (without the supplier's name). Approve the offer you would
         send to the sales rep, or reject the proposal. A green note means Apex Bid recorded a sale for the BID BUY. Last purchases shows what we paid for the product in our latest purchase contracts. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
         for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
         card: approve the one you found, or add it to the card's product.
