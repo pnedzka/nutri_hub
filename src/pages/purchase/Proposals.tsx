@@ -28,7 +28,7 @@ import { useApi } from '../leave/useApi';
 import { PURCHASE_API, dateAgo, day, money, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';
 import { useNbpRates } from './nbp';
-import { CopyBidSell, CopyEmail, Pager, Pill, Price } from './ui';
+import { CopyBidSell, CopyEmail, OpenInSpark, Pager, Pill, Price } from './ui';
 
 type Filter = ProposalStatus | 'all';
 const FILTERS: Filter[] = ['pending_review', 'approved', 'rejected', 'expired', 'all'];
@@ -154,7 +154,8 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
         </div>
       ))}
       {p.bidBuyText && (
-        <details className="mt-2 text-sm">
+        // Open by default (decision of 18.11.2026): the WhatsApp message is what Michał reads first.
+        <details open className="mt-2 text-sm">
           <summary className="cursor-pointer select-none text-xs text-gray-500">BID BUY message</summary>
           <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-sans text-sm text-gray-800 [overflow-wrap:anywhere]">{p.bidBuyText}</pre>
         </details>
@@ -232,6 +233,7 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                     )}
                     <div className="-ml-2 flex flex-wrap">
                       <CopyEmail email={o.email} of={o.emailOf} />
+                      <OpenInSpark mailbox={o.mailbox} messageId={o.messageId} />
                       <CopyBidSell text={bidSellMessage(o, p.product)} />
                     </div>
                   </td>

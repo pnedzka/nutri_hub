@@ -118,6 +118,9 @@ export interface ProposalOption {
   /** Whom to write about the offer (db/central/offer_email.sql): the supplier's contact, or the trader of a BID SELL. */
   email?: string | null;
   emailOf?: EmailOf | null;
+  /** The e-mail the offer came from, for "Open in Spark" (db/central/offer_spark_link.sql); null when unknown. */
+  messageId?: string | null;
+  mailbox?: string | null;
 }
 
 /** supplier: the contact the offer came from (or another contact of that company); trader: who posted the BID SELL. */
@@ -385,6 +388,9 @@ export interface FoundOffer {
   trader: string | null;
   email?: string | null;
   emailOf?: EmailOf | null;
+  /** The e-mail the offer came from, for "Open in Spark" (db/central/offer_spark_link.sql); null when unknown. */
+  messageId?: string | null;
+  mailbox?: string | null;
   /** The catalogue product the offer is matched to now, if any. */
   productId: number | null;
   product: string | null;

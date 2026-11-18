@@ -4,7 +4,7 @@ import { OFFER_SEARCH_MIN, type OfferSearchResult, type PurchaseAction } from '.
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
 import { PURCHASE_API, dateAgo, kg, sourceName, whole } from './format';
-import { CopyEmail, Pill, Price } from './ui';
+import { CopyEmail, OpenInSpark, Pill, Price } from './ui';
 
 /**
  * The search on a BID BUY card (decision of 30.10.2026): a phrase looked up in all offers of the database and in the
@@ -103,6 +103,7 @@ export function OfferSearch({
                     </div>
                     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                       <CopyEmail email={o.email} of={o.emailOf} />
+                      <OpenInSpark mailbox={o.mailbox} messageId={o.messageId} />
                       {open && (
                         <Button
                           size="sm"
