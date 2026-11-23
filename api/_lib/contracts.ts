@@ -11,9 +11,7 @@
 import { randomUUID } from 'node:crypto';
 import { canUse, isAvailable, toApps, type AppId } from '../../shared/access.js';
 import {
-  BOARD_THRESHOLD_EUR,
   LIST_SCOPES,
-  STATUS_LABELS,
   TERMS_FILE,
   TERMS_TITLE,
   allowedActions,
@@ -37,7 +35,8 @@ import { requireUser } from './auth.js';
 import { centralDb } from './central.js';
 import { appUrl, handle, HttpError, json, readJson } from './http.js';
 import { logError } from './monitoring.js';
-import { sendMail } from './notify.js';
+import { contractMails, type ContractStep, type FlowPeople } from './contractMails.js';
+import { sendPrepared } from './notify.js';
 import { db } from './supabase.js';
 
 export const isContractsRequest = (request: Request) => new URL(request.url).searchParams.get('resource') === 'contracts';
@@ -140,67 +139,19 @@ function owners(me: Member, people: Member[]): OwnerOption[] {
 // ---------------------------------------------------------------------------------------------------------------
 // E-mails
 
-function contractMail(request: Request, contract: Contract, to: string[], subject: string, paragraph: string, comment?: string | null) {
-  const details: [string, string][] = [
-    ['Contract', contract.id],
-    [contract.type === 'S' ? 'Buyer' : 'Supplier', contract.companyName],
-    ['Value (net)', `${contract.amountNet.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${contract.currency}`],
-    ['Trader', contract.ownerName],
-    ['Status', STATUS_LABELS[contract.status]],
-  ];
-  if (contract.enovaOrder) details.push(['enova order', contract.enovaOrder]);
-  if (comment) details.push(['Comment', comment]);
-  return sendMail(
-    {
-      to,
-      label: 'Contract generator',
-      subject,
-      paragraphs: [paragraph],
-      details,
-      button: { label: 'Open the contract', url: `${appUrl(request)}/contracts/${encodeURIComponent(contract.id)}` },
-    },
-    'contracts',
-  );
-}
-
-/** Who gets an e-mail after a step, and what it says. */
-async function notify(request: Request, contract: Contract, step: ContractAction | 'create' | 'update', actor: Member, people: Member[], comment?: string | null) {
+/** E-mails after a step to everyone involved (contractMails.ts plans who gets what). */
+async function notify(request: Request, contract: Contract, step: ContractStep, actor: Member, people: Member[], comment?: string | null) {
   const admins = people.filter((p) => holds(p, 'contracts-admin'));
-  const administration = (admins.length ? admins : people.filter((p) => p.isAdmin)).map((p) => p.email);
   const signers = people.filter((p) => uses(p, 'contracts-sign'));
   const firstSigners = signers.filter((p) => holds(p, 'contracts-sign') && !isBoard(p));
-  const board = signers.filter(isBoard).map((p) => p.email);
-  const owner = [contract.ownerEmail];
-  const kind = contract.type === 'S' ? 'sales' : 'purchase';
-  const others = (list: string[]) => list.filter((e) => e !== actor.email);
-  switch (step) {
-    case 'create':
-    case 'update':
-      return contractMail(request, contract, others(administration), `New ${kind} contract ${contract.id} to accept`,
-        `${actor.name} ${step === 'create' ? 'generated' : 'corrected'} ${kind} contract ${contract.id} for ${contract.companyName}. Enter the order in enova, then accept the contract so it goes for signature.`);
-    case 'accept':
-      return contractMail(request, contract, others((firstSigners.length ? firstSigners : signers).map((p) => p.email)), `Contract ${contract.id} to sign`,
-        contract.boardRequired
-          ? `Contract ${contract.id} was accepted by administration. It is above ${BOARD_THRESHOLD_EUR.toLocaleString('en-GB')} EUR net: approve it, then a board member signs it.`
-          : `Contract ${contract.id} was accepted by administration and is waiting for your signature.`);
-    case 'approve':
-      return contractMail(request, contract, others(board), `Contract ${contract.id} to sign (above ${BOARD_THRESHOLD_EUR.toLocaleString('en-GB')} EUR)`,
-        `${actor.name} approved contract ${contract.id}. It is above ${BOARD_THRESHOLD_EUR.toLocaleString('en-GB')} EUR net and is waiting for a board member's signature.`);
-    case 'sign':
-      return contractMail(request, contract, others([...owner, ...administration]), `Contract ${contract.id} is signed`,
-        `${actor.name} signed contract ${contract.id}. The trader downloads the contract and the ${TERMS_TITLE[contract.type]}, sends them to the client and uploads the scan the client signed.`);
-    case 'return':
-      return contractMail(request, contract, others(owner), `Contract ${contract.id} needs corrections`,
-        `${actor.name} returned contract ${contract.id} for corrections. Correct it and send it again.`, comment);
-    case 'cancel':
-      return contractMail(request, contract, others([...owner, ...administration]), `Contract ${contract.id} was cancelled`,
-        `${actor.name} cancelled contract ${contract.id}.`, comment);
-    case 'client_scan':
-      return contractMail(request, contract, others(administration), `Contract ${contract.id} signed by the client`,
-        `${actor.name} uploaded the scan of contract ${contract.id} signed by ${contract.companyName}. The invoice can be made in enova.`);
-    default:
-      return false;
-  }
+  const flow: FlowPeople = {
+    administration: (admins.length ? admins : people.filter((p) => p.isAdmin)).map((p) => p.email),
+    firstSigners: (firstSigners.length ? firstSigners : signers.filter((p) => !isBoard(p))).map((p) => p.email),
+    board: signers.filter(isBoard).map((p) => p.email),
+    names: Object.fromEntries(people.map((p) => [p.email, p.name])),
+  };
+  const url = `${appUrl(request)}/contracts/${encodeURIComponent(contract.id)}`;
+  return sendPrepared(contractMails(contract, step, { email: actor.email, name: actor.name }, flow, url, comment), 'contracts');
 }
 
 // ---------------------------------------------------------------------------------------------------------------
