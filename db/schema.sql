@@ -341,3 +341,20 @@ join public.profiles p on p.id = u.profile_id
 group by u.profile_id, p.full_name, p.job_title, i.id;
 
 revoke all on public.v_phone_monthly_kpi from anon, authenticated;
+
+-- Sales contests (home page widget "Contest", administrators manage them in /contests; shared/contest.ts). Days are
+-- Polish calendar days, both included. Only the hub's server reads and writes (RLS without policies).
+create table if not exists public.contests (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(btrim(name)) between 1 and 120),
+  starts_on date not null,
+  ends_on date not null check (ends_on >= starts_on),
+  weight_count smallint not null default 70 check (weight_count between 0 and 100),
+  prize text not null default '' check (char_length(prize) <= 500),
+  participant_ids uuid[] not null default '{}',
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.contests enable row level security;

@@ -8,12 +8,14 @@
 //
 // `?resource=contracts` is the Contract generator (api/_lib/contracts.ts, shared/contractsApi.ts).
 // `?resource=mailbox` is "Mailbox in the knowledge base" on My profile (api/_lib/mailbox.ts, shared/mailboxApi.ts).
+// `?resource=dashboard` is the data of the home page's sales widgets (api/_lib/dashboard.ts, shared/dashboard.ts).
 //
 // Deactivated accounts are left out of Team. One function for all of it: the Hobby plan allows 12 functions.
 
 import { randomUUID } from 'node:crypto';
 import { avatarPath, cleanOffice, isUuid, ProfileError, type Office, type ProfileInput } from '../shared/profile.js';
 import { requireAdmin, requireUser, type Profile } from './_lib/auth.js';
+import { dashboardGet, isDashboardRequest } from './_lib/dashboard.js';
 import { contractsGet, contractsPost, isContractsRequest } from './_lib/contracts.js';
 import { handle, HttpError, json, readJson } from './_lib/http.js';
 import { isMailboxRequest, mailboxDelete, mailboxGet, mailboxPost } from './_lib/mailbox.js';
@@ -37,6 +39,7 @@ function target(viewer: Profile, id: unknown): string {
 export function GET(request: Request): Promise<Response> {
   if (isContractsRequest(request)) return contractsGet(request);
   if (isMailboxRequest(request)) return mailboxGet(request);
+  if (isDashboardRequest(request)) return dashboardGet(request);
   return handle(async () => {
     const viewer = await requireUser(request);
     const [{ data, error }, officeList] = await Promise.all([

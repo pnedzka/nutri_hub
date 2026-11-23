@@ -1,11 +1,11 @@
-import { Building2, Calculator, CalendarDays, FileSignature, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, Calculator, CalendarDays, FileSignature, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, Trophy, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import { usesContracts } from '../shared/contractsApi.ts';
 import type { AppUser } from './lib/user';
 
 export interface AppTile {
-  /** 'users' and 'calls' are administrators' tools (not in profiles.apps), 'team' is for everyone. */
-  id: AppId | 'users' | 'team' | 'calls';
+  /** 'users', 'calls' and 'contests' are administrators' tools (not in profiles.apps), 'team' is for everyone. */
+  id: AppId | 'users' | 'team' | 'calls' | 'contests';
   name: string;
   description: string;
   /** An address, or a path inside the hub (starts with "/"). */
@@ -152,6 +152,14 @@ export const APPS: AppTile[] = [
     icon: PhoneCall,
     audience: 'admin',
   },
+  {
+    id: 'contests',
+    name: 'Sales contests',
+    description: 'Set up sales contests: participants, days, prize and what counts.',
+    url: '/contests',
+    icon: Trophy,
+    audience: 'admin',
+  },
 ];
 
 export interface AppSection {
@@ -179,5 +187,32 @@ export function sectionsFor(
   if (user.role === 'admin') {
     sections.push({ title: 'Administration', apps: apps.filter((a) => a.audience === 'admin' && (a.id !== 'calls' || available(a.id, enabledModules))) });
   }
+  return sections.filter((s) => s.apps.length > 0);
+}
+
+/** Where a tile leads: a path of the hub, an app reached through one sign-in (/sso), or an outside address. */
+export function tileTarget(app: AppTile, ssoApp: (id: string) => boolean): { path: string } | { href: string } {
+  if (app.url.startsWith('/')) return { path: app.url };
+  if (ssoApp(app.id)) return { path: `/sso?${new URLSearchParams({ app: app.id })}` };
+  return { href: app.url };
+}
+
+/**
+ * The side menu (decision of 23.11.2026: apps move from the home page to a menu): "Work" = modules of the hub,
+ * "Tools" = separate apps, "Administration" = administrators' tools and "New user accounts". Same apps and the same
+ * rules as the tiles (sectionsFor).
+ */
+export function navSectionsFor(
+  user: Pick<AppUser, 'role' | 'apps'>,
+  apps: AppTile[] = APPS,
+  enabledModules: string | undefined = env.VITE_HUB_MODULES,
+): AppSection[] {
+  const visible = sectionsFor(user, apps, enabledModules).flatMap((s) => s.apps);
+  const isAdminTool = (a: AppTile) => a.audience === 'admin' || a.id === 'create-users';
+  const sections: AppSection[] = [
+    { title: 'Work', apps: visible.filter((a) => !isAdminTool(a) && a.url.startsWith('/')) },
+    { title: 'Tools', apps: visible.filter((a) => !isAdminTool(a) && !a.url.startsWith('/')) },
+    { title: 'Administration', apps: visible.filter(isAdminTool) },
+  ];
   return sections.filter((s) => s.apps.length > 0);
 }
