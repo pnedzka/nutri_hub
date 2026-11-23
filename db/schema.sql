@@ -341,3 +341,42 @@ join public.profiles p on p.id = u.profile_id
 group by u.profile_id, p.full_name, p.job_title, i.id;
 
 revoke all on public.v_phone_monthly_kpi from anon, authenticated;
+
+-- Notifications (the bell in the header and /notifications; README "Powiadomienia"). Written only by the hub's
+-- server (api/_lib/notifications.ts, secret key); everyone reads their own and may only mark them as read.
+-- Migration hub_notifications: nutri-dev 23.11.2026, production with the release.
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  -- Module and event, e.g. 'leave' / 'leave.approved' (shared/notifications.ts).
+  module text not null check (char_length(module) <= 40),
+  kind text not null check (char_length(kind) <= 60),
+  title text not null check (char_length(title) <= 200),
+  body text check (char_length(body) <= 1000),
+  -- A path in the hub (/leave/approvals) or a full https address.
+  link text check (char_length(link) <= 500),
+  -- Who caused it (shown as "by …"); null for the system and n8n.
+  actor_id uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  read_at timestamptz
+);
+
+create index if not exists notifications_user_created on public.notifications (user_id, created_at desc);
+create index if not exists notifications_user_unread on public.notifications (user_id) where read_at is null;
+
+alter table public.notifications enable row level security;
+
+do $$ begin
+  create policy notifications_read_own on public.notifications for select to authenticated using (user_id = (select auth.uid()));
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create policy notifications_mark_own on public.notifications for update to authenticated
+    using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+exception when duplicate_object then null; end $$;
+
+-- The browser may change only read_at; inserts and deletes stay with the server.
+revoke all on public.notifications from anon, authenticated;
+grant select on public.notifications to authenticated;
+grant update (read_at) on public.notifications to authenticated;
+
+-- Kept for 180 days (removed by the server's daily clean-up, api/_lib/notifications.ts).

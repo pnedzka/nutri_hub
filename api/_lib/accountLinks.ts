@@ -37,7 +37,7 @@ export async function issueAccountLink(kind: AccountLinkKind, userId: string, ap
 }
 
 /** Redeems a link (once) and returns a fresh Supabase token for `verifyOtp`. */
-export async function redeemAccountLink(token: string): Promise<{ tokenHash: string; type: AccountLinkKind }> {
+export async function redeemAccountLink(token: string): Promise<{ tokenHash: string; type: AccountLinkKind; userId: string; invitation: boolean }> {
   const { data: link, error } = await db()
     .from('account_links')
     .update({ used_at: new Date().toISOString() })
@@ -64,5 +64,5 @@ export async function redeemAccountLink(token: string): Promise<{ tokenHash: str
     logError('links.generateLink', generated.error);
     throw new HttpError(500, 'Could not open the link. Try again or ask for a new one.');
   }
-  return { tokenHash, type };
+  return { tokenHash, type, userId: String(link.user_id), invitation: link.kind === 'invite' };
 }

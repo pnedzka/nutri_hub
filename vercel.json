@@ -10,6 +10,10 @@
       "destination": "/api/sso"
     },
     {
+      "source": "/api/daily",
+      "destination": "/api/sso?job=daily"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
@@ -18,5 +22,11 @@
     "api/**/*.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/daily",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }

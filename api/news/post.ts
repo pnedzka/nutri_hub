@@ -21,6 +21,8 @@ import {
   canEditComment,
   canEditPost,
   isEditor,
+  notifyComment,
+  notifyLike,
   notifyPublished,
   pathsOf,
   POST_COLUMNS,
@@ -213,8 +215,12 @@ export function POST(request: Request): Promise<Response> {
         break;
       case 'like': {
         const postId = await requirePost(body.postId);
-        const { error } = await db().from('news_likes').upsert({ post_id: postId, user_id: viewer.id }, { onConflict: 'post_id,user_id', ignoreDuplicates: true });
+        const { data: added, error } = await db()
+          .from('news_likes')
+          .upsert({ post_id: postId, user_id: viewer.id }, { onConflict: 'post_id,user_id', ignoreDuplicates: true })
+          .select('post_id');
         if (error) throw error;
+        if (added?.length) await notifyLike(request, viewer, postId);
         break;
       }
       case 'unlike': {
@@ -225,8 +231,10 @@ export function POST(request: Request): Promise<Response> {
       }
       case 'comment': {
         const postId = await requirePost(body.postId);
-        const { error } = await db().from('news_comments').insert({ post_id: postId, author_id: viewer.id, body: commentText(body.body) });
+        const text = commentText(body.body);
+        const { error } = await db().from('news_comments').insert({ post_id: postId, author_id: viewer.id, body: text });
         if (error) throw error;
+        await notifyComment(request, viewer, postId, text);
         break;
       }
       case 'edit-comment': {

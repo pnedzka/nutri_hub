@@ -7,6 +7,7 @@
 import type { EditorsResponse } from '../../shared/newsApi.js';
 import { requireApp } from '../_lib/auth.js';
 import { handle, HttpError, json, readJson } from '../_lib/http.js';
+import { notifyEditor } from '../_lib/news.js';
 import { appPeople, toPerson } from '../_lib/people.js';
 import { db } from '../_lib/supabase.js';
 
@@ -38,6 +39,7 @@ export function PUT(request: Request): Promise<Response> {
         ? await db().from('news_editors').upsert({ user_id: userId, added_by: viewer.id }, { onConflict: 'user_id', ignoreDuplicates: true })
         : await db().from('news_editors').delete().eq('user_id', userId);
     if (error) throw error;
+    if (body.editor === true) await notifyEditor(request, viewer, userId);
     return json({ ok: true });
   });
 }

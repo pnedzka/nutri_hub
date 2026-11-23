@@ -10,6 +10,7 @@ import { HomePage } from './pages/HomePage';
 import { LeavePage } from './pages/leave/LeavePage';
 import { LoginPage } from './pages/LoginPage';
 import { NewsPage } from './pages/news/NewsPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { PurchasePage } from './pages/purchase/PurchasePage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
@@ -64,6 +65,7 @@ export default function App() {
           {available('purchase') && <Route path="/purchase/*" element={<AppOnly app="purchase"><PurchasePage /></AppOnly>} />}
           <Route path="/team" element={<TeamPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/users" element={<AccountCreatorsOnly><UsersPage /></AccountCreatorsOnly>} />
           <Route path="/users/:id" element={<AdminOnly><UserEditPage /></AdminOnly>} />
           {available('calls') && <Route path="/calls" element={<AdminOnly><CallsPage /></AdminOnly>} />}
