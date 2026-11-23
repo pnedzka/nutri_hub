@@ -172,3 +172,30 @@ export function sectionsFor(
   }
   return sections.filter((s) => s.apps.length > 0);
 }
+
+/** Where a tile leads: a path of the hub, an app reached through one sign-in (/sso), or an outside address. */
+export function tileTarget(app: AppTile, ssoApp: (id: string) => boolean): { path: string } | { href: string } {
+  if (app.url.startsWith('/')) return { path: app.url };
+  if (ssoApp(app.id)) return { path: `/sso?${new URLSearchParams({ app: app.id })}` };
+  return { href: app.url };
+}
+
+/**
+ * The side menu (decision of 23.11.2026: apps move from the home page to a menu): "Work" = modules of the hub,
+ * "Tools" = separate apps, "Administration" = administrators' tools and "New user accounts". Same apps and the same
+ * rules as the tiles (sectionsFor).
+ */
+export function navSectionsFor(
+  user: Pick<AppUser, 'role' | 'apps'>,
+  apps: AppTile[] = APPS,
+  enabledModules: string | undefined = env.VITE_HUB_MODULES,
+): AppSection[] {
+  const visible = sectionsFor(user, apps, enabledModules).flatMap((s) => s.apps);
+  const isAdminTool = (a: AppTile) => a.audience === 'admin' || a.id === 'create-users';
+  const sections: AppSection[] = [
+    { title: 'Work', apps: visible.filter((a) => !isAdminTool(a) && a.url.startsWith('/')) },
+    { title: 'Tools', apps: visible.filter((a) => !isAdminTool(a) && !a.url.startsWith('/')) },
+    { title: 'Administration', apps: visible.filter(isAdminTool) },
+  ];
+  return sections.filter((s) => s.apps.length > 0);
+}

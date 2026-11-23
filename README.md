@@ -2,7 +2,7 @@
 
 Adres: **https://nutripartners.vercel.app** (projekt Vercel `nutripartners`, zespół `nutri-partners`).
 
-Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania kontami** wspólnej bazy użytkowników. Po zalogowaniu każdy widzi kafelki aplikacji, do których ma dostęp; admini widzą dodatkowo sekcję „Administration”. Interfejs jest po angielsku, wygląd taki sam jak w pozostałych aplikacjach.
+Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania kontami** wspólnej bazy użytkowników. Po zalogowaniu każdy widzi dashboard z widgetami (zob. „Dashboard”), a aplikacje, do których ma dostęp, są w menu bocznym; admini widzą w nim dodatkowo sekcję „Administration”. Interfejs jest po angielsku, wygląd taki sam jak w pozostałych aplikacjach.
 
 ## Funkcje
 
@@ -35,6 +35,20 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
 
 Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady RLS w Supabase.
 
+## Dashboard (strona główna)
+
+Od 23.11.2026 (decyzja właściciela) strona główna to dashboard z widgetami, a aplikacje są w **menu bocznym** (`src/components/SideNav.tsx`; na telefonie i tablecie przycisk „Menu” pod belką otwiera szufladę). Menu ma grupy Work (moduły centrum), Tools (osobne aplikacje i stary intranet) i Administration, liczone tymi samymi regułami co dawne kafelki (`navSectionsFor` w `src/apps.ts`). Osoba bez żadnego widgetu widzi na stronie głównej kafelki, jak wcześniej. Wygląd jak reszta centrum (białe karty), nie jak stary intranet.
+
+| Widget | Co pokazuje | Kto widzi |
+| --- | --- | --- |
+| Contracts | liczba kontraktów sprzedaży (S) i zakupu (P) w miesiącu, ich wartość w EUR, zmiana wobec poprzedniego miesiąca, ile czeka na akceptację | admini, działy Board i Administration |
+| Sales leaderboard | liczba kontraktów (S i P) na osobę w miesiącu, jak w starym intranecie; uczestnicy: dział Trade i każdy z kontraktem, bez Board; admin widzi wszystkich, pozostali osoby z kontraktami i zawsze pierwszą trójkę | admini, Trade, Administration, Board |
+| Latest news | 3 najnowsze wpisy | uprawnienie `news` |
+
+- Reguły widoczności i liczenia są w `shared/dashboard.ts` (z testami): `canSeeWidget`, `summarize`, `rank`. Dział to `profiles.department`.
+- Dane: `GET /api/people?resource=dashboard&widget=contracts|leaderboard&month=YYYY-MM` (`api/_lib/dashboard.ts`; limit 12 funkcji). Serwer sprawdza widoczność jeszcze raz (403 bez danych) i wysyła tylko sumy, bez klientów i pojedynczych kontraktów. Wynik z bazy trzyma 5 minut.
+- Kontrakty pochodzą ze starego intranetu: `dashboard_api.intranet_contracts(p_from, p_to)` w `nutri-central-db` (`db/central/dashboard_api.sql`, uruchamia właściciel w SQL Editorze i dopisuje `dashboard_api` do Data API → Exposed schemas). Liczy jak dashboard intranetu: miesiąc utworzenia kontraktu (czas polski), bez anulowanych i zarchiwizowanych, wartość pozycji jak `calculateProductTotalPrice` intranetu, przeliczona na EUR kursem z dnia kontraktu (`core.eur_rate`). Dane odświeża synchronizacja n8n raz dziennie (6:40). Po wydaniu generatora kontraktów dojdzie drugie źródło (`contracts.contracts`).
+
 ## Moduły: News i Leave
 
 **Tylko w dev (decyzja z 20.10.2026).** Moduły w budowie są włączone zmienną `VITE_HUB_MODULES` (`news,leave,calls`, tylko w Preview i Development; `calls` = Phone calls analyser, od 22.10.2026). Bez niej, czyli na produkcji, kafelki, strony i wybór w User management są ukryte, a API modułów odpowiada 404. Lista modułów w budowie jest w `shared/access.ts` (`DEV_MODULES`). Wydanie modułu: dodać go do `VITE_HUB_MODULES` w Production (i wdrożyć ponownie) albo usunąć z `DEV_MODULES`. W Production jest `calls` (Phone calls analyser wydany 23.10.2026), więc News i Leave są tam nadal ukryte.
@@ -49,7 +63,7 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
   - E-maile: o nowym wniosku do przełożonego i adminów, o decyzji do pracownika.
 - **News:**
   - **Lista wpisów** od najnowszych opublikowanych (po 12, „Load older posts”), z okładką, opisem (albo początkiem tekstu) i liczbą polubień, komentarzy i zdjęć. **Wyszukiwarka** szuka w tytule, opisie i treści.
-  - **Strona główna centrum** pokazuje 3 najnowsze wpisy („Latest news”) osobom z dostępem do News.
+  - **Strona główna centrum** pokazuje 3 najnowsze wpisy („Latest news”) osobom z dostępem do News (widget dashboardu).
   - **Wpis:** okładka, opis, tekst z formatowaniem, galeria zdjęć na pełnym ekranie (strzałki, przesuwanie palcem, Esc), polubienia z listą osób i komentarze.
   - **Formatowanie** (od 23.11.2026, `blocks` w `shared/news.ts`): `## Nagłówek`, `### Mniejszy`, `- lista`, `**pogrubienie**`, `_kursywa_`, `[tekst](https://…)`, `---` (linia); edytor ma przyciski i podgląd. Treść nigdy nie jest HTML-em: przeglądarka składa ją z elementów React (stary intranet wstawiał surowy HTML).
   - **News → Manager** (`/news/manage`, admini i redaktorzy, od 23.11.2026): wszystkie wpisy razem ze **szkicami**, wyszukiwarka, filtr statusu, akcje Edit, Publish / Move to drafts, Delete. Stąd też Editors i import ze starego intranetu.

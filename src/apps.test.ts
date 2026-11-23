@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { APP_IDS } from '../shared/access';
-import { APPS, sectionsFor } from './apps';
+import { APPS, navSectionsFor, sectionsFor, tileTarget } from './apps';
 
 const MODULES = 'news,leave,calls,purchase';
 const ids = (user: Parameters<typeof sectionsFor>[0], modules: string | undefined = MODULES) =>
@@ -55,5 +55,36 @@ describe('APPS', () => {
 
   it('opens only the intranet in a new tab', () => {
     expect(APPS.filter((a) => a.newTab).map((a) => a.id)).toEqual(['intranet']);
+  });
+});
+
+describe('navSectionsFor', () => {
+  const nav = (user: Parameters<typeof navSectionsFor>[0]) => navSectionsFor(user, APPS, MODULES).map((s) => [s.title, s.apps.map((a) => a.id)]);
+
+  it('splits the apps into modules of the hub, separate apps and administration', () => {
+    expect(nav({ role: 'user', apps: ['news', 'owner-lookup', 'intranet', 'create-users'] })).toEqual([
+      ['Work', ['news', 'team']],
+      ['Tools', ['owner-lookup', 'intranet']],
+      ['Administration', ['create-users']],
+    ]);
+  });
+
+  it('gives an admin every app, with User management and Phone calls analyser under Administration', () => {
+    const sections = nav({ role: 'admin', apps: [] });
+    expect(sections.map(([title]) => title)).toEqual(['Work', 'Tools', 'Administration']);
+    expect(sections[2][1]).toEqual(['users', 'calls']);
+  });
+
+  it('shows only Team to a user without apps', () => {
+    expect(nav({ role: 'user', apps: [] })).toEqual([['Work', ['team']]]);
+  });
+});
+
+describe('tileTarget', () => {
+  const tile = (id: string) => APPS.find((a) => a.id === id)!;
+  it('keeps hub paths, sends our apps through one sign-in and links the intranet directly', () => {
+    expect(tileTarget(tile('news'), () => false)).toEqual({ path: '/news' });
+    expect(tileTarget(tile('owner-lookup'), (id) => id === 'owner-lookup')).toEqual({ path: '/sso?app=owner-lookup' });
+    expect(tileTarget(tile('intranet'), () => false)).toEqual({ href: 'https://intranet.nutripartners.co' });
   });
 });
