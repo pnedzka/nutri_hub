@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { EVENT_LABELS, type ProfileEvent, type TeamMember } from '../../shared/profile.ts';
 import { APP_NAMES, isAppId } from '../../shared/access.ts';
 import { Card, CardBody, CardHeader } from '../components/Card';
+import { MailboxCard } from '../components/MailboxCard';
 import { ProfileForm } from '../components/ProfileForm';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
@@ -88,6 +89,7 @@ export function UserEditPage() {
           </CardBody>
         </Card>
       )}
+      {user && user.status !== 'deactivated' && <MailboxCard key={`mailbox-${user.id}`} userId={user.id} owner={user.full_name || user.email} />}
       {user && (
         <Card>
           <CardHeader className="flex items-center gap-2">
