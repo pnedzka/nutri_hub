@@ -3,9 +3,11 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Toasts } from './components/Toasts';
 import { canUse, type AppId } from '../shared/access.ts';
+import { usesContracts } from '../shared/contractsApi.ts';
 import { available } from './apps';
 import { useAuth } from './lib/auth';
 import { CallsPage } from './pages/calls/CallsPage';
+import { ContractsPage } from './pages/contracts/ContractsPage';
 import { HomePage } from './pages/HomePage';
 import { LeavePage } from './pages/leave/LeavePage';
 import { LoginPage } from './pages/LoginPage';
@@ -43,7 +45,9 @@ function AccountCreatorsOnly({ children }: { children: ReactNode }) {
 /** A module of the hub (News, Leave, Purchase Manager) for the people who may use it; the API checks access again. */
 function AppOnly({ app, children }: { app: AppId; children: ReactNode }) {
   const user = useAuth((s) => s.user);
-  return user && canUse(user, app) ? <>{children}</> : <Navigate to="/" replace />;
+  // The Contract generator opens for traders, administration and the people who sign (three permissions).
+  const allowed = user && (app === 'contracts' ? usesContracts(user) : canUse(user, app));
+  return allowed ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 export default function App() {
@@ -62,6 +66,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           {available('news') && <Route path="/news/*" element={<AppOnly app="news"><NewsPage /></AppOnly>} />}
           {available('leave') && <Route path="/leave/*" element={<AppOnly app="leave"><LeavePage /></AppOnly>} />}
+          {available('contracts') && <Route path="/contracts/*" element={<AppOnly app="contracts"><ContractsPage /></AppOnly>} />}
           {available('purchase') && <Route path="/purchase/*" element={<AppOnly app="purchase"><PurchasePage /></AppOnly>} />}
           <Route path="/team" element={<TeamPage />} />
           <Route path="/profile" element={<ProfilePage />} />
