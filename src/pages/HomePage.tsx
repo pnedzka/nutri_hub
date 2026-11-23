@@ -1,5 +1,7 @@
-import { sectionsFor } from '../apps';
+import { canUse } from '../../shared/access';
+import { available, sectionsFor } from '../apps';
 import { AppCard } from '../components/AppCard';
+import { LatestNews } from '../components/LatestNews';
 import { useAuth } from '../lib/auth';
 import { firstName } from '../lib/user';
 
@@ -16,6 +18,7 @@ export function HomePage() {
         <h1 className="text-2xl font-bold text-gray-900">{name ? `Hello, ${name}` : 'Hello'}</h1>
         <p className="text-sm text-gray-500 mt-1">Choose an app to get started.</p>
       </div>
+      {available('news') && canUse(user, 'news') && <LatestNews />}
       {sections.length === 0 && (
         <p className="rounded-xl border border-gray-100 bg-white px-5 py-4 text-sm text-gray-600 shadow-sm">
           You don't have access to any apps yet. Ask your administrator to give you access.

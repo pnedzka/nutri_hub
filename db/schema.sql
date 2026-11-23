@@ -71,7 +71,7 @@ create table if not exists public.news_editors (
   created_at timestamptz not null default now()
 );
 
--- News: posts. Body is plain text (paragraphs, links); images are paths in the private "intranet" bucket with
+-- News: posts. Body is plain text with light formatting (shared/news.ts: headings, lists, bold, links; never HTML); images are paths in the private "intranet" bucket with
 -- their size, shown through signed links.
 create table if not exists public.news_posts (
   id uuid primary key default gen_random_uuid(),
@@ -103,6 +103,37 @@ create table if not exists public.news_likes (
 create index if not exists news_posts_created on public.news_posts (created_at desc);
 create index if not exists news_comments_post on public.news_comments (post_id, created_at);
 create index if not exists news_likes_user on public.news_likes (user_id);
+
+-- News Manager (23.11.2026): drafts, a separate cover and summary, the shown author chosen by the editor
+-- (created_by is who wrote it), and posts imported from the old intranet (legacy_*; legacy_author is the name
+-- shown when the person has no account here).
+alter table public.news_posts add column if not exists status text not null default 'published';
+alter table public.news_posts add column if not exists published_at timestamptz;
+alter table public.news_posts add column if not exists summary text not null default '';
+alter table public.news_posts add column if not exists cover jsonb;
+alter table public.news_posts add column if not exists created_by uuid references public.profiles (id) on delete set null;
+alter table public.news_posts add column if not exists legacy_id text;
+alter table public.news_posts add column if not exists legacy_author text;
+alter table public.news_comments add column if not exists legacy_author text;
+update public.news_posts set published_at = created_at where status = 'published' and published_at is null;
+update public.news_posts set created_by = author_id where created_by is null;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'news_posts_status_check') then
+    alter table public.news_posts add constraint news_posts_status_check check (status in ('draft', 'published'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'news_posts_summary_check') then
+    alter table public.news_posts add constraint news_posts_summary_check check (char_length(summary) <= 300);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'news_posts_cover_check') then
+    alter table public.news_posts add constraint news_posts_cover_check check (cover is null or jsonb_typeof(cover) = 'object');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'news_posts_published_check') then
+    alter table public.news_posts add constraint news_posts_published_check check (status = 'draft' or published_at is not null);
+  end if;
+end $$;
+create unique index if not exists news_posts_legacy on public.news_posts (legacy_id) where legacy_id is not null;
+create index if not exists news_posts_published on public.news_posts (published_at desc) where status = 'published';
 
 alter table public.news_editors enable row level security;
 alter table public.news_posts enable row level security;
