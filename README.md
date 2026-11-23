@@ -77,7 +77,8 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 - **News:** N1 nowy wpis → wszyscy (e-mail), N2 komentarz pod Twoim wpisem, N3 komentarz pod wpisem, który komentowałeś, N4 polubienia (zbierane w jedno nieprzeczytane), N5 rola redaktora.
 - **Konta** (`api/_lib/accountNotices.ts`): U1 nowe aplikacje albo rola, U2 zaproszona osoba dołączyła → zapraszający, U3 → reszta zespołu (raz na konto, wpis `joined` w `profile_events`).
 - **Codzienny przebieg** (L9, L10): Vercel Cron `0 6 * * *` (7:00/8:00 w Polsce, tylko dni robocze) na `/api/daily` (rewrite na `api/sso.ts?job=daily`, limit funkcji). Wymaga zmiennej **`CRON_SECRET`** w Production (Vercel wysyła ją w nagłówku `Authorization`); bez niej przebieg odpowiada 401. Cron działa tylko na produkcji.
-- **Następne etapy:** kontrakty (po PR #93: dzwonek z `planContractMails`, e-mail wspólnym szablonem), konkursy (po PR #96), n8n (BID, propozycje sprzedażowe, skrzynki) przez webhook centrum, dzwonek w pozostałych aplikacjach.
+- **Kontrakty** (K1–K7): po każdym kroku dzwonek dla każdej osoby z planu `planContractMails` (`api/_lib/contractMails.ts`, tytuł po polsku jak e-mail), e-maile jak dotąd z `contractMails.ts`.
+- **Następne etapy:** przypomnienia kontraktów (K8, K9), konkursy (po PR #96), n8n (BID, propozycje sprzedażowe, skrzynki) przez webhook centrum, dzwonek w pozostałych aplikacjach.
 
 ## Phone calls analyser
 

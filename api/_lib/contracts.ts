@@ -35,7 +35,8 @@ import { requireUser } from './auth.js';
 import { centralDb } from './central.js';
 import { appUrl, handle, HttpError, json, readJson } from './http.js';
 import { logError } from './monitoring.js';
-import { contractMails, type ContractStep, type FlowPeople } from './contractMails.js';
+import { contractMails, planContractMails, type ContractStep, type FlowPeople } from './contractMails.js';
+import { notify as notifyBell } from './notifications.js';
 import { sendPrepared } from './notify.js';
 import { db } from './supabase.js';
 
@@ -139,7 +140,8 @@ function owners(me: Member, people: Member[]): OwnerOption[] {
 // ---------------------------------------------------------------------------------------------------------------
 // E-mails
 
-/** E-mails after a step to everyone involved (contractMails.ts plans who gets what). */
+/** E-mails and bell notifications (K1–K7, README "Powiadomienia") after a step to everyone involved
+ * (contractMails.ts plans who gets what). */
 async function notify(request: Request, contract: Contract, step: ContractStep, actor: Member, people: Member[], comment?: string | null) {
   const admins = people.filter((p) => holds(p, 'contracts-admin'));
   const signers = people.filter((p) => uses(p, 'contracts-sign'));
@@ -151,6 +153,21 @@ async function notify(request: Request, contract: Contract, step: ContractStep, 
     names: Object.fromEntries(people.map((p) => [p.email, p.name])),
   };
   const url = `${appUrl(request)}/contracts/${encodeURIComponent(contract.id)}`;
+  const byEmail = new Map(people.map((p) => [p.email.toLowerCase(), p]));
+  const link = `/contracts/${encodeURIComponent(contract.id)}`;
+  for (const [email, m] of planContractMails(contract, step, { email: actor.email, name: actor.name }, flow)) {
+    const person = byEmail.get(email);
+    if (!person) continue;
+    await notifyBell(appUrl(request), {
+      module: 'contracts',
+      kind: `contracts.${step}${m.turn ? '.turn' : ''}`,
+      to: [{ id: person.id, email: person.email, name: person.name }],
+      actorId: actor.id,
+      title: m.title,
+      body: m.todo ?? m.lead,
+      link,
+    });
+  }
   return sendPrepared(contractMails(contract, step, { email: actor.email, name: actor.name }, flow, url, comment), 'contracts');
 }
 
