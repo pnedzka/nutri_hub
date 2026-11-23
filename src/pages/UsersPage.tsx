@@ -59,6 +59,8 @@ function UserName({ user }: { user: UserRow }) {
 const APP_NOTES: Partial<Record<AppId, string>> = {
   intranet: '(tile only, separate sign-in)',
   'create-users': '(invites new people, with apps they have themselves)',
+  'contracts-admin': '(Contract generator: accepts contracts after entering the order in enova, sees all contracts)',
+  'contracts-sign': '(Contract generator: signs contracts; board members sign those above 100 000 EUR)',
 };
 
 /**

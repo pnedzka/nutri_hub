@@ -1,5 +1,6 @@
-import { Building2, Calculator, CalendarDays, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, Trophy, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, Calculator, CalendarDays, FileSignature, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, Trophy, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
+import { usesContracts } from '../shared/contractsApi.ts';
 import type { AppUser } from './lib/user';
 
 export interface AppTile {
@@ -101,6 +102,14 @@ export const APPS: AppTile[] = [
     audience: 'app',
   },
   {
+    id: 'contracts',
+    name: 'Contract generator',
+    description: 'Sales and purchase contracts: generate, accept, sign and send them to the client.',
+    url: '/contracts',
+    icon: FileSignature,
+    audience: 'app',
+  },
+  {
     id: 'team',
     name: 'Team',
     description: 'Contact details of your colleagues: phones, e-mails and offices.',
@@ -171,7 +180,7 @@ export function sectionsFor(
         (a) =>
           a.audience === 'everyone' ||
           // Administrators create accounts in User management (Administration).
-          (a.audience === 'app' && isAppId(a.id) && available(a.id, enabledModules) && canUse(user, a.id) && !(a.id === 'create-users' && user.role === 'admin')),
+          (a.audience === 'app' && isAppId(a.id) && available(a.id, enabledModules) && (a.id === 'contracts' ? usesContracts(user) : canUse(user, a.id)) && !(a.id === 'create-users' && user.role === 'admin')),
       ),
     },
   ];
