@@ -65,7 +65,7 @@ Admini ustawiają je w **Sales contests** (`/contests`, Administration): nazwa, 
   - **Employees** (admini): przełożony, liczba dni urlopu na rok, dni na bieżący rok, pierwszy rok w aplikacji i dni przeniesione ze starego intranetu.
   - Rodzaje: wypoczynkowy, na żądanie (4 dni w roku, w ramach wypoczynkowego), okolicznościowy, opieka nad dzieckiem (2 dni w roku), bezpłatny, L4 (wpisuje admin, nie zmniejsza salda). Admin może wpisać urlop za pracownika (od razu zatwierdzony).
   - Liczą się dni robocze, bez weekendów i świąt ustawowych (z Wigilią od 2025), z połówkami dnia. Niewykorzystane dni przechodzą na kolejny rok. Wniosek mieści się w jednym roku kalendarzowym.
-  - E-maile: o nowym wniosku do przełożonego i adminów, o decyzji do pracownika.
+  - Powiadomienia przy każdym kroku wniosku (dzwonek i e-mail): zob. „Powiadomienia”.
 - **News:**
   - **Lista wpisów** od najnowszych opublikowanych (po 12, „Load older posts”), z okładką, opisem (albo początkiem tekstu) i liczbą polubień, komentarzy i zdjęć. **Wyszukiwarka** szuka w tytule, opisie i treści.
   - **Strona główna centrum** pokazuje 3 najnowsze wpisy („Latest news”) osobom z dostępem do News (widget dashboardu).
@@ -77,12 +77,27 @@ Admini ustawiają je w **Sales contests** (`/contests`, Administration): nazwa, 
   - **Publikują** admini i redaktorzy. Redaktorów wybierają admini: News → Manager → **Editors**. Redaktor edytuje swoje wpisy (jako autor albo piszący, `created_by`), admin wszystkie.
   - **Komentują i lajkują** wszyscy z dostępem do News. Autor edytuje i usuwa swój komentarz, admin usuwa każdy.
   - **Zdjęcia:** do 30 na wpis. Przeglądarka zmniejsza je do 2000 px (JPEG) i wysyła prosto do prywatnego bucketu Supabase Storage `intranet` (jednorazowy link od serwera). Oglądamy je przez podpisane linki ważne godzinę. Zdjęcia usunięte z wpisu i zdjęcia usuniętego wpisu serwer kasuje; zdjęcia dodane do wpisu, którego nie zapisano, zostają w buckecie (nie przeszkadzają).
-  - **E-mail o wpisie** do wszystkich z dostępem do News (bez autora i piszącego), z linkiem, **raz: przy pierwszej publikacji** (od razu albo ze szkicu; `published_at`). Każdy dostaje osobną wiadomość (Resend batch). Edycja, cofnięcie do szkiców i ponowna publikacja nie wysyłają e-maili.
+  - **E-mail o wpisie** (i powiadomienie w dzwonku, zob. „Powiadomienia”) do wszystkich z dostępem do News (bez autora i piszącego), z linkiem, **raz: przy pierwszej publikacji** (od razu albo ze szkicu; `published_at`). Każdy dostaje osobną wiadomość (Resend batch). Edycja, cofnięcie do szkiców i ponowna publikacja nie wysyłają e-maili.
   - **Import ze starego intranetu** (admin, News → Manager → „Choose export file”): plik JSON z workflow n8n „Intranet - News export (jednorazowy)” (`NetTcDqeF6a3cY5G`, tylko odczyt Firestore: `newsArticles` z komentarzami, `users` = id, e-mail, imię). Przeglądarka wysyła wpisy po jednym (`POST /api/news/post`, `action: 'import'`, `api/_lib/newsImport.ts`): serwer pobiera okładkę i galerię do bucketu, zamienia HTML na format wpisu (`htmlToBody` w `shared/newsImport.ts`), dopasowuje autora, komentarze i polubienia po e-mailu (osoba bez konta zostaje z imieniem z intranetu, `legacy_author`). Nikt nie dostaje e-maila; wpis już zaimportowany (`legacy_id`) jest pomijany, więc import można powtórzyć.
-- **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, e-maile w `api/_lib/notify.ts`.
+- **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, powiadomienia w `api/_lib/leaveNotices.ts` i `api/_lib/news.ts` (przez `api/_lib/notifications.ts`).
 - **Dane:** tabele `leave_*` i `news_*` oraz prywatny bucket Storage `intranet` (`db/schema.sql`). Mają RLS bez polityk: czyta i zapisuje je tylko serwer centrum kluczem secret, po sprawdzeniu dostępu (`requireApp` w `api/_lib/auth.ts`).
 - **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z uprawnieniem `intranet` dostały oba (`db/schema.sql`; w dev i na produkcji zrobione 20.10.2026).
 - **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 12 (ostatnia: `api/people.ts`, Team, My profile, zdjęcia i biura). Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`, historia konta `GET /api/admin/users?history=<id>`, Phone calls analyser `/api/admin/users?resource=calls`, Purchase Manager `/api/admin/users?resource=purchase`).
+
+## Powiadomienia
+
+**Od 23.11.2026 (dev).** Plan wszystkich powiadomień moduł po module (zaakceptowany przez właściciela 23.11.2026): Claude Doc „Powiadomienia w centrum aplikacji: plan”. Numery (L1, N2…) w kodzie odnoszą się do niego.
+
+- **Dzwonek** w górnej belce centrum (`src/components/NotificationBell.tsx`, przez `actions` w `AppHeader`): liczba nieprzeczytanych, 8 najnowszych, „Mark all as read”, „See all”. Nowe powiadomienie pokazuje też toast.
+- **Strona `/notifications`:** wszystkie od najnowszych, filtr po module, po 25. Przeczytane = kliknięte albo „Mark all as read” (nie automatycznie po wejściu, decyzja z 23.11.2026). Trzymamy 180 dni.
+- **Dane:** tabela `public.notifications` w bazie centrum (`db/schema.sql`, migracja `hub_notifications`: nutri-dev 23.11.2026, produkcja przy wydaniu). Nie w `nutri-central-db`, bo ta jest wspólna dla dev i produkcji. Przeglądarka czyta tylko własne wiersze (RLS) i może zmienić tylko `read_at`; co minutę i po powrocie do karty, bez funkcji Vercela. Pisze tylko serwer.
+- **Serwer:** każdy moduł woła `notify()` z `api/_lib/notifications.ts`: zapisuje powiadomienie i, gdy ktoś ma coś zrobić albo zmienia się jego urlop, wysyła e-mail. Autor zdarzenia nic nie dostaje. Tekst w dzwonku jest po angielsku (jak centrum), e-maile po polsku w wyglądzie Nutri APEX z n8n (`api/_lib/apexMail.ts`: granatowy nagłówek, karty „Twoja kolej”, „Komentarz”, szczegóły, „Etapy”), osobny e-mail dla każdej osoby.
+- **Urlopy** (`api/_lib/leaveNotices.ts`, z testami): L1 nowy wniosek → przełożony i admini (e-mail), L2 potwierdzenie → pracownik, L3/L4 decyzja → pracownik (e-mail), L5 → pozostali decydujący, L6 wycofany wniosek → przełożony i admini (e-mail), L7 anulowanie przez admina → pracownik (e-mail) i przełożony, L8 urlop/L4 wpisany przez admina → pracownik (e-mail) i przełożony, L9 wniosek czeka 2 dni robocze → decydujący (e-mail), L10 jutro urlop osoby z zespołu → przełożony, L11 zmiana ustawień w Employees → pracownik.
+- **News:** N1 nowy wpis → wszyscy (e-mail), N2 komentarz pod Twoim wpisem, N3 komentarz pod wpisem, który komentowałeś, N4 polubienia (zbierane w jedno nieprzeczytane), N5 rola redaktora.
+- **Konta** (`api/_lib/accountNotices.ts`): U1 nowe aplikacje albo rola, U2 zaproszona osoba dołączyła → zapraszający, U3 → reszta zespołu (raz na konto, wpis `joined` w `profile_events`).
+- **Codzienny przebieg** (L9, L10): Vercel Cron `0 6 * * *` (7:00/8:00 w Polsce, tylko dni robocze) na `/api/daily` (rewrite na `api/sso.ts?job=daily`, limit funkcji). Wymaga zmiennej **`CRON_SECRET`** w Production (Vercel wysyła ją w nagłówku `Authorization`); bez niej przebieg odpowiada 401. Cron działa tylko na produkcji.
+- **Kontrakty** (K1–K7): po każdym kroku dzwonek dla każdej osoby z planu `planContractMails` (`api/_lib/contractMails.ts`, tytuł po polsku jak e-mail), e-maile jak dotąd z `contractMails.ts`.
+- **Następne etapy:** przypomnienia kontraktów (K8, K9), konkursy (po PR #96), n8n (BID, propozycje sprzedażowe, skrzynki) przez webhook centrum, dzwonek w pozostałych aplikacjach.
 
 ## Phone calls analyser
 
@@ -236,6 +251,7 @@ Darmowa baza dev usypia się po 7 dniach bez użycia. Wybudzenie: Supabase → p
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = klucz anon projektu neutralizatora
    - `SUPABASE_SECRET_KEY` = klucz secret (service role) tego samego projektu, **tylko serwer** (Supabase → Project Settings → API Keys → **Secret keys**, prefiks `sb_secret_`; nie klucz publishable `sb_publishable_` ani anon, z nimi serwer nie widzi żadnych kont i zwraca 503)
    - `RESEND_API_KEY` = klucz Resend do e-maili z zaproszeniami, resetem hasła i powiadomieniami News i Leave
+   - `CRON_SECRET` (Production) = losowy ciąg, dla codziennych przypomnień (`/api/daily`, zob. „Powiadomienia”)
    - opcjonalnie `MAIL_FROM` (domyślnie `Nutri APEX <no-reply@nutripartners.co>`) i `APP_URL` (adres w linkach z e-maili)
 4. Settings → Domains: `nutripartners.vercel.app`.
 5. Deployment Protection: Vercel Authentication tylko dla preview.

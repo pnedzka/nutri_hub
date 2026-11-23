@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import { useMyProfile, usePeople } from '../lib/people';
 import { AppHeader, type HeaderLink } from './AppHeader';
 import { Footer } from './Footer';
+import { NotificationBell } from './NotificationBell';
 import { MobileNav, SideNav } from './SideNav';
 
 /** Links inside the hub go through the router, so the page does not reload. */
@@ -23,6 +24,7 @@ export function Layout({ children }: { children: ReactNode }) {
         hubUrl=""
         user={user && { name: user.name, email: user.email, role: user.role, avatarUrl: profile?.avatarUrl ?? null }}
         onSignOut={() => void signOut()}
+        actions={<NotificationBell />}
         Link={HubLink}
       />
       <MobileNav open={menuOpen} onOpenChange={setMenuOpen} />

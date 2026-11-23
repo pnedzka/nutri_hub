@@ -6,8 +6,10 @@
 
 import type { EmployeeRow, EmployeeSettingsUpdate, EmployeesResponse } from '../../shared/leaveApi.js';
 import { requireApp } from '../_lib/auth.js';
-import { handle, HttpError, json, readJson } from '../_lib/http.js';
+import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
 import { allSettings, balances, defaultSettings, todayInPoland } from '../_lib/leave.js';
+import { settingsChanged } from '../_lib/leaveNotices.js';
+import { notify } from '../_lib/notifications.js';
 import { appPeople, toPerson } from '../_lib/people.js';
 import { db } from '../_lib/supabase.js';
 
@@ -70,6 +72,13 @@ export function PUT(request: Request): Promise<Response> {
     if (carriedOver === null) throw new HttpError(400, 'Days carried over: a number from 0, in half days.');
     if (!Number.isInteger(startYear) || startYear < 2020 || startYear > year) throw new HttpError(400, `First year: 2020 to ${year}.`);
 
+    const [before, { data: allowanceRow, error: readError }] = await Promise.all([
+      allSettings().then((all) => all.get(userId) ?? defaultSettings(year)),
+      db().from('leave_allowances').select('days').eq('user_id', userId).eq('year', year).maybeSingle(),
+    ]);
+    if (readError) throw readError;
+    const beforeAllowance = allowanceRow ? Number(allowanceRow.days) : before.annualDays;
+
     const { error } = await db().from('leave_settings').upsert({
       user_id: userId,
       manager_id: managerId,
@@ -85,6 +94,18 @@ export function PUT(request: Request): Promise<Response> {
     if (cleanError) throw cleanError;
     const { error: allowanceError } = await db().from('leave_allowances').upsert({ user_id: userId, year, days: allowance }, { onConflict: 'user_id,year' });
     if (allowanceError) throw allowanceError;
+
+    // L11: the person learns what changed (README "Powiadomienia").
+    const name = (id: string | null) => (id ? (people.find((p) => p.id === id)?.name ?? 'someone') : 'nobody');
+    const changes = [
+      ...(before.managerId !== managerId ? [`Manager: ${name(managerId)}`] : []),
+      ...(before.annualDays !== annualDays ? [`Days of leave a year: ${annualDays}`] : []),
+      ...(before.carriedOver !== carriedOver || before.startYear !== startYear ? [`Days carried over into ${startYear}: ${carriedOver}`] : []),
+      ...(beforeAllowance !== allowance && before.annualDays === annualDays ? [`Days for ${year}: ${allowance}`] : []),
+    ];
+    const owner = people.find((p) => p.id === userId)!;
+    const admin = people.find((p) => p.id === viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email };
+    for (const notice of settingsChanged(owner, admin, changes)) await notify(appUrl(request), notice);
     return json({ ok: true });
   });
 }

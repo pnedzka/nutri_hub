@@ -5,27 +5,18 @@
 // A request of one's own waits for the manager or an administrator (pending); an administrator entering leave for
 // someone else saves it approved. The days are counted here, never taken from the browser.
 //
-// Decisions (PATCH): approve / reject a pending request, by the person's manager or an administrator, and the person
-// gets an e-mail; cancel the person's own pending request, or any pending or approved leave by an administrator.
+// Decisions (PATCH): approve / reject a pending request, by the person's manager or an administrator; cancel the
+// person's own pending request, or any pending or approved leave by an administrator. Every step notifies the people
+// concerned (bell and e-mail, api/_lib/leaveNotices.ts).
 
-import {
-  ADMIN_ONLY,
-  datesProblem,
-  formatDays,
-  formatRange,
-  isLeaveType,
-  LEAVE_TYPE_NAMES,
-  limitProblem,
-  overlaps,
-  workingDays,
-  type LeaveType,
-} from '../../shared/leave.js';
+import { ADMIN_ONLY, datesProblem, isLeaveType, LEAVE_TYPE_NAMES, limitProblem, overlaps, workingDays, type LeaveType } from '../../shared/leave.js';
 import type { LeaveDecision, LeaveOverview, NewLeaveRequest } from '../../shared/leaveApi.js';
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
 import { allSettings, approversOf, balances, canDecide, REQUEST_COLUMNS, todayInPoland, toRequestView } from '../_lib/leave.js';
-import { appPeople, toPerson } from '../_lib/people.js';
-import { sendMail } from '../_lib/notify.js';
+import { appPeople, toPerson, type PersonRow } from '../_lib/people.js';
+import { leaveCancelled, leaveEntered, requestDecided, requestSubmitted, requestWithdrawn, type LeaveFacts } from '../_lib/leaveNotices.js';
+import { notify } from '../_lib/notifications.js';
 import { db } from '../_lib/supabase.js';
 
 export function GET(request: Request): Promise<Response> {
@@ -139,29 +130,25 @@ export function POST(request: Request): Promise<Response> {
       .single();
     if (error) throw error;
 
-    if (!forSomeoneElse) {
-      const approvers = approversOf(userId, settings.get(userId), people);
-      await sendMail({
-        to: approvers.map((p) => p.email),
-        label: 'Leave request',
-        subject: `Leave request: ${owner.name}, ${formatRange(start, end, halfDay)}`,
-        paragraphs: ['Hello,', `${owner.name} has asked for leave. Approve or reject the request in the Nutri Partners apps.`],
-        details: [
-          ['Employee', owner.name],
-          ['Type', LEAVE_TYPE_NAMES[type]],
-          ['Dates', formatRange(start, end, halfDay)],
-          ['Working days', formatDays(days)],
-          ...(note ? ([['Note', note]] as [string, string][]) : []),
-        ],
-        button: { label: 'Review the request', url: `${appUrl(request)}/leave/approvals` },
-      });
-    }
+    // Notifications: README "Powiadomienia" (L1, L2, L8).
+    const facts: LeaveFacts = { type, start, end, halfDay, days, note };
+    const byId = new Map(people.map((p) => [p.id, p]));
+    const notices = forSomeoneElse
+      ? leaveEntered(facts, owner, byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email }, managerOf(userId, settings, byId))
+      : requestSubmitted(facts, owner, approversOf(userId, settings.get(userId), people));
+    for (const notice of notices) await notify(appUrl(request), notice);
 
     return json({ request: toRequestView(row, new Map(people.map((p) => [p.id, p]))) }, 201);
   });
 }
 
 const ACTIONS = ['approve', 'reject', 'cancel'] as const;
+
+/** The person's manager, if they have one with access to Leave. */
+function managerOf(userId: string, settings: Map<string, { managerId: string | null }>, byId: Map<string, PersonRow>): PersonRow | null {
+  const id = settings.get(userId)?.managerId;
+  return (id && byId.get(id)) || null;
+}
 
 export function PATCH(request: Request): Promise<Response> {
   return handle(async () => {
@@ -202,30 +189,28 @@ export function PATCH(request: Request): Promise<Response> {
     if (updateError) throw updateError;
     if (!updated) throw new HttpError(409, 'Someone else has just changed this request. Refresh the page.');
 
+    // Notifications: README "Powiadomienia" (L3–L7).
     const people = await appPeople('leave');
     const byId = new Map(people.map((p) => [p.id, p]));
     const owner = byId.get(ownerId);
-    const decider = byId.get(viewer.id)?.name ?? viewer.email;
-    if (owner && ownerId !== viewer.id && (status !== 'cancelled' || row.status === 'approved')) {
-      const range = formatRange(String(row.start_date), String(row.end_date), Boolean(row.half_day));
-      const word = status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'cancelled';
-      await sendMail({
-        to: [owner.email],
-        label: 'Leave',
-        subject: `Your leave ${status === 'cancelled' ? 'was cancelled' : `request was ${word}`}: ${range}`,
-        paragraphs: [
-          'Hello,',
-          status === 'cancelled' ? `${decider} has cancelled your approved leave.` : `${decider} has ${word} your leave request.`,
-        ],
-        details: [
-          ['Type', LEAVE_TYPE_NAMES[row.type as LeaveType]],
-          ['Dates', range],
-          ['Working days', formatDays(Number(row.days))],
-          ['Status', word[0].toUpperCase() + word.slice(1)],
-          ...(note ? ([['Comment', note]] as [string, string][]) : []),
-        ],
-        button: { label: 'Open your leave', url: `${appUrl(request)}/leave` },
-      });
+    const actor = byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email, isAdmin: viewer.isAdmin };
+    if (owner) {
+      const facts: LeaveFacts = {
+        type: row.type as LeaveType,
+        start: String(row.start_date),
+        end: String(row.end_date),
+        halfDay: Boolean(row.half_day),
+        days: Number(row.days),
+        note: (row.note as string | null) ?? null,
+      };
+      const approvers = approversOf(ownerId, settings.get(ownerId), people);
+      const notices =
+        status === 'cancelled'
+          ? ownerId === viewer.id
+            ? requestWithdrawn(facts, owner, approvers)
+            : leaveCancelled(facts, row.status === 'approved', owner, actor, managerOf(ownerId, settings, byId), note)
+          : requestDecided(facts, status, owner, actor, approvers.filter((p) => p.id !== viewer.id), note);
+      for (const notice of notices) await notify(appUrl(request), notice);
     }
 
     return json({ request: toRequestView(updated, byId) });

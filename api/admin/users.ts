@@ -27,6 +27,7 @@ import { newAccountProblem, toApps } from '../../shared/access.js';
 import { PROFILE_COLUMNS, requireAdmin, requireUser, toProfile, type Profile } from '../_lib/auth.js';
 import { HttpError, appUrl, handle, json, readJson } from '../_lib/http.js';
 import { createInvitedUser, issueAccountLink } from '../_lib/accountLinks.js';
+import { notifyAccessChanged } from '../_lib/accountNotices.js';
 import { sendAccountMail } from '../_lib/mail.js';
 import { db } from '../_lib/supabase.js';
 import { logError } from '../_lib/monitoring.js';
@@ -244,6 +245,8 @@ export function PATCH(request: Request): Promise<Response> {
     if (after.apps.join() !== before.apps.join()) await logProfileEvent(body.id, admin.id, 'apps', { from: before.apps, to: after.apps });
     if (after.full_name !== before.full_name) await logProfileEvent(body.id, admin.id, 'profile', { fields: ['name'] });
     if ('deactivated_at' in changes) await logProfileEvent(body.id, admin.id, changes.deactivated_at ? 'deactivated' : 'reactivated');
+    const deactivated = 'deactivated_at' in changes ? Boolean(changes.deactivated_at) : Boolean(current.deactivated_at);
+    if (!deactivated) await notifyAccessChanged(appUrl(request), admin.id, before, after);
     return json({ user: after, sent });
   });
 }

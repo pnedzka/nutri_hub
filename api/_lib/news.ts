@@ -6,8 +6,8 @@ import type { Person } from '../../shared/leaveApi.js';
 import type { NewsPostInput, PostStatus, ShownImage } from '../../shared/newsApi.js';
 import type { AppUser } from './auth.js';
 import { appUrl, HttpError } from './http.js';
-import { sendToEach } from './notify.js';
-import { personOf, type PersonRow } from './people.js';
+import { notify } from './notifications.js';
+import { appPeople, personOf, type PersonRow } from './people.js';
 import { db } from './supabase.js';
 import { logError } from './monitoring.js';
 
@@ -50,7 +50,8 @@ export function coverOf(row: { cover?: unknown; images?: unknown }): NewsImage |
   return toImages(row.images)[0] ?? null;
 }
 
-/** E-mails a post that has just been published to everyone with access to News, except the author and the editor. */
+/** N1: a post has just been published; everyone with access to News (except the author and the editor) gets it in the
+ * bell and by e-mail (README "Powiadomienia"). */
 export async function notifyPublished(
   request: Request,
   post: { id: string; title: string; summary: string; body: string; images: NewsImage[] },
@@ -59,19 +60,21 @@ export async function notifyPublished(
   skip: string[],
 ): Promise<void> {
   const text = post.summary || (post.body ? excerpt(post.body, 300) : '');
-  await sendToEach(
-    people.filter((p) => !skip.includes(p.id)).map((p) => p.email),
-    {
-      label: 'News',
-      subject: `Nutri Partners news: ${post.title}`,
-      paragraphs: ['Hello,', `${author} has published a new post in Nutri Partners News.`, ...(text ? [text] : [])],
-      details: [
-        ['Title', post.title],
-        ...(post.images.length ? ([['Photos', String(post.images.length)]] as [string, string][]) : []),
-      ],
-      button: { label: 'Read the post', url: `${appUrl(request)}/news/${post.id}` },
+  await notify(appUrl(request), {
+    module: 'news',
+    kind: 'news.published',
+    to: people.filter((p) => !skip.includes(p.id)),
+    title: `New post: ${post.title}`,
+    body: text ? excerpt(text, 200) : `By ${author}.`,
+    link: `/news/${post.id}`,
+    email: {
+      module: 'News',
+      title: post.title,
+      lead: `${author} opublikował(a) nowy wpis w Nutri Partners News.${text ? ` ${text}` : ''}`,
+      details: post.images.length ? [['Zdjęcia', String(post.images.length)]] : [],
+      button: 'Przeczytaj wpis',
     },
-  );
+  });
 }
 
 /** Edits a comment: its author. Deletes it: its author or an administrator. */
@@ -140,3 +143,93 @@ export function searchPattern(q: string | null): string | null {
   return text ? `%${text}%` : null;
 }
 
+
+async function postFacts(postId: string): Promise<{ title: string; authorId: string | null } | null> {
+  const { data, error } = await db().from('news_posts').select('title, author_id').eq('id', postId).maybeSingle();
+  if (error) throw error;
+  return data ? { title: String(data.title), authorId: (data.author_id as string | null) ?? null } : null;
+}
+
+/** N2 + N3: a new comment; the post's author and the people who commented before get it in the bell. */
+export async function notifyComment(request: Request, viewer: AppUser, postId: string, text: string): Promise<void> {
+  try {
+    const post = await postFacts(postId);
+    if (!post) return;
+    const [people, { data: earlier, error }] = await Promise.all([
+      appPeopleById(),
+      db().from('news_comments').select('author_id').eq('post_id', postId).neq('author_id', viewer.id),
+    ]);
+    if (error) throw error;
+    const me = people.get(viewer.id)?.name ?? viewer.email;
+    const author = post.authorId ? people.get(post.authorId) : undefined;
+    const link = `/news/${postId}`;
+    const snippet = excerpt(text, 160);
+    if (author) {
+      await notify(appUrl(request), { module: 'news', kind: 'news.comment', to: [author], actorId: viewer.id, title: `${me} commented on your post “${post.title}”`, body: snippet, link });
+    }
+    const others = [...new Set((earlier ?? []).map((c) => String(c.author_id)))].filter((id) => id !== post.authorId).flatMap((id) => people.get(id) ?? []);
+    await notify(appUrl(request), { module: 'news', kind: 'news.reply', to: others, actorId: viewer.id, title: `${me} also commented on “${post.title}”`, body: snippet, link });
+  } catch (error) {
+    logError('notifications', error, { kind: 'news.comment' });
+  }
+}
+
+/** N4: likes of a post, gathered into one unread notification for its author ("Anna and 2 others liked …"). */
+export async function notifyLike(request: Request, viewer: AppUser, postId: string): Promise<void> {
+  try {
+    const post = await postFacts(postId);
+    if (!post?.authorId || post.authorId === viewer.id) return;
+    const people = await appPeopleById();
+    const author = people.get(post.authorId);
+    if (!author) return;
+    const link = `/news/${postId}`;
+    const { data: open, error } = await db()
+      .from('notifications')
+      .select('id, created_at')
+      .eq('user_id', author.id)
+      .eq('kind', 'news.liked')
+      .eq('link', link)
+      .is('read_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    const since = open?.[0]?.created_at as string | undefined;
+    let likers: string[] = [];
+    if (since) {
+      const { data: likes, error: likesError } = await db().from('news_likes').select('user_id').eq('post_id', postId).gte('created_at', since).order('created_at', { ascending: false });
+      if (likesError) throw likesError;
+      likers = (likes ?? []).map((l) => String(l.user_id));
+    }
+    if (!likers.includes(viewer.id)) likers.unshift(viewer.id);
+    const first = people.get(likers[0])?.name ?? viewer.email;
+    const title = likers.length > 1 ? `${first} and ${likers.length - 1} other${likers.length > 2 ? 's' : ''} liked “${post.title}”` : `${first} liked your post “${post.title}”`;
+    if (open?.[0]) {
+      const { error: updateError } = await db().from('notifications').update({ title: title.slice(0, 200), actor_id: viewer.id }).eq('id', open[0].id);
+      if (updateError) throw updateError;
+    } else {
+      await notify(appUrl(request), { module: 'news', kind: 'news.liked', to: [author], actorId: viewer.id, title, link });
+    }
+  } catch (error) {
+    logError('notifications', error, { kind: 'news.liked' });
+  }
+}
+
+/** N5: an administrator made the person a news editor. */
+export async function notifyEditor(request: Request, viewer: AppUser, userId: string): Promise<void> {
+  const people = await appPeopleById();
+  const person = people.get(userId);
+  if (!person) return;
+  await notify(appUrl(request), {
+    module: 'news',
+    kind: 'news.editor',
+    to: [person],
+    actorId: viewer.id,
+    title: 'You can now publish news',
+    body: `${people.get(viewer.id)?.name ?? viewer.email} made you a News editor. Write a post with “New post” in News.`,
+    link: '/news',
+  });
+}
+
+async function appPeopleById(): Promise<Map<string, PersonRow>> {
+  return new Map((await appPeople('news')).map((p) => [p.id, p]));
+}
