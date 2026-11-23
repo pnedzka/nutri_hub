@@ -14,7 +14,7 @@ import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { useApi } from '../leave/useApi';
 import { Gallery } from './Gallery';
 import { formatWhen } from './format';
-import { PageHeader, RichText } from './ui';
+import { DraftBadge, FormattedText, PageHeader, RichText } from './ui';
 
 const interact = (body: NewsInteraction) => api('/api/news/post', { method: 'POST', body });
 
@@ -205,20 +205,32 @@ export function PostView({ id }: { id: string }) {
           )
         }
       />
-      <Card>
+      {post.status === 'draft' && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This post is a draft: only editors see it. Publish it in the editor or in News → Manager.
+        </p>
+      )}
+      <Card className="overflow-hidden">
+        {post.cover && <img src={post.cover.url} alt="" className="max-h-[420px] w-full bg-gray-100 object-cover" />}
         <CardBody className="space-y-5 py-5">
-          <p className="text-sm text-gray-500">
-            {post.author?.name ?? 'Former user'} · {formatWhen(post.createdAt)}
-            {post.updatedAt !== post.createdAt && ` · edited ${formatWhen(post.updatedAt)}`}
+          <p className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+            {post.status === 'draft' && <DraftBadge />}
+            <span>
+              {post.author?.name ?? 'Former user'} · {formatWhen(post.createdAt)}
+              {new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000 && ` · edited ${formatWhen(post.updatedAt)}`}
+            </span>
           </p>
-          {post.body && <RichText text={post.body} className="text-[15px] leading-relaxed text-gray-800" />}
+          {post.summary && <p className="text-base font-medium leading-relaxed text-gray-700">{post.summary}</p>}
+          {post.body && <FormattedText text={post.body} className="text-[15px] leading-relaxed text-gray-800" />}
           <Gallery images={post.images} />
-          <div className="border-t border-gray-100 pt-4">
-            <Likes post={post} myId={myId} reload={reload} />
-          </div>
+          {post.status === 'published' && (
+            <div className="border-t border-gray-100 pt-4">
+              <Likes post={post} myId={myId} reload={reload} />
+            </div>
+          )}
         </CardBody>
       </Card>
-      <Card>
+      {post.status === 'published' && <Card>
         <CardHeader>
           <h2 className="text-sm font-semibold text-gray-900">Comments{post.comments.length > 0 && ` (${post.comments.length})`}</h2>
         </CardHeader>
@@ -240,7 +252,7 @@ export function PostView({ id }: { id: string }) {
             }}
           />
         </CardBody>
-      </Card>
+      </Card>}
     </div>
   );
 }
