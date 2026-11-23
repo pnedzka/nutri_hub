@@ -1,6 +1,8 @@
 # Automatic code review of pull requests by Claude (anthropics/claude-code-action, code-review plugin).
-# Needs the repository secret ANTHROPIC_API_KEY (Settings → Secrets and variables → Actions) and the Claude GitHub App
-# installed on this repository. Comments appear on the PR; they never block merging.
+# Authenticates to the Claude API with Workload Identity Federation (since 23.11.2026): the workflow's GitHub OIDC token
+# is exchanged for a short-lived Anthropic access token, so no API key is stored in GitHub. The federation rule
+# (Anthropic Console → Workload identity) matches pull_request runs of pnedzka/nutri_hub; the IDs below are not
+# secrets. Needs `id-token: write` and the Claude GitHub App on this repository. Comments never block merging.
 #
 # Draft PRs are skipped: the review runs when a PR is marked "Ready for review". Release PRs (develop → main) and
 # sync PRs (main → develop) are skipped too: their changes were reviewed on the way in.
@@ -30,7 +32,10 @@ jobs:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_federation_rule_id: fdrl_TODO_NUTRI_HUB
+          anthropic_organization_id: 0ff8c21a-4fc9-48c5-b246-f037e77669ae
+          anthropic_service_account_id: svac_016XoZKYukjmwMiJXzAP3yTK
+          anthropic_workspace_id: wrkspc_01LUP4esDZWx5L4kLQRDjEit
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
           prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
