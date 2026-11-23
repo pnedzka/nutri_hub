@@ -27,6 +27,7 @@ import {
   type ContractInput,
   type ContractRequest,
   type ContractSetup,
+  type Draft,
   type ListScope,
   type OwnerOption,
   type SettingsFile,
@@ -242,6 +243,14 @@ export function contractsGet(request: Request): Promise<Response> {
         return json({ companies: await call('company_search', { p_q: params.get('q') ?? '', p_limit: 10 }) });
       case 'products':
         return json({ products: await call('product_search', { p_q: params.get('q') ?? '', p_limit: 15 }) });
+      case 'cn':
+        return json({ codes: await call('cn_search', { p_q: params.get('q') ?? '', p_limit: 20 }) });
+      case 'drafts':
+        return json({ drafts: await call('draft_list', { p_owner: me.email }) });
+      case 'draft': {
+        const draft = await getDraft(params.get('id') ?? '', me);
+        return json({ draft });
+      }
       case 'setup': {
         const list = owners(me, people);
         const type = params.get('type') === 'P' ? 'P' : 'S';
@@ -271,6 +280,17 @@ export function contractsGet(request: Request): Promise<Response> {
   });
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A draft of this person (contract administrators may also open the drafts they saved for someone else). */
+async function getDraft(id: string, me: Member): Promise<Draft> {
+  if (!UUID.test(id)) throw new HttpError(404, 'This draft does not exist.');
+  const draft = await call<(Draft & { createdByEmail?: string }) | null>('draft_get', { p_id: id });
+  if (!draft) throw new HttpError(404, 'This draft does not exist.');
+  if (draft.ownerEmail !== me.email && !viewerOf(me).isContractAdmin) throw new HttpError(403, 'This draft belongs to another trader.');
+  return draft;
+}
+
 function validInput(raw: unknown): ContractInput {
   const { contract, problems } = cleanContract(raw);
   if (problems.length) throw new HttpError(400, problems[0].message);
@@ -290,6 +310,16 @@ function meta(input: ContractInput) {
   };
 }
 
+/** Remembers the CN codes at the catalogue products (only where a product has none yet); a failure never blocks a contract. */
+async function learnCn(data: Contract['data']) {
+  if (!data.products.some((line) => line.productId && line.cnCode)) return;
+  try {
+    await call('learn_cn', { p_data: data });
+  } catch {
+    // logged by call()
+  }
+}
+
 const content = ({ party, products, delivery, payment, documents }: ContractInput) => ({ party, products, delivery, payment, documents });
 
 export function contractsPost(request: Request): Promise<Response> {
@@ -305,8 +335,29 @@ export function contractsPost(request: Request): Promise<Response> {
       const owner = owners(me, people).find((o) => o.email === (input.ownerEmail || me.email));
       if (!owner) throw new HttpError(400, 'Choose the trader who owns the contract.');
       const contract = await call<Contract>('create_contract', { p_data: content(input), p_meta: meta(input), p_owner: owner, p_actor: actor });
+      await learnCn(contract.data);
+      if (body.draftId && UUID.test(body.draftId)) {
+        await getDraft(body.draftId, me).then(() => call('draft_delete', { p_id: body.draftId }), () => undefined);
+      }
       await notify(request, contract, 'create', me, people);
       return json({ contract });
+    }
+
+    if (body.action === 'saveDraft') {
+      if (!uses(me, 'contracts')) throw new HttpError(403, 'Only traders with Contract generator can create contracts.');
+      // A draft is saved as it is (problems are shown when it is sent), only cleaned of anything unexpected.
+      const { contract: input } = cleanContract(body.contract);
+      const owner = owners(me, people).find((o) => o.email === (input.ownerEmail || me.email)) ?? owners(me, people).find((o) => o.email === me.email);
+      if (!owner) throw new HttpError(400, 'Choose the trader who owns the contract.');
+      if (body.id) await getDraft(body.id, me);
+      const draft = await call<Draft>('draft_save', { p_id: body.id || null, p_owner: owner.email, p_actor: me.email, p_data: { ...input, ownerEmail: owner.email } });
+      return json({ draft });
+    }
+
+    if (body.action === 'deleteDraft') {
+      await getDraft(body.id, me);
+      await call('draft_delete', { p_id: body.id });
+      return json({ ok: true });
     }
 
     if (body.action === 'settingsUploadUrl') {
@@ -333,6 +384,7 @@ export function contractsPost(request: Request): Promise<Response> {
         need('edit');
         const input = validInput(body.contract);
         const contract = await call<Contract>('update_contract', { p_id: id, p_data: content(input), p_meta: { ...meta(input), type: current.type }, p_actor: actor });
+        await learnCn(contract.data);
         await notify(request, contract, 'update', me, people);
         return json({ contract });
       }

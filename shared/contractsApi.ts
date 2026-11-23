@@ -8,6 +8,9 @@
 //   GET  ?resource=contracts&view=products&q                   → { products: ProductOption[] }
 //   GET  ?resource=contracts&view=setup&type&owner             → ContractSetup (number preview, owners, signers)
 //   GET  ?resource=contracts&view=files                        → { files: SettingsFile[] } (terms and signatures)
+//   GET  ?resource=contracts&view=cn&q                         → { codes: CnHit[] } (CN code by product name or code)
+//   GET  ?resource=contracts&view=drafts                       → { drafts: DraftSummary[] } (own drafts)
+//   GET  ?resource=contracts&view=draft&id                     → { draft: Draft }
 //   POST ?resource=contracts  body ContractRequest             → { contract }
 //
 // The flow (decisions of 23.11.2026): the trader generates the contract → administration (Jadwiga) accepts it after
@@ -77,6 +80,8 @@ export interface ProductLine {
   name: string;
   /** core.products id when picked from the list. */
   productId: number | null;
+  /** CN code (Combined Nomenclature), digits only; optional until enova has codes for every product. */
+  cnCode: string;
   quantity: number;
   unit: QuantityUnit;
   unitPrice: number;
@@ -215,6 +220,29 @@ export interface ProductOption {
   id: number;
   name: string;
   enovaCode: string | null;
+  /** The CN code remembered from earlier contracts with this product. */
+  cnCode: string | null;
+}
+
+/** A hit of the CN code search: a product with a remembered code, or an entry of the nomenclature. */
+export interface CnHit {
+  code: string;
+  label: string;
+  kind: 'product' | 'code';
+}
+
+export interface DraftSummary {
+  id: string;
+  ownerEmail: string;
+  type: ContractType;
+  companyName: string;
+  updatedAt: string;
+}
+
+export interface Draft extends DraftSummary {
+  /** The form as it was saved (not validated). */
+  data: ContractInput;
+  createdAt: string;
 }
 
 export interface OwnerOption {
@@ -248,7 +276,9 @@ export const signatureFile = (email: string) => `signatures/${email.trim().toLow
 export type ContractAction = 'accept' | 'approve' | 'sign' | 'return' | 'cancel' | 'client_scan' | 'edit';
 
 export type ContractRequest =
-  | { action: 'create'; contract: ContractInput }
+  | { action: 'create'; contract: ContractInput; draftId?: string }
+  | { action: 'saveDraft'; id?: string; contract: ContractInput }
+  | { action: 'deleteDraft'; id: string }
   | { action: 'update'; id: string; contract: ContractInput }
   | { action: 'accept'; id: string; enovaOrder?: string; comment?: string }
   | { action: 'approve' | 'sign'; id: string; comment?: string }
@@ -406,6 +436,7 @@ export function cleanContract(raw: unknown, today = new Date().toISOString().sli
   const products: ProductLine[] = (Array.isArray(r.products) ? r.products : []).slice(0, 30).map((line: Record<string, unknown>) => ({
     name: text(line.name),
     productId: Number.isInteger(line.productId) ? (line.productId as number) : null,
+    cnCode: text(line.cnCode, 20).replace(/[^0-9]/g, ''),
     quantity: num(line.quantity),
     unit: pick(line.unit, QUANTITY_UNITS, 'KG'),
     unitPrice: num(line.unitPrice),
@@ -416,6 +447,7 @@ export function cleanContract(raw: unknown, today = new Date().toISOString().sli
     if (!line.name) problems.push({ field: `products.${i}.name`, message: 'Product name is required.' });
     if (!(line.quantity > 0)) problems.push({ field: `products.${i}.quantity`, message: 'Quantity must be more than 0.' });
     if (!(line.unitPrice >= 0)) problems.push({ field: `products.${i}.unitPrice`, message: 'Enter the unit price.' });
+    if (line.cnCode && !/^\d{4,10}$/.test(line.cnCode)) problems.push({ field: `products.${i}.cnCode`, message: 'A CN code has 8 digits (4–10 for a heading).' });
     if (lineTotal(line) === null) problems.push({ field: `products.${i}.priceUnit`, message: 'A quantity in pieces needs a price per piece (and a weight needs a price per KG or MT).' });
   });
 
@@ -558,4 +590,11 @@ export function money(amount: number, currency: string): string {
 /** Whether this person may open the Contract generator at all. */
 export function usesContracts(person: { role: 'admin' | 'user'; apps: readonly string[] }): boolean {
   return person.role === 'admin' || ['contracts', 'contracts-admin', 'contracts-sign'].some((app) => person.apps.includes(app));
+}
+
+/** "21069098" → "2106 90 98" (CN codes are written in pairs after the first four digits). */
+export function formatCn(code: string): string {
+  const digits = code.replace(/[^0-9]/g, '');
+  if (digits.length <= 4) return digits;
+  return [digits.slice(0, 4), ...(digits.slice(4).match(/.{1,2}/g) ?? [])].join(' ');
 }

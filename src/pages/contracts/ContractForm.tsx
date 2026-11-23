@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Plus, Search, Trash2 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Building2, Plus, Save, Search, Trash2 } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  BOARD_THRESHOLD_EUR,
   COMMON_INCOTERMS,
   COUNTRIES,
   CURRENCIES,
@@ -17,15 +16,18 @@ import {
   contractTotal,
   emptyDelivery,
   emptyParty,
+  formatCn,
   isEu,
   lineTotal,
   money,
   paymentText,
   prefillFromCompany,
+  type CnHit,
   type CompanyHit,
   type Contract,
   type ContractInput,
   type ContractSetup,
+  type Draft,
   type Delivery,
   type Party,
   type Payment,
@@ -43,7 +45,7 @@ import { Section } from './ui';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-const emptyLine = (): ProductLine => ({ name: '', productId: null, quantity: NaN, unit: 'KG', unitPrice: NaN, priceUnit: 'KG' });
+const emptyLine = (): ProductLine => ({ name: '', productId: null, cnCode: '', quantity: NaN, unit: 'KG', unitPrice: NaN, priceUnit: 'KG' });
 
 function blank(owner: string): ContractInput {
   return {
@@ -60,16 +62,46 @@ function blank(owner: string): ContractInput {
   };
 }
 
+const restoreLine = (l: Partial<ProductLine>): ProductLine => ({
+  ...emptyLine(),
+  ...l,
+  cnCode: l.cnCode ?? '',
+  quantity: typeof l.quantity === 'number' ? l.quantity : NaN,
+  unitPrice: typeof l.unitPrice === 'number' ? l.unitPrice : NaN,
+});
+
 function fromContract(c: Contract): ContractInput {
-  return { type: c.type, submissionDate: c.submissionDate, ownerEmail: c.ownerEmail, companyId: c.companyId, currency: c.currency, ...c.data };
+  const form: ContractInput = { type: c.type, submissionDate: c.submissionDate, ownerEmail: c.ownerEmail, companyId: c.companyId, currency: c.currency, ...c.data };
+  return { ...form, products: form.products.map(restoreLine) };
+}
+
+/** A saved draft back in the form (JSON keeps empty numbers as null). */
+function fromDraft(d: Draft, owner: string): ContractInput {
+  const base = blank(d.ownerEmail || owner);
+  const data = d.data as Partial<ContractInput>;
+  return {
+    ...base,
+    ...data,
+    ownerEmail: d.ownerEmail || owner,
+    party: { ...base.party, ...data.party },
+    delivery: { ...base.delivery, ...data.delivery },
+    payment: {
+      ...base.payment,
+      ...data.payment,
+      prepaymentPercent: typeof data.payment?.prepaymentPercent === 'number' ? data.payment.prepaymentPercent : base.payment.prepaymentPercent,
+      days: typeof data.payment?.days === 'number' ? data.payment.days : base.payment.days,
+    },
+    products: data.products?.length ? data.products.map(restoreLine) : base.products,
+    documents: data.documents ?? base.documents,
+  };
 }
 
 const FROM_LABEL: Record<Payment['from'], string> = { delivery: 'after delivery', collection: 'after collection', invoice: 'from the invoice date' };
 const numberValue = (n: number) => (Number.isFinite(n) ? String(n) : '');
 const toNumber = (s: string) => (s.trim() === '' ? NaN : Number(s.replace(',', '.').replace(/\s+/g, '')));
 
-/** Debounced search in the module's lists (companies, products). */
-function useSearch<T>(view: 'companies' | 'products', q: string, key: 'companies' | 'products'): T[] {
+/** Debounced search in the module's lists (companies, products, CN codes). */
+function useSearch<T>(view: 'companies' | 'products' | 'cn', q: string, key: 'companies' | 'products' | 'codes'): T[] {
   const [found, setFound] = useState<{ q: string; hits: T[] }>({ q: '', hits: [] });
   const term = q.trim();
   useEffect(() => {
@@ -150,6 +182,59 @@ function CompanySearch({ onPick }: { onPick: (hit: CompanyHit) => void }) {
   );
 }
 
+/** CN code: type digits or words from the product name; the list shows products with a known code and the nomenclature. */
+function CnInput({ value, productName, error, showLabel, onChange }: { value: string; productName: string; error?: string; showLabel: boolean; onChange: (code: string) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const shown = text ?? (value ? formatCn(value) : '');
+  // Without own text, an empty field suggests codes for the product name.
+  const query = text ?? (value ? '' : productName);
+  const hits = useSearch<CnHit>('cn', open ? query : '', 'codes');
+  return (
+    <div className="relative">
+      <Input
+        label={showLabel ? 'CN code' : undefined}
+        aria-label="CN code"
+        placeholder="Code or product"
+        value={shown}
+        error={error}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+          if (/^[0-9 .]*$/.test(e.target.value)) onChange(e.target.value.replace(/[^0-9]/g, ''));
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => {
+          setOpen(false);
+          setText(null);
+        }, 150)}
+        className="text-base sm:text-sm"
+      />
+      {open && hits.length > 0 && (
+        <ul className="absolute z-10 mt-1 w-80 max-w-[90vw] max-h-72 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+          {hits.map((hit) => (
+            <li key={`${hit.kind}-${hit.code}-${hit.label}`}>
+              <button
+                type="button"
+                className="w-full text-left px-3 py-2 min-h-11 hover:bg-gray-50"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(hit.code);
+                  setText(null);
+                  setOpen(false);
+                }}
+              >
+                <span className="block text-sm font-medium text-gray-900 tabular-nums">{formatCn(hit.code)}</span>
+                <span className="block text-xs text-gray-500 line-clamp-2">{hit.kind === 'product' ? `Used for: ${hit.label}` : hit.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ProductRow({
   line,
   index,
@@ -180,7 +265,7 @@ function ProductRow({
           error={err('name')}
           onChange={(e) => {
             const hit = hits.find((h) => h.name === e.target.value);
-            onChange({ ...line, name: e.target.value, productId: hit ? hit.id : null });
+            onChange({ ...line, name: e.target.value, productId: hit ? hit.id : null, cnCode: hit?.cnCode && !line.cnCode ? hit.cnCode : line.cnCode });
           }}
           className="text-base sm:text-sm"
         />
@@ -189,6 +274,9 @@ function ProductRow({
             <option key={h.id} value={h.name} />
           ))}
         </datalist>
+      </div>
+      <div className="sm:col-span-2">
+        <CnInput value={line.cnCode} productName={line.name} error={err('cnCode')} showLabel={index === 0} onChange={(cnCode) => onChange({ ...line, cnCode })} />
       </div>
       <div className="sm:col-span-2">
         <Input label={index === 0 ? 'Quantity' : undefined} aria-label="Quantity" inputMode="decimal" value={numberValue(line.quantity)} error={err('quantity')}
@@ -214,7 +302,7 @@ function ProductRow({
           {PRICE_UNITS.map((u) => <option key={u} value={u}>{u === '1000PCS' ? '1000 PCS' : u}</option>)}
         </Select>
       </div>
-      <div className="col-span-2 sm:col-span-2 flex items-center justify-between gap-2 sm:pt-6">
+      <div className="col-span-2 sm:col-span-12 flex items-center justify-end gap-2">
         <span className={`text-sm ${total === null ? 'text-red-600' : 'text-gray-900 font-medium'}`}>
           {total === null ? 'Units do not match' : money(total, currency)}
         </span>
@@ -231,11 +319,14 @@ function ProductRow({
 export function ContractForm() {
   const setup = useSetup() as ContractSetup;
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
   const defaultOwner = setup.owners.some((o) => o.email === setup.me.email) ? setup.me.email : (setup.owners[0]?.email ?? setup.me.email);
   const [form, setForm] = useState<ContractInput>(() => blank(defaultOwner));
-  const [loaded, setLoaded] = useState(!id);
+  const [draftId, setDraftId] = useState<string | null>(id ? null : searchParams.get('draft'));
+  const [loaded, setLoaded] = useState(!id && !draftId);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [returnComment, setReturnComment] = useState<string | null>(null);
   const [numberPreview, setNumberPreview] = useState(id ?? setup.numberPreview);
   const [moreIncoterms, setMoreIncoterms] = useState(false);
@@ -254,6 +345,23 @@ export function ContractForm() {
       .catch((e: Error) => toast.error('The contract could not be opened', e.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (id || !draftId || loaded) return;
+    api<{ draft: Draft }>(`${CONTRACTS_API}&view=draft&id=${encodeURIComponent(draftId)}`)
+      .then(({ draft }) => {
+        const restored = fromDraft(draft, defaultOwner);
+        setForm(restored);
+        setMoreIncoterms(Boolean(restored.delivery.incoterm) && !COMMON_INCOTERMS.includes(restored.delivery.incoterm));
+        setLoaded(true);
+      })
+      .catch((e: Error) => {
+        toast.error('The draft could not be opened', e.message);
+        setDraftId(null);
+        setLoaded(true);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, draftId]);
 
   // The number the contract would get now (type, owner's initials, year of the contract date).
   const year = form.submissionDate.slice(0, 4);
@@ -295,7 +403,7 @@ export function ContractForm() {
     try {
       const { contract: saved } = await api<{ contract: Contract }>(CONTRACTS_API, {
         method: 'POST',
-        body: id ? { action: 'update', id, contract } : { action: 'create', contract },
+        body: id ? { action: 'update', id, contract } : { action: 'create', contract, ...(draftId ? { draftId } : {}) },
       });
       toast.success(id ? 'Contract sent again' : `Contract ${saved.id} generated`, 'Administration got an e-mail to accept it.');
       navigate(`/contracts/${encodeURIComponent(saved.id)}`);
@@ -303,6 +411,20 @@ export function ContractForm() {
       toast.error('The contract was not saved', (error as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveDraft() {
+    setSavingDraft(true);
+    try {
+      const { draft } = await api<{ draft: Draft }>(CONTRACTS_API, { method: 'POST', body: { action: 'saveDraft', id: draftId ?? undefined, contract: form } });
+      setDraftId(draft.id);
+      if (!draftId) navigate(`/contracts/new?draft=${draft.id}`, { replace: true });
+      toast.success('Draft saved', 'You will find it under My contracts.');
+    } catch (error) {
+      toast.error('The draft was not saved', (error as Error).message);
+    } finally {
+      setSavingDraft(false);
     }
   }
 
@@ -322,7 +444,7 @@ export function ContractForm() {
       )}
 
       <Section title={id ? `Correct contract ${id}` : 'New contract'} aside={!id && numberPreview ? <span className="text-xs text-gray-500">Number: {numberPreview} (final when saved)</span> : undefined}>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</span>
             <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50" role="radiogroup" aria-label="Contract type">
@@ -344,6 +466,9 @@ export function ContractForm() {
           ) : (
             <Input label="Trader" value={setup.owners.find((o) => o.email === form.ownerEmail)?.name ?? form.ownerEmail} disabled />
           )}
+          <Select id="currency" label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value as ContractInput['currency'])} className="text-base sm:text-sm">
+            {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+          </Select>
         </div>
       </Section>
 
@@ -371,14 +496,7 @@ export function ContractForm() {
         </div>
       </Section>
 
-      <Section
-        title="Goods"
-        aside={
-          <Select aria-label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value as ContractInput['currency'])} className="!min-h-9 !py-1.5 text-base sm:text-sm">
-            {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
-          </Select>
-        }
-      >
+      <Section title="Goods" aside={<span className="text-xs text-gray-500">Prices in {form.currency}</span>}>
         <div className="space-y-4">
           {errors.products && <p className="text-sm text-red-600">{errors.products}</p>}
           {form.products.map((line, i) => (
@@ -392,12 +510,7 @@ export function ContractForm() {
             <Button type="button" variant="secondary" className="min-h-11 sm:min-h-0 inline-flex items-center gap-1.5" onClick={() => set('products', [...form.products, emptyLine()])}>
               <Plus size={16} /> Add product
             </Button>
-            <div className="text-right">
-              <p className="text-base font-semibold text-gray-900">Total net: {money(total, form.currency)}</p>
-              <p className="text-xs text-gray-500">
-                Signed by Marcin Niećko up to {BOARD_THRESHOLD_EUR.toLocaleString('en-GB')} EUR net, above that also by the board (rate from the ECB).
-              </p>
-            </div>
+            <p className="text-base font-semibold text-gray-900">Total net: {money(total, form.currency)}</p>
           </div>
         </div>
       </Section>
@@ -503,6 +616,11 @@ export function ContractForm() {
         <Button type="button" variant="secondary" className="min-h-11" onClick={() => navigate(id ? `/contracts/${encodeURIComponent(id)}` : '/contracts')}>
           Cancel
         </Button>
+        {!id && (
+          <Button type="button" variant="secondary" className="min-h-11 inline-flex items-center justify-center gap-1.5" isLoading={savingDraft} onClick={saveDraft}>
+            <Save size={16} /> Save draft
+          </Button>
+        )}
         <Button type="submit" className="min-h-11" isLoading={saving}>
           {id ? 'Send again to administration' : 'Generate and send to administration'}
         </Button>

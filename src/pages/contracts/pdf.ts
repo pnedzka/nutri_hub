@@ -6,6 +6,7 @@ import {
   INCOTERM_NAMES,
   TERMS_TITLE,
   countryName,
+  formatCn,
   lineTotal,
   money,
   paymentText,
@@ -97,7 +98,7 @@ export function contractDocument(contract: Contract, images: { logo?: string; si
       body: [
         ['Product', 'Quantity', 'Unit price', 'Total'].map((t, i) => ({ text: t, bold: true, alignment: i ? 'right' : 'left', fillColor: '#F5F5F5' })),
         ...products.map((line) => [
-          line.name,
+          line.cnCode ? { stack: [line.name, { text: `CN ${formatCn(line.cnCode)}`, fontSize: 8, color: '#6B7280' }] } : line.name,
           { text: `${qty(line.quantity)} ${line.unit}`, alignment: 'right' },
           { text: `${money(line.unitPrice, contract.currency)} / ${line.priceUnit === '1000PCS' ? '1000 PCS' : line.priceUnit}`, alignment: 'right' },
           { text: money(lineTotal(line) ?? 0, contract.currency), alignment: 'right' },

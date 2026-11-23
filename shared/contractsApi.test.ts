@@ -3,6 +3,7 @@ import {
   allowedActions,
   cleanContract,
   contractTotal,
+  formatCn,
   initialsOf,
   lineTotal,
   money,
@@ -154,5 +155,28 @@ describe('prefillFromCompany', () => {
   it('falls back to the name only', () => {
     expect(prefillFromCompany(hit({})).delivery).toBeNull();
     expect(prefillFromCompany(hit({})).party.companyName).toBe('ACME');
+  });
+});
+
+describe('CN codes', () => {
+  it('formats codes the way the nomenclature prints them', () => {
+    expect(formatCn('21069098')).toBe('2106 90 98');
+    expect(formatCn('350220')).toBe('3502 20');
+    expect(formatCn('0404')).toBe('0404');
+  });
+
+  it('keeps only digits and accepts an empty code', () => {
+    const withCode = valid();
+    withCode.products[0] = { ...withCode.products[0], cnCode: '0404 10 48' } as (typeof withCode.products)[0];
+    const { contract, problems } = cleanContract(withCode, '2026-11-23');
+    expect(problems).toEqual([]);
+    expect(contract.products[0].cnCode).toBe('04041048');
+    expect(cleanContract(valid(), '2026-11-23').contract.products[0].cnCode).toBe('');
+  });
+
+  it('rejects a code that is too short', () => {
+    const bad = valid();
+    bad.products[0] = { ...bad.products[0], cnCode: '04' } as (typeof bad.products)[0];
+    expect(cleanContract(bad, '2026-11-23').problems.map((p) => p.field)).toContain('products.0.cnCode');
   });
 });

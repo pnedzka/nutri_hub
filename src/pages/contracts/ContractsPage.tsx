@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
-import { Link, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { ContractSetup } from '../../../shared/contractsApi.ts';
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
@@ -16,6 +16,7 @@ import { ContractSettings } from './ContractSettings';
  * contract with the terms to the client and uploads the scan the client signed.
  */
 export function ContractsPage() {
+  const location = useLocation();
   const [setup, setSetup] = useState<ContractSetup | null>(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -78,7 +79,7 @@ export function ContractsPage() {
             {reviewer && <Route path="todo" element={<ContractList scope="todo" />} />}
             {reviewer && <Route path="all" element={<ContractList scope="all" />} />}
             {reviewer && <Route path="settings" element={<ContractSettings />} />}
-            <Route path="new" element={<ContractForm />} />
+            <Route path="new" element={<ContractForm key={location.search} />} />
             <Route path=":id/edit" element={<ContractForm />} />
             <Route path=":id" element={<ContractDetail />} />
           </Routes>

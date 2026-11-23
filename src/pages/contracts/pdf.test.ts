@@ -15,7 +15,7 @@ describe('contractDocument', () => {
     signedBy: null,
     data: {
       party: { companyName: 'Example GmbH', vatId: 'DE1', contactFirstName: 'Anna', contactLastName: 'Muster', contactPosition: '', email: 'a@e.com', phone: '1', street: 'S 1', postalCode: '1', city: 'Berlin', country: 'DE' },
-      products: [{ name: 'Whey', productId: null, quantity: 2, unit: 'MT', unitPrice: 4.5, priceUnit: 'KG' }],
+      products: [{ name: 'Whey', productId: null, cnCode: '04041048', quantity: 2, unit: 'MT', unitPrice: 4.5, priceUnit: 'KG' }],
       delivery: { incoterm: 'DAP', byAir: false, street: 'S 1', postalCode: '1', city: 'Berlin', country: 'DE', dateFrom: '2026-12-01', dateTo: '2026-12-01', instructions: '', contactName: '', contactEmail: '', contactPhone: '' },
       payment: { prepaymentPercent: 100, days: 0, from: 'delivery', factoring: true, notes: '' },
       documents: ['Invoice', 'COA'],

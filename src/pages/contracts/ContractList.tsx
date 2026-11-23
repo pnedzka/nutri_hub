@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { FilePen, Search, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { money, type ContractList as List, type ListScope } from '../../../shared/contractsApi.ts';
+import { money, type ContractList as List, type DraftSummary, type ListScope } from '../../../shared/contractsApi.ts';
 import { Input } from '../../components/Input';
 import { api } from '../../lib/api';
-import { CONTRACTS_API, shortDate } from './common';
+import { useToast } from '../../lib/toast';
+import { CONTRACTS_API, dateTime, shortDate } from './common';
 import { StatusPill } from './ui';
 
 const EMPTY: Record<ListScope, string> = {
@@ -12,6 +13,52 @@ const EMPTY: Record<ListScope, string> = {
   todo: 'Nothing is waiting for you.',
   all: 'No contracts yet.',
 };
+
+/** Saved drafts (My contracts): not numbered and not sent yet. */
+function Drafts() {
+  const toast = useToast();
+  const [drafts, setDrafts] = useState<DraftSummary[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    api<{ drafts: DraftSummary[] }>(`${CONTRACTS_API}&view=drafts`, { signal: controller.signal })
+      .then((r) => setDrafts(r.drafts))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  async function remove(d: DraftSummary) {
+    try {
+      await api(CONTRACTS_API, { method: 'POST', body: { action: 'deleteDraft', id: d.id } });
+      setDrafts((list) => list.filter((x) => x.id !== d.id));
+      toast.success('Draft deleted');
+    } catch (error) {
+      toast.error('The draft was not deleted', (error as Error).message);
+    }
+  }
+
+  if (!drafts.length) return null;
+  return (
+    <section className="space-y-2">
+      <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Drafts</h2>
+      <ul className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+        {drafts.map((d) => (
+          <li key={d.id} className="flex items-center gap-2 pr-2">
+            <Link to={`/contracts/new?draft=${d.id}`} className="flex min-w-0 flex-1 items-center gap-3 px-4 sm:px-6 py-3 hover:bg-gray-50">
+              <FilePen size={16} className="shrink-0 text-gray-400" />
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 truncate">{d.companyName || 'No company yet'}</p>
+                <p className="text-xs text-gray-500">{d.type === 'S' ? 'Sales' : 'Purchase'} · saved {dateTime(d.updatedAt)}</p>
+              </div>
+            </Link>
+            <button type="button" aria-label="Delete draft" onClick={() => remove(d)} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50">
+              <Trash2 size={16} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 export function ContractList({ scope }: { scope: ListScope }) {
   const [q, setQ] = useState('');
@@ -36,6 +83,7 @@ export function ContractList({ scope }: { scope: ListScope }) {
 
   return (
     <div className="space-y-4">
+      {scope === 'mine' && <Drafts />}
       <Input
         aria-label="Search contracts"
         placeholder="Search by number, company or trader"
