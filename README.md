@@ -97,7 +97,8 @@ Admini ustawiają je w **Sales contests** (`/contests`, Administration): nazwa, 
 - **Konta** (`api/_lib/accountNotices.ts`): U1 nowe aplikacje albo rola, U2 zaproszona osoba dołączyła → zapraszający, U3 → reszta zespołu (raz na konto, wpis `joined` w `profile_events`).
 - **Codzienny przebieg** (L9, L10): Vercel Cron `0 6 * * *` (7:00/8:00 w Polsce, tylko dni robocze) na `/api/daily` (rewrite na `api/sso.ts?job=daily`, limit funkcji). Wymaga zmiennej **`CRON_SECRET`** w Production (Vercel wysyła ją w nagłówku `Authorization`); bez niej przebieg odpowiada 401. Cron działa tylko na produkcji.
 - **Kontrakty** (K1–K7): po każdym kroku dzwonek dla każdej osoby z planu `planContractMails` (`api/_lib/contractMails.ts`, tytuł po polsku jak e-mail), e-maile jak dotąd z `contractMails.ts`.
-- **Następne etapy:** przypomnienia kontraktów (K8, K9), konkursy (po PR #96), n8n (BID, propozycje sprzedażowe, skrzynki) przez webhook centrum, dzwonek w pozostałych aplikacjach.
+- **Konkursy** (C1, C4, `api/_lib/contestNotices.ts`): po zapisaniu konkursu dzwonek i e-mail dla uczestników (przy edycji tylko dla nowo dodanych; nie dla konkursu już zakończonego). Po końcu konkursu codzienny cron (także w weekendy, do 7 dni wstecz, raz na konkurs) daje każdemu uczestnikowi jego miejsce, a adminom zwycięzcę; tylko dzwonek, bez kwot.
+- **Następne etapy:** przypomnienia kontraktów (K8, K9), konkursy C2 i C3, n8n (BID, propozycje sprzedażowe, skrzynki) przez webhook centrum, dzwonek w pozostałych aplikacjach.
 
 ## Phone calls analyser
 
