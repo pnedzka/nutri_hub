@@ -1,6 +1,6 @@
 import { ChevronRight, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { AppTile } from '../apps';
+import { tileTarget, type AppTile } from '../apps';
 import { isSsoApp } from '../lib/sso';
 
 /**
@@ -31,10 +31,10 @@ export function AppCard({ app }: { app: AppTile }) {
       {app.newTab && <span className="sr-only">(opens in a new tab)</span>}
     </>
   );
-  const path = app.url.startsWith('/') ? app.url : isSsoApp(app.id) ? `/sso?${new URLSearchParams({ app: app.id })}` : null;
-  if (path) {
+  const target = tileTarget(app, isSsoApp);
+  if ('path' in target) {
     return (
-      <Link to={path} className={className}>
+      <Link to={target.path} className={className}>
         {body}
       </Link>
     );
