@@ -20,13 +20,14 @@
 // hidden from Team and the modules, while its documents, leave and posts stay. `active: true` restores it.
 //
 // `?resource=calls` is Phone calls analyser (api/_lib/calls.ts) and `?resource=purchase` Purchase Manager
-// (api/_lib/purchase.ts, not only administrators), here because the Hobby plan's 12 functions are used.
+// (api/_lib/purchase.ts, not only administrators) and `?resource=contests` sales contests (api/_lib/contests.ts), here because the Hobby plan's 12 functions are used.
 
 import type { User } from '@supabase/supabase-js';
 import { newAccountProblem, toApps } from '../../shared/access.js';
 import { PROFILE_COLUMNS, requireAdmin, requireUser, toProfile, type Profile } from '../_lib/auth.js';
 import { HttpError, appUrl, handle, json, readJson } from '../_lib/http.js';
 import { createInvitedUser, issueAccountLink } from '../_lib/accountLinks.js';
+import { notifyAccessChanged } from '../_lib/accountNotices.js';
 import { sendAccountMail } from '../_lib/mail.js';
 import { db } from '../_lib/supabase.js';
 import { logError } from '../_lib/monitoring.js';
@@ -34,6 +35,7 @@ import { isUuid, type ProfileEvent } from '../../shared/profile.js';
 import { CONTACT_COLUMNS, logProfileEvent, signAvatars, toTeamMember } from '../_lib/profiles.js';
 import { callsGet, callsPost, isCallsRequest } from '../_lib/calls.js';
 import { isPurchaseRequest, purchaseGet, purchasePost } from '../_lib/purchase.js';
+import { contestsDelete, contestsGet, contestsPost, isContestsRequest } from '../_lib/contests.js';
 
 const MIN_PASSWORD = 10;
 
@@ -83,6 +85,7 @@ async function history(id: string): Promise<ProfileEvent[]> {
 export function GET(request: Request): Promise<Response> {
   if (isCallsRequest(request)) return callsGet(request);
   if (isPurchaseRequest(request)) return purchaseGet(request);
+  if (isContestsRequest(request)) return contestsGet(request);
   return handle(async () => {
     await requireAdmin(request);
     const historyOf = new URL(request.url).searchParams.get('history');
@@ -118,6 +121,7 @@ const role = (value: unknown): Profile['role'] => (value === 'admin' ? 'admin' :
 export function POST(request: Request): Promise<Response> {
   if (isCallsRequest(request)) return callsPost(request);
   if (isPurchaseRequest(request)) return purchasePost(request);
+  if (isContestsRequest(request)) return contestsPost(request);
   return handle(async () => {
     const creator = await requireUser(request);
     const body = await readJson<{ email?: unknown; fullName?: unknown; password?: unknown; role?: unknown; apps?: unknown; invite?: unknown }>(request);
@@ -241,6 +245,8 @@ export function PATCH(request: Request): Promise<Response> {
     if (after.apps.join() !== before.apps.join()) await logProfileEvent(body.id, admin.id, 'apps', { from: before.apps, to: after.apps });
     if (after.full_name !== before.full_name) await logProfileEvent(body.id, admin.id, 'profile', { fields: ['name'] });
     if ('deactivated_at' in changes) await logProfileEvent(body.id, admin.id, changes.deactivated_at ? 'deactivated' : 'reactivated');
+    const deactivated = 'deactivated_at' in changes ? Boolean(changes.deactivated_at) : Boolean(current.deactivated_at);
+    if (!deactivated) await notifyAccessChanged(appUrl(request), admin.id, before, after);
     return json({ user: after, sent });
   });
 }
@@ -251,6 +257,7 @@ export function PATCH(request: Request): Promise<Response> {
  * left unused instead).
  */
 export function DELETE(request: Request): Promise<Response> {
+  if (isContestsRequest(request)) return contestsDelete(request);
   return handle(async () => {
     const admin = await requireAdmin(request);
     const body = await readJson<{ id?: unknown }>(request);

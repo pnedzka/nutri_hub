@@ -1,5 +1,6 @@
 //   POST /api/sso   body { app } → { tokenHash }
 //   GET  /api/health (rewritten to GET /api/sso) → { ok, checks }: for the uptime monitor, see GET below
+//   GET  /api/daily (rewritten to GET /api/sso?job=daily) → { reminders, teamAway }: Vercel Cron, api/_lib/daily.ts
 //
 // One sign-in for all our apps. The hub (signed in) asks for a one-time Supabase token for an app the person may
 // use and passes it to the app in the address (#sso=…, see src/lib/sso.ts); the app turns it into its own session
@@ -7,11 +8,12 @@
 
 import { APP_NAMES, canUse, isAppId, type AppId } from '../shared/access.js';
 import { requireUser } from './_lib/auth.js';
-import { HttpError, handle, json, readJson } from './_lib/http.js';
+import { appUrl, HttpError, handle, json, readJson } from './_lib/http.js';
+import { checkCron, runDaily } from './_lib/daily.js';
 import { db } from './_lib/supabase.js';
 import { logError } from './_lib/monitoring.js';
 
-const HUB_OWN: AppId[] = ['intranet', 'news', 'leave', 'purchase', 'create-users'];
+const HUB_OWN: AppId[] = ['intranet', 'news', 'leave', 'purchase', 'contracts', 'contracts-admin', 'contracts-sign', 'create-users'];
 
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
@@ -42,6 +44,11 @@ export function POST(request: Request): Promise<Response> {
 // the Resend key. Answers only ok/failed per check, no details. `?test=sentry` (not in production) sends a test error.
 export function GET(request: Request): Promise<Response> {
   return handle(async () => {
+    // GET /api/daily (rewritten here): the daily reminders, run by Vercel Cron (api/_lib/daily.ts).
+    if (new URL(request.url).searchParams.get('job') === 'daily') {
+      checkCron(request);
+      return json(await runDaily(appUrl(request)));
+    }
     if (new URL(request.url).searchParams.get('test') === 'sentry' && process.env.VERCEL_ENV !== 'production') {
       logError('health.test', new Error('Test error from /api/health (Sentry set-up check)'));
       return json({ ok: true, test: 'sent' });

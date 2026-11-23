@@ -2,7 +2,7 @@
 
 Adres: **https://nutripartners.vercel.app** (projekt Vercel `nutripartners`, zespół `nutri-partners`).
 
-Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania kontami** wspólnej bazy użytkowników. Po zalogowaniu każdy widzi kafelki aplikacji, do których ma dostęp; admini widzą dodatkowo sekcję „Administration”. Interfejs jest po angielsku, wygląd taki sam jak w pozostałych aplikacjach.
+Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania kontami** wspólnej bazy użytkowników. Po zalogowaniu każdy widzi dashboard z widgetami (zob. „Dashboard”), a aplikacje, do których ma dostęp, są w menu bocznym; admini widzą w nim dodatkowo sekcję „Administration”. Interfejs jest po angielsku, wygląd taki sam jak w pozostałych aplikacjach.
 
 ## Funkcje
 
@@ -35,6 +35,25 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
 
 Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady RLS w Supabase.
 
+## Dashboard (strona główna)
+
+Od 23.11.2026 (decyzja właściciela) strona główna to dashboard z widgetami, a aplikacje są w **menu bocznym** (`src/components/SideNav.tsx`; na telefonie i tablecie przycisk „Menu” pod belką otwiera szufladę). Menu ma grupy Work (moduły centrum), Tools (osobne aplikacje i stary intranet) i Administration, liczone tymi samymi regułami co dawne kafelki (`navSectionsFor` w `src/apps.ts`). Osoba bez żadnego widgetu widzi na stronie głównej kafelki, jak wcześniej. Wygląd jak reszta centrum (białe karty), nie jak stary intranet.
+
+| Widget | Co pokazuje | Kto widzi |
+| --- | --- | --- |
+| Contracts | liczba kontraktów sprzedaży (S) i zakupu (P) w miesiącu, ich wartość w EUR, zmiana wobec poprzedniego miesiąca, ile czeka na akceptację | admini, działy Board i Administration |
+| Sales leaderboard | liczba kontraktów (S i P) na osobę w miesiącu, jak w starym intranecie; uczestnicy: dział Trade i każdy z kontraktem, bez Board; admin widzi wszystkich, pozostali osoby z kontraktami i zawsze pierwszą trójkę | admini, Trade, Administration, Board |
+| Latest news | 3 najnowsze wpisy | uprawnienie `news` |
+| Konkurs (nazwa konkursu) | trwający konkurs sprzedażowy: miejsce, kontrakty i wartość własna, dystans do lidera, ranking z punktami | uczestnicy konkursu i admini |
+
+- Reguły widoczności i liczenia są w `shared/dashboard.ts` (z testami): `canSeeWidget`, `summarize`, `rank`. Dział to `profiles.department`.
+- Dane: `GET /api/people?resource=dashboard&widget=contracts|leaderboard&month=YYYY-MM` (`api/_lib/dashboard.ts`; limit 12 funkcji). Serwer sprawdza widoczność jeszcze raz (403 bez danych) i wysyła tylko sumy, bez klientów i pojedynczych kontraktów. Wynik z bazy trzyma 5 minut.
+- Kontrakty pochodzą ze starego intranetu: `dashboard_api.intranet_contracts(p_from, p_to)` w `nutri-central-db` (`db/central/dashboard_api.sql`, uruchamia właściciel w SQL Editorze i dopisuje `dashboard_api` do Data API → Exposed schemas). Liczy jak dashboard intranetu: miesiąc utworzenia kontraktu (czas polski), bez anulowanych i zarchiwizowanych, wartość pozycji jak `calculateProductTotalPrice` intranetu, przeliczona na EUR kursem z dnia kontraktu (`core.eur_rate`). Dane odświeża synchronizacja n8n raz dziennie (6:40). Po wydaniu generatora kontraktów dojdzie drugie źródło (`contracts.contracts`).
+
+### Konkursy sprzedażowe
+
+Admini ustawiają je w **Sales contests** (`/contests`, Administration): nazwa, pierwszy i ostatni dzień (oba wliczone, czas polski), uczestnicy, nagroda i waga liczby kontraktów (reszta to wartość w EUR). Dane w tabeli `public.contests` bazy centrum (`db/schema.sql`, migracja `hub_contests`: nutri-dev 23.11.2026, produkcja przy wydaniu), API `?resource=contests` w `api/admin/users.ts` (`api/_lib/contests.ts`). Liczenie w `shared/contest.ts` (z testami): kontrakty sprzedaży i zakupu z intranetu bez anulowanych; punkty = waga × (liczba ÷ liczba lidera) + reszta × (wartość ÷ wartość lidera), 0–100. Poprawione względem intranetu (decyzja z 23.11.2026): wartości w EUR zamiast sumy różnych walut, punkty względem lidera zamiast min–max (najsłabszy z kontraktami nie dostaje 0, a dojście osoby bez kontraktów nie zmienia innych), ostatni dzień w całości, ranking widzą też admini. Uczestnik widzi swoją wartość i dystans do lidera, wartości innych tylko admin.
+
 ## Moduły: News i Leave
 
 **Tylko w dev (decyzja z 20.10.2026).** Moduły w budowie są włączone zmienną `VITE_HUB_MODULES` (`news,leave,calls`, tylko w Preview i Development; `calls` = Phone calls analyser, od 22.10.2026). Bez niej, czyli na produkcji, kafelki, strony i wybór w User management są ukryte, a API modułów odpowiada 404. Lista modułów w budowie jest w `shared/access.ts` (`DEV_MODULES`). Wydanie modułu: dodać go do `VITE_HUB_MODULES` w Production (i wdrożyć ponownie) albo usunąć z `DEV_MODULES`. W Production jest `calls` (Phone calls analyser wydany 23.10.2026), więc News i Leave są tam nadal ukryte.
@@ -46,10 +65,10 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
   - **Employees** (admini): przełożony, liczba dni urlopu na rok, dni na bieżący rok, pierwszy rok w aplikacji i dni przeniesione ze starego intranetu.
   - Rodzaje: wypoczynkowy, na żądanie (4 dni w roku, w ramach wypoczynkowego), okolicznościowy, opieka nad dzieckiem (2 dni w roku), bezpłatny, L4 (wpisuje admin, nie zmniejsza salda). Admin może wpisać urlop za pracownika (od razu zatwierdzony).
   - Liczą się dni robocze, bez weekendów i świąt ustawowych (z Wigilią od 2025), z połówkami dnia. Niewykorzystane dni przechodzą na kolejny rok. Wniosek mieści się w jednym roku kalendarzowym.
-  - E-maile: o nowym wniosku do przełożonego i adminów, o decyzji do pracownika.
+  - Powiadomienia przy każdym kroku wniosku (dzwonek i e-mail): zob. „Powiadomienia”.
 - **News:**
   - **Lista wpisów** od najnowszych opublikowanych (po 12, „Load older posts”), z okładką, opisem (albo początkiem tekstu) i liczbą polubień, komentarzy i zdjęć. **Wyszukiwarka** szuka w tytule, opisie i treści.
-  - **Strona główna centrum** pokazuje 3 najnowsze wpisy („Latest news”) osobom z dostępem do News.
+  - **Strona główna centrum** pokazuje 3 najnowsze wpisy („Latest news”) osobom z dostępem do News (widget dashboardu).
   - **Wpis:** okładka, opis, tekst z formatowaniem, galeria zdjęć na pełnym ekranie (strzałki, przesuwanie palcem, Esc), polubienia z listą osób i komentarze.
   - **Formatowanie** (od 23.11.2026, `blocks` w `shared/news.ts`): `## Nagłówek`, `### Mniejszy`, `- lista`, `**pogrubienie**`, `_kursywa_`, `[tekst](https://…)`, `---` (linia); edytor ma przyciski i podgląd. Treść nigdy nie jest HTML-em: przeglądarka składa ją z elementów React (stary intranet wstawiał surowy HTML).
   - **News → Manager** (`/news/manage`, admini i redaktorzy, od 23.11.2026): wszystkie wpisy razem ze **szkicami**, wyszukiwarka, filtr statusu, akcje Edit, Publish / Move to drafts, Delete. Stąd też Editors i import ze starego intranetu.
@@ -58,12 +77,28 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
   - **Publikują** admini i redaktorzy. Redaktorów wybierają admini: News → Manager → **Editors**. Redaktor edytuje swoje wpisy (jako autor albo piszący, `created_by`), admin wszystkie.
   - **Komentują i lajkują** wszyscy z dostępem do News. Autor edytuje i usuwa swój komentarz, admin usuwa każdy.
   - **Zdjęcia:** do 30 na wpis. Przeglądarka zmniejsza je do 2000 px (JPEG) i wysyła prosto do prywatnego bucketu Supabase Storage `intranet` (jednorazowy link od serwera). Oglądamy je przez podpisane linki ważne godzinę. Zdjęcia usunięte z wpisu i zdjęcia usuniętego wpisu serwer kasuje; zdjęcia dodane do wpisu, którego nie zapisano, zostają w buckecie (nie przeszkadzają).
-  - **E-mail o wpisie** do wszystkich z dostępem do News (bez autora i piszącego), z linkiem, **raz: przy pierwszej publikacji** (od razu albo ze szkicu; `published_at`). Każdy dostaje osobną wiadomość (Resend batch). Edycja, cofnięcie do szkiców i ponowna publikacja nie wysyłają e-maili.
+  - **E-mail o wpisie** (i powiadomienie w dzwonku, zob. „Powiadomienia”) do wszystkich z dostępem do News (bez autora i piszącego), z linkiem, **raz: przy pierwszej publikacji** (od razu albo ze szkicu; `published_at`). Każdy dostaje osobną wiadomość (Resend batch). Edycja, cofnięcie do szkiców i ponowna publikacja nie wysyłają e-maili.
   - **Import ze starego intranetu** (admin, News → Manager → „Choose export file”): plik JSON z workflow n8n „Intranet - News export (jednorazowy)” (`NetTcDqeF6a3cY5G`, tylko odczyt Firestore: `newsArticles` z komentarzami, `users` = id, e-mail, imię). Przeglądarka wysyła wpisy po jednym (`POST /api/news/post`, `action: 'import'`, `api/_lib/newsImport.ts`): serwer pobiera okładkę i galerię do bucketu, zamienia HTML na format wpisu (`htmlToBody` w `shared/newsImport.ts`), dopasowuje autora, komentarze i polubienia po e-mailu (osoba bez konta zostaje z imieniem z intranetu, `legacy_author`). Nikt nie dostaje e-maila; wpis już zaimportowany (`legacy_id`) jest pomijany, więc import można powtórzyć.
-- **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, e-maile w `api/_lib/notify.ts`.
+- **Technicznie:** ekrany w `src/pages/news/` i `src/pages/leave/`, API w `api/news/` i `api/leave/`, reguły z testami w `shared/` (`leave.ts`, `news.ts`), uprawnienia w `api/_lib/leave.ts` i `api/_lib/news.ts`, powiadomienia w `api/_lib/leaveNotices.ts` i `api/_lib/news.ts` (przez `api/_lib/notifications.ts`).
 - **Dane:** tabele `leave_*` i `news_*` oraz prywatny bucket Storage `intranet` (`db/schema.sql`). Mają RLS bez polityk: czyta i zapisuje je tylko serwer centrum kluczem secret, po sprawdzeniu dostępu (`requireApp` w `api/_lib/auth.ts`).
 - **Dostęp:** uprawnienia `news` i `leave` w User management. Konta z uprawnieniem `intranet` dostały oba (`db/schema.sql`; w dev i na produkcji zrobione 20.10.2026).
 - **Plan Hobby pozwala na 12 funkcji** (pliki w `api/` poza `_lib`); jest ich 12 (ostatnia: `api/people.ts`, Team, My profile, zdjęcia i biura). Nowe endpointy łączyć w istniejących plikach (np. decyzje urlopowe to `PATCH /api/leave`, polubienia i komentarze `POST /api/news/post`, historia konta `GET /api/admin/users?history=<id>`, Phone calls analyser `/api/admin/users?resource=calls`, Purchase Manager `/api/admin/users?resource=purchase`).
+
+## Powiadomienia
+
+**Od 23.11.2026 (dev).** Plan wszystkich powiadomień moduł po module (zaakceptowany przez właściciela 23.11.2026): Claude Doc „Powiadomienia w centrum aplikacji: plan”. Numery (L1, N2…) w kodzie odnoszą się do niego.
+
+- **Dzwonek** w górnej belce centrum (`src/components/NotificationBell.tsx`, przez `actions` w `AppHeader`): liczba nieprzeczytanych, 8 najnowszych, „Mark all as read”, „See all”. Nowe powiadomienie pokazuje też toast.
+- **Strona `/notifications`:** wszystkie od najnowszych, filtr po module, po 25. Przeczytane = kliknięte albo „Mark all as read” (nie automatycznie po wejściu, decyzja z 23.11.2026). Trzymamy 180 dni.
+- **Dane:** tabela `public.notifications` w bazie centrum (`db/schema.sql`, migracja `hub_notifications`: nutri-dev 23.11.2026, produkcja przy wydaniu). Nie w `nutri-central-db`, bo ta jest wspólna dla dev i produkcji. Przeglądarka czyta tylko własne wiersze (RLS) i może zmienić tylko `read_at`; co minutę i po powrocie do karty, bez funkcji Vercela. Pisze tylko serwer.
+- **Serwer:** każdy moduł woła `notify()` z `api/_lib/notifications.ts`: zapisuje powiadomienie i, gdy ktoś ma coś zrobić albo zmienia się jego urlop, wysyła e-mail. Autor zdarzenia nic nie dostaje. Tekst w dzwonku jest po angielsku (jak centrum), e-maile po polsku w wyglądzie Nutri APEX z n8n (`api/_lib/apexMail.ts`: granatowy nagłówek, karty „Twoja kolej”, „Komentarz”, szczegóły, „Etapy”), osobny e-mail dla każdej osoby.
+- **Urlopy** (`api/_lib/leaveNotices.ts`, z testami): L1 nowy wniosek → przełożony i admini (e-mail), L2 potwierdzenie → pracownik, L3/L4 decyzja → pracownik (e-mail), L5 → pozostali decydujący, L6 wycofany wniosek → przełożony i admini (e-mail), L7 anulowanie przez admina → pracownik (e-mail) i przełożony, L8 urlop/L4 wpisany przez admina → pracownik (e-mail) i przełożony, L9 wniosek czeka 2 dni robocze → decydujący (e-mail), L10 jutro urlop osoby z zespołu → przełożony, L11 zmiana ustawień w Employees → pracownik.
+- **News:** N1 nowy wpis → wszyscy (e-mail), N2 komentarz pod Twoim wpisem, N3 komentarz pod wpisem, który komentowałeś, N4 polubienia (zbierane w jedno nieprzeczytane), N5 rola redaktora.
+- **Konta** (`api/_lib/accountNotices.ts`): U1 nowe aplikacje albo rola, U2 zaproszona osoba dołączyła → zapraszający, U3 → reszta zespołu (raz na konto, wpis `joined` w `profile_events`).
+- **Codzienny przebieg** (L9, L10): Vercel Cron `0 6 * * *` (7:00/8:00 w Polsce, tylko dni robocze) na `/api/daily` (rewrite na `api/sso.ts?job=daily`, limit funkcji). Wymaga zmiennej **`CRON_SECRET`** w Production (Vercel wysyła ją w nagłówku `Authorization`); bez niej przebieg odpowiada 401. Cron działa tylko na produkcji.
+- **Kontrakty** (K1–K7): po każdym kroku dzwonek dla każdej osoby z planu `planContractMails` (`api/_lib/contractMails.ts`, tytuł po polsku jak e-mail), e-maile jak dotąd z `contractMails.ts`.
+- **Konkursy** (C1, C4, `api/_lib/contestNotices.ts`): po zapisaniu konkursu dzwonek i e-mail dla uczestników (przy edycji tylko dla nowo dodanych; nie dla konkursu już zakończonego). Po końcu konkursu codzienny cron (także w weekendy, do 7 dni wstecz, raz na konkurs) daje każdemu uczestnikowi jego miejsce, a adminom zwycięzcę; tylko dzwonek, bez kwot.
+- **Następne etapy:** przypomnienia kontraktów (K8, K9), konkursy C2 i C3, n8n (BID, propozycje sprzedażowe, skrzynki) przez webhook centrum, dzwonek w pozostałych aplikacjach.
 
 ## Phone calls analyser
 
@@ -107,6 +142,22 @@ Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centr
 - **Technicznie:** ekrany `src/pages/purchase/`, API `api/_lib/purchase.ts` wpięte w `api/admin/users.ts` (`?resource=purchase`, limit 12 funkcji; dostęp: `requireApp(…, 'purchase')`, nie tylko admini), typy i walidacja z testami w `shared/purchaseApi.ts`.
 - **Połączenie z bazą:** serwer woła tylko funkcje schematu `purchase_api` (`db/central/purchase_api.sql`, SECURITY DEFINER, wykonuje je tylko `service_role`) kluczem secret centralnej bazy. Zmienne (Production i Preview, ta sama baza): `CENTRAL_DB_URL` = `https://blbcudymvackpudywdyy.supabase.co`, `CENTRAL_DB_SECRET_KEY` = klucz secret `nutri-central-db`.
 - **Uruchomienie:** (1) `db/central/purchase_api.sql`, potem `db/central/purchase_undo.sql`, `db/central/bid_option_reject.sql`, `db/central/bid_all_offers.sql`, `db/central/offer_search.sql`, `db/central/offer_email.sql` `db/central/bid_card_ranking.sql`, `db/central/bid_card_notify.sql`, `db/central/bid_refresh.sql`, `db/central/bid_card_purchases.sql` `db/central/bid_search_cards.sql` , `db/central/bid_original_prices.sql`, `db/central/offer_spark_link.sql` i `db/central/bid_refresh_new_offers.sql` w SQL Editorze `nutri-central-db`; (2) Project Settings → Data API → Exposed schemas: dopisać `purchase_api`; (3) zmienne wyżej w Vercelu; (4) uprawnienie Purchase Manager w User management. Nowe konta nie dostają go domyślnie (`DEFAULT_APPS`).
+
+## Generator kontraktów (Contract generator, tylko dev)
+
+Moduł `/contracts` zastępuje generator kontraktów ze starego intranetu (decyzje właściciela z 23.11.2026; specyfikacja starego systemu i audyt pól w Claude Doc „Generator kontraktów: specyfikacja obecnego intranetu”). Na razie tylko w dev, równolegle z intranetem (`contracts` w `DEV_MODULES`, włącza go `VITE_HUB_MODULES`).
+
+- **Obieg:** handlowiec generuje kontrakt sprzedaży (S) albo zakupu (P) → administracja (Jadwiga) wprowadza zamówienie w enova i akceptuje kontrakt (opcjonalnie z numerem zamówienia enova) → Marcin Niećko podpisuje do 100 000 EUR netto; powyżej najpierw zatwierdza, a podpisuje członek zarządu (dział `Board` w profilu) → handlowiec pobiera **dwa PDF-y** (kontrakt podpisany przez Nutri Partners i OWS dla sprzedaży albo OWZ dla zakupu), wysyła je klientowi i **wgrywa skan podpisany przez klienta**. Na każdym etapie przed podpisem kontrakt można zwrócić do poprawki (z komentarzem) albo anulować. Faktura i dokumenty wewnętrzne powstają w enova.
+- **Uprawnienia:** `contracts` (handlowcy: tworzą i widzą swoje kontrakty), `contracts-admin` (administracja i admini: akceptują, widzą wszystkie, wgrywają OWS/OWZ i podpisy, mogą wybrać handlowca), `contracts-sign` (Marcin i zarząd). Kafelek widzi każdy z jednym z tych uprawnień; `contracts-admin` i `contracts-sign` nie są zaznaczane nowym kontom.
+- **E-maile** (Resend, od 23.11.2026 w wyglądzie maili Nutri APEX z n8n, po polsku, `api/_lib/contractMails.ts` z testami): po każdym kroku dostaje je każdy uczestnik obiegu, osobna wiadomość na osobę. Osoba, na którą czeka kontrakt, dostaje „Twoja kolej” z tym, co ma zrobić; pozostali krótką informację o stanie. Każdy mail ma dane kontraktu, etapy obiegu (zrobione, teraz, dalej) i przycisk do kontraktu. Kolej: nowy lub poprawiony kontrakt → administracja (`contracts-admin`, gdy nikt go nie ma: admini); akceptacja → Marcin (osoby z `contracts-sign` spoza zarządu), powyżej progu do zatwierdzenia; zatwierdzenie → zarząd; podpis → handlowiec (wysłać klientowi, wgrać skan); zwrot → handlowiec; skan klienta → administracja (faktura w enova). Informację dostają handlowiec, autor kontraktu (gdy admin założył go za handlowca), administracja i osoby, które wcześniej zaakceptowały, zatwierdziły lub podpisały kontrakt. Autor kroku nie dostaje własnego e-maila.
+- **Numer:** `{nr}-{S|P}-{inicjały}-{rok}`, nadaje baza (`contracts_api.next_seq`): kontynuuje numerację intranetu (kontrakty z `raw.intranet_records`), od nowa w każdym roku; inicjały z imienia i nazwiska właściciela bez polskich liter.
+- **Formularz:** wyszukiwarka firm (`core.companies`) wypełnia dane z ostatniego kontraktu firmy w module albo z karty klienta w intranecie; podpowiedzi produktów z katalogu (`core.products`); waluta kontraktu (EUR, USD, PLN) w pierwszej sekcji formularza; próg 100 000 EUR liczony po kursie EBC z `core.fx_rates`; incoterms 2020 (DDP, FCA, EXW, CIP, DAP, reszta pod „More”; „by air” tylko przy CIP); płatność = przedpłata % + reszta w X dni od dostawy, odbioru albo faktury; factoring jako checkbox (klauzula w PDF-ie); dokumenty domyślnie Invoice + COA. Bez pól ze starego systemu, których nie używano (Grade, LBS, raty, realizacja dostaw).
+- **Kody CN** (od 23.11.2026, opcjonalne do czasu kodów w enova): pole „CN code” przy każdym produkcie z jedną wyszukiwarką po kodzie i po nazwie (`contracts_api.cn_search`): najpierw produkty z zapamiętanym kodem (`core.products.cn_code`), potem słownik `core.cn_codes` (na start nomenklatura HS 2022, 2/4/6 cyfr, po angielsku; pełną listę CN 8-cyfrową można dograć do tej samej tabeli). Kod wpisany przy produkcie z katalogu baza zapamiętuje (`learn_cn`), więc przy kolejnym kontrakcie podpowiada się sam. W PDF-ie i szczegółach pod nazwą produktu („CN 2106 90 98”).
+- **Szkice:** „Save draft” zapisuje formularz bez sprawdzania i bez numeru (`contracts.drafts`); lista „Drafts” w My contracts, otwarcie `/contracts/new?draft=<id>`, usuwanie. Wysłanie kontraktu ze szkicu usuwa szkic. Admin może zapisać szkic dla innego handlowca (widzą go oboje).
+- **PDF** robi przeglądarka (`pdfmake`, ładowany dopiero przy pobieraniu, czcionka Roboto z polskimi znakami): przed podpisem z napisem DRAFT, po podpisie z podpisem (PNG) i „Represented by” osoby, która podpisała (stanowisko z profilu). OWS i OWZ są osobnymi PDF-ami w Settings.
+- **Settings** (`/contracts/settings`): `contracts-admin` wgrywa OWS i OWZ (PDF) oraz podpisy osób z `contracts-sign` (PNG); osoba podpisująca może wgrać własny podpis.
+- **Technicznie:** ekrany `src/pages/contracts/`, API `api/_lib/contracts.ts` wpięte w `api/people.ts` (`?resource=contracts`, limit 12 funkcji), typy, walidacja i obieg z testami w `shared/contractsApi.ts`. Dane w centralnej bazie `nutri-central-db`: schemat `contracts` (tabele `contracts`, `events`, tylko `service_role`), funkcje `contracts_api` (`db/central/contracts_api.sql`) i prywatny bucket `contracts` (`terms/`, `signatures/`, `scans/`).
+- **Uruchomienie:** (1) `db/central/contracts_api.sql` w SQL Editorze `nutri-central-db`; (2) Data API → Exposed schemas: dopisać `contracts_api`; (3) `contracts` w `VITE_HUB_MODULES` (Preview i Development); (4) uprawnienia w User management; (5) OWS, OWZ i podpisy w Settings modułu; (6) `db/central/contracts_cn_drafts.sql` (kody CN i szkice), a potem słownik HS w `core.cn_codes` (ładuje Claude).
 
 ## Skrzynka w bazie wiedzy (My profile)
 
@@ -201,6 +252,7 @@ Darmowa baza dev usypia się po 7 dniach bez użycia. Wybudzenie: Supabase → p
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = klucz anon projektu neutralizatora
    - `SUPABASE_SECRET_KEY` = klucz secret (service role) tego samego projektu, **tylko serwer** (Supabase → Project Settings → API Keys → **Secret keys**, prefiks `sb_secret_`; nie klucz publishable `sb_publishable_` ani anon, z nimi serwer nie widzi żadnych kont i zwraca 503)
    - `RESEND_API_KEY` = klucz Resend do e-maili z zaproszeniami, resetem hasła i powiadomieniami News i Leave
+   - `CRON_SECRET` (Production) = losowy ciąg, dla codziennych przypomnień (`/api/daily`, zob. „Powiadomienia”)
    - opcjonalnie `MAIL_FROM` (domyślnie `Nutri APEX <no-reply@nutripartners.co>`) i `APP_URL` (adres w linkach z e-maili)
 4. Settings → Domains: `nutripartners.vercel.app`.
 5. Deployment Protection: Vercel Authentication tylko dla preview.

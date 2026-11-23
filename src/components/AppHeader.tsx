@@ -6,7 +6,8 @@ import { LogOut } from 'lucide-react';
 // there and copy it to the other apps unchanged; app-specific things go in the props.
 //
 // Logo to the hub, the app's name, the signed-in person (photo or initials, name, Admin/User) to My profile in the
-// hub, and Sign out. An app with sections of its own gives them as `nav`, a second row under the bar.
+// hub, and Sign out. An app with sections of its own gives them as `nav`, a second row under the bar; buttons of the
+// app (the hub's notification bell) go in `actions`, before the person.
 
 export interface HeaderUser {
   name: string | null;
@@ -59,6 +60,7 @@ export function AppHeader({
   lang = 'en',
   logoSrc = '/logo.png',
   nav,
+  actions,
   Link = PlainLink,
 }: {
   /** Shown next to the logo, e.g. "HubSpot owner lookup" ("Apps" in the hub). */
@@ -71,6 +73,8 @@ export function AppHeader({
   logoSrc?: string;
   /** The app's own sections (tabs), shown as a second row. */
   nav?: ReactNode;
+  /** Buttons before the person, e.g. the notification bell. */
+  actions?: ReactNode;
   Link?: HeaderLink;
 }) {
   const t = TEXT[lang];
@@ -84,7 +88,8 @@ export function AppHeader({
           <span className="hidden md:block h-5 w-px bg-gray-200" aria-hidden="true" />
           <span className="hidden md:block text-sm font-medium text-gray-500 truncate">{appName}</span>
         </div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+          {actions}
           <Link
             href={`${hubUrl}/profile`}
             className="inline-flex items-center gap-2 min-w-0 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 px-1 sm:px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F]"
