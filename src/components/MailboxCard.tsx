@@ -9,7 +9,9 @@ import { Button } from './Button';
 import { Card, CardBody, CardHeader } from './Card';
 import { Input } from './Input';
 
-const PATH = '/api/people?resource=mailbox';
+const BASE = '/api/people?resource=mailbox';
+/** The API path: one's own mailbox, or (administrators) the mailbox of the account `userId`. */
+const pathFor = (userId?: string) => (userId ? `${BASE}&user=${encodeURIComponent(userId)}` : BASE);
 const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB') : '—');
 
 function StateBadge({ status }: { status: MailboxStatus }) {
@@ -45,7 +47,20 @@ function Facts({ status }: { status: MailboxStatus }) {
   );
 }
 
-function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnect: boolean; onDone: (s: MailboxStatus) => void }) {
+function ConnectForm({
+  path,
+  mailbox,
+  owner,
+  reconnect,
+  onDone,
+}: {
+  path: string;
+  mailbox: string;
+  /** Set when an administrator connects someone else's mailbox: that person's name. */
+  owner?: string;
+  reconnect: boolean;
+  onDone: (s: MailboxStatus) => void;
+}) {
   const toast = useToast();
   const [password, setPassword] = useState('');
   const [consent, setConsent] = useState(false);
@@ -64,7 +79,7 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
     setProgress({ read, saved });
     while (status.history && !status.history.done) {
       setPending(status);
-      status = await api<MailboxStatus>(`${PATH}&action=history`, { method: 'POST', body: { password, cursor: status.history.cursor } });
+      status = await api<MailboxStatus>(`${path}&action=history`, { method: 'POST', body: { password, cursor: status.history.cursor } });
       read += status.history?.read ?? 0;
       saved += status.history?.saved ?? 0;
       setProgress({ read, saved });
@@ -80,7 +95,7 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
     // Local, not state: the state values of this render do not change while the request runs.
     let connected: MailboxStatus | null = pending;
     try {
-      connected ??= await api<MailboxStatus>(PATH, { method: 'POST', body: { password, consent } });
+      connected ??= await api<MailboxStatus>(path, { method: 'POST', body: { password, consent } });
       const { status, saved } = await readHistory(connected);
       setPassword('');
       setProgress(null);
@@ -113,10 +128,17 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
       />
       <label className="flex items-start gap-3 text-sm text-gray-700 min-h-11 sm:min-h-0">
         <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#CC1F1F]" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-        <span>
-          I agree that Nutri Partners copies e-mails from my company mailbox (Inbox and Sent) to the company knowledge base, where they are
-          read by AI to find inquiries, offers and orders. I can disconnect the mailbox here at any time.
-        </span>
+        {owner ? (
+          <span>
+            {owner} agreed that Nutri Partners copies e-mails from their company mailbox (Inbox and Sent) to the company knowledge base, where
+            they are read by AI to find inquiries, offers and orders. They can disconnect it in My profile at any time.
+          </span>
+        ) : (
+          <span>
+            I agree that Nutri Partners copies e-mails from my company mailbox (Inbox and Sent) to the company knowledge base, where they are
+            read by AI to find inquiries, offers and orders. I can disconnect the mailbox here at any time.
+          </span>
+        )}
       </label>
       {progress && busy && (
         <p className="text-sm text-gray-600">
@@ -131,8 +153,14 @@ function ConnectForm({ mailbox, reconnect, onDone }: { mailbox: string; reconnec
   );
 }
 
-/** My profile: the person connects their own company mailbox to the central knowledge base (shared/mailboxApi.ts). */
-export function MailboxCard({ admin = false }: { admin?: boolean }) {
+/**
+ * My profile: the person connects their own company mailbox to the central knowledge base (shared/mailboxApi.ts).
+ * With `userId` (User management → Edit, administrators only) the same card connects that person's mailbox; `owner`
+ * is their name for the texts.
+ */
+export function MailboxCard({ admin = false, userId, owner }: { admin?: boolean; userId?: string; owner?: string }) {
+  const path = pathFor(userId);
+  const other = userId ? (owner ?? 'this person') : undefined;
   const toast = useToast();
   const [status, setStatus] = useState<MailboxStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +171,7 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
   const [missing, setMissing] = useState<string[]>([]);
 
   const load = useCallback(() => {
-    api<MailboxStatus | { available: false; missing?: string[] }>(PATH)
+    api<MailboxStatus | { available: false; missing?: string[] }>(path)
       .then((s) => {
         if ('available' in s) {
           setMissing(s.missing ?? []);
@@ -153,14 +181,15 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
         setError(null);
       })
       .catch((e: Error) => setError(e.message));
-  }, []);
+  }, [path]);
   useEffect(load, [load]);
 
   const disconnect = async () => {
-    if (!confirm('Disconnect your mailbox?\n\nNew e-mails will no longer be copied to the knowledge base. E-mails already copied stay there.')) return;
+    const question = other ? `Disconnect the mailbox of ${other}?` : 'Disconnect your mailbox?';
+    if (!confirm(`${question}\n\nNew e-mails will no longer be copied to the knowledge base. E-mails already copied stay there.`)) return;
     setBusy(true);
     try {
-      setStatus(await api<MailboxStatus>(PATH, { method: 'DELETE' }));
+      setStatus(await api<MailboxStatus>(path, { method: 'DELETE' }));
       toast.success('Mailbox disconnected');
     } catch (e) {
       toast.error('Could not disconnect', (e as Error).message);
@@ -174,7 +203,7 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
   const showForm = status && status.source !== 'manual' && (!connected || status.stopped || reconnecting);
 
   if (!available) {
-    if (!admin || !missing.length) return null;
+    if (!(admin || userId) || !missing.length) return null;
     return (
       <Card>
         <CardHeader className="flex items-center gap-2">
@@ -209,7 +238,20 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
             <Loading />
           ) : (
             <>
-              {!connected && (
+              {!connected && other && (
+                <div className="text-sm text-gray-600 space-y-2">
+                  <p>
+                    Connect the company mailbox of {other} ({status.mailbox}) with their mail password, the same way they would in My
+                    profile. Do it only with their agreement; the connection is recorded as made by you.
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Only Inbox and Sent are copied. Nothing is sent, deleted or marked as read in the mailbox.</li>
+                    <li>The password goes straight to the mail collector, where it is stored encrypted. This page does not keep it.</li>
+                    <li>{other} sees the connection in My profile and can disconnect it there.</li>
+                  </ul>
+                </div>
+              )}
+              {!connected && !other && (
                 <div className="text-sm text-gray-600 space-y-2">
                   <p>
                     Connect your company mailbox so that inquiries, offers and orders from your e-mails reach the company knowledge base. This
@@ -228,13 +270,15 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
               {connected && <Facts status={status} />}
               {connected && status.stopped && (
                 <p className="flex gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  <AlertTriangle size={16} className="shrink-0 mt-0.5" /> Collecting has stopped. Enter your password again to reconnect.
+                  <AlertTriangle size={16} className="shrink-0 mt-0.5" /> Collecting has stopped. Enter {other ? 'their' : 'your'} password again to
+                  reconnect.
                 </p>
               )}
               {connected && !status.stopped && quiet && (
                 <p className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                  No new e-mails in the last {QUIET_DAYS} days. If you changed your e-mail password, reconnect the mailbox.
+                  No new e-mails in the last {QUIET_DAYS} days.{' '}
+                  {other ? 'If they changed their e-mail password, reconnect the mailbox.' : 'If you changed your e-mail password, reconnect the mailbox.'}
                 </p>
               )}
               {connected && !status.stopped && !quiet && !reconnecting && (
@@ -242,7 +286,7 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
                   <CheckCircle2 size={16} className="shrink-0 mt-0.5" /> New e-mails are copied every few minutes.
                 </p>
               )}
-              {showForm && <ConnectForm mailbox={status.mailbox} reconnect={connected} onDone={(s) => {
+              {showForm && <ConnectForm path={path} mailbox={status.mailbox} owner={other} reconnect={connected} onDone={(s) => {
                 setStatus(s);
                 setReconnecting(false);
               }} />}
@@ -250,7 +294,7 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
                 <div className="flex flex-wrap gap-2">
                   {!showForm && (
                     <Button variant="secondary" onClick={() => setReconnecting(true)} className="min-h-11 sm:min-h-0">
-                      I changed my password
+                      {other ? 'Enter the password again' : 'I changed my password'}
                     </Button>
                   )}
                   {reconnecting && (
@@ -267,7 +311,7 @@ export function MailboxCard({ admin = false }: { admin?: boolean }) {
           )}
         </CardBody>
       </Card>
-      {admin && <MailboxesOverviewCard />}
+      {admin && !userId && <MailboxesOverviewCard />}
     </>
   );
 }
@@ -277,7 +321,7 @@ function MailboxesOverviewCard() {
   const [boxes, setBoxes] = useState<MailboxOverview[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api<{ mailboxes: MailboxOverview[] }>(`${PATH}&view=all`)
+    api<{ mailboxes: MailboxOverview[] }>(`${BASE}&view=all`)
       .then((r) => setBoxes(r.mailboxes))
       .catch((e: Error) => setError(e.message));
   }, []);

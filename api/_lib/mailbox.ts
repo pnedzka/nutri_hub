@@ -2,6 +2,9 @@
 // without handing the password to anyone. Served by api/people.ts with ?resource=mailbox (the Hobby plan's 12
 // functions are used); the API is described in shared/mailboxApi.ts.
 //
+// Administrators can do the same for another person from User management → Edit (`&user=<profile id>`): they type
+// that person's mail password, and the connection is recorded as made by the administrator.
+//
 // Connecting: the server logs in to the mail server (IMAP) with the password to check it and to find the Sent folder,
 // saves it in n8n as an IMAP credential and creates (or, on reconnecting, updates) the n8n workflow of that mailbox
 // (buildIngestWorkflow), which copies Inbox and Sent to raw.emails. The password is kept only in n8n, encrypted; the
@@ -31,10 +34,12 @@ import {
   type MailboxSource,
   type MailboxStatus,
 } from '../../shared/mailboxApi.js';
-import { requireAdmin, requireUser, type Profile } from './auth.js';
+import { PROFILE_COLUMNS, requireAdmin, requireUser, toProfile, type Profile } from './auth.js';
 import { centralDb } from './central.js';
 import { HttpError, handle, json, readJson } from './http.js';
+import { isUuid } from '../../shared/profile.js';
 import { logError } from './monitoring.js';
+import { db } from './supabase.js';
 
 export const isMailboxRequest = (request: Request) => new URL(request.url).searchParams.get('resource') === 'mailbox';
 
@@ -274,7 +279,7 @@ function toStatus(stored: StoredStatus, stopped: boolean): MailboxStatus {
 
 // --- connect, disconnect ------------------------------------------------------------------------------------------
 
-async function connect(person: Profile, password: string): Promise<MailboxStatus> {
+async function connect(person: Profile, actor: Profile, password: string): Promise<MailboxStatus> {
   const mailbox = companyMailbox(person);
   imapConfig();
   n8nConfig();
@@ -284,7 +289,7 @@ async function connect(person: Profile, password: string): Promise<MailboxStatus
   const started = Date.now();
   const { client, sentFolder } = await openMailbox(mailbox, password);
   try {
-    return await connectWith(client, sentFolder, person, mailbox, password, state, started);
+    return await connectWith(client, sentFolder, person, actor, mailbox, password, state, started);
   } finally {
     await closeMailbox(client);
   }
@@ -294,6 +299,7 @@ async function connectWith(
   client: ImapFlow,
   sentFolder: string,
   person: Profile,
+  actor: Profile,
   mailbox: string,
   password: string,
   state: StoredStatus,
@@ -351,7 +357,7 @@ async function connectWith(
       p_workflow_id: workflowId,
       p_sent_folder: sentFolder,
       p_history_since: readFrom(null, historyDays()).toISOString().slice(0, 10),
-      p_by: person.email,
+      p_by: actor.email,
     });
   } catch (error) {
     // Without a record in the database the workflow would collect mail nobody can disconnect: undo it.
@@ -396,7 +402,7 @@ async function continueHistory(person: Profile, password: string, cursor: Histor
   }
 }
 
-async function disconnect(person: Profile): Promise<MailboxStatus> {
+async function disconnect(person: Profile, actor: Profile): Promise<MailboxStatus> {
   const mailbox = companyMailbox(person);
   const state = await call<StoredStatus>('status', { p_mailbox: mailbox });
   if (state.source === 'manual') throw new HttpError(409, 'Your mailbox was connected by your administrator. Ask them to disconnect it.');
@@ -408,7 +414,26 @@ async function disconnect(person: Profile): Promise<MailboxStatus> {
     logError('mailbox.disconnect', error);
     throw new HttpError(502, 'The mailbox could not be disconnected right now. Try again in a moment.');
   }
-  return toStatus(await call<StoredStatus>('disconnect', { p_mailbox: mailbox, p_by: person.email }), false);
+  return toStatus(await call<StoredStatus>('disconnect', { p_mailbox: mailbox, p_by: actor.email }), false);
+}
+
+// --- whose mailbox ------------------------------------------------------------------------------------------------
+
+/** Whose mailbox a request is about (`person`) and who asks (`actor`): oneself, or anyone when an administrator asks. */
+async function subject(request: Request): Promise<{ person: Profile; actor: Profile }> {
+  const id = new URL(request.url).searchParams.get('user');
+  if (!id) {
+    const person = await requireUser(request);
+    return { person, actor: person };
+  }
+  const actor = await requireAdmin(request);
+  if (id === actor.id) return { person: actor, actor };
+  if (!isUuid(id)) throw new HttpError(400, 'User ID is invalid.');
+  const { data, error } = await db().from('profiles').select(`${PROFILE_COLUMNS}, deactivated_at`).eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new HttpError(404, 'This account no longer exists.');
+  if (data.deactivated_at) throw new HttpError(409, 'This account is deactivated. Its mailbox cannot be connected.');
+  return { person: toProfile(data), actor };
 }
 
 // --- handlers -----------------------------------------------------------------------------------------------------
@@ -419,12 +444,12 @@ export function mailboxGet(request: Request): Promise<Response> {
       await requireAdmin(request);
       return json({ mailboxes: await call<MailboxOverview[]>('status_all', {}) });
     }
-    const person = await requireUser(request);
+    const { person, actor } = await subject(request);
     // Until the hub is set up for it (or for people outside the company domains) the card is not shown at all.
     const missing = ['MAIL_IMAP_HOST', 'N8N_API_URL', 'N8N_API_KEY'].filter((name) => !env(name));
     if (missing.length || !isCompanyMailbox(person.email.trim().toLowerCase(), domains())) {
       // Administrators are told what is missing (names only, never values), so they can finish the set-up.
-      return json({ available: false, ...(person.role === 'admin' && missing.length ? { missing } : {}) });
+      return json({ available: false, ...(actor.role === 'admin' && missing.length ? { missing } : {}) });
     }
     const mailbox = companyMailbox(person);
     const stored = await call<StoredStatus>('status', { p_mailbox: mailbox });
@@ -434,7 +459,7 @@ export function mailboxGet(request: Request): Promise<Response> {
 
 export function mailboxPost(request: Request): Promise<Response> {
   return handle(async () => {
-    const person = await requireUser(request);
+    const { person, actor } = await subject(request);
     const history = new URL(request.url).searchParams.get('action') === 'history';
     try {
       const body = await readJson(request);
@@ -443,7 +468,7 @@ export function mailboxPost(request: Request): Promise<Response> {
         return json(await continueHistory(person, password, cursor));
       }
       const { password } = connectInput(body);
-      return json(await connect(person, password));
+      return json(await connect(person, actor, password));
     } catch (error) {
       if (error instanceof MailboxInputError) throw new HttpError(400, error.message);
       throw error;
@@ -452,6 +477,9 @@ export function mailboxPost(request: Request): Promise<Response> {
 }
 
 export function mailboxDelete(request: Request): Promise<Response> {
-  return handle(async () => json(await disconnect(await requireUser(request))));
+  return handle(async () => {
+    const { person, actor } = await subject(request);
+    return json(await disconnect(person, actor));
+  });
 }
 
