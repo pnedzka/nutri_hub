@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 1
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_federation_rule_id: fdrl_TODO_NUTRI_HUB
+          anthropic_federation_rule_id: fdrl_01Aiue1oAKvNWPTTNYsbHudw
           anthropic_organization_id: 0ff8c21a-4fc9-48c5-b246-f037e77669ae
           anthropic_service_account_id: svac_016XoZKYukjmwMiJXzAP3yTK
           anthropic_workspace_id: wrkspc_01LUP4esDZWx5L4kLQRDjEit
