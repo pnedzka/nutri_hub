@@ -1,9 +1,12 @@
 // The daily run (Vercel Cron, vercel.json → GET /api/daily, rewritten to api/sso.ts because of the 12-function limit).
 // Reminders that depend on the date (README "Powiadomienia"): L9 a request waiting 2 working days, L10 people starting
-// leave on the next working day. Vercel calls it with "Authorization: Bearer $CRON_SECRET".
+// leave on the next working day; C4 results of sales contests that have ended. Vercel calls it with "Authorization: Bearer $CRON_SECRET".
 
 import { formatRange, isWorkingDay, parseDate, toIso, type LeaveType } from '../../shared/leave.js';
+import { finishContests } from './contestNotices.js';
+import { recentlyEnded } from './contests.js';
 import { HttpError } from './http.js';
+import { logError } from './monitoring.js';
 import { allSettings, approversOf, todayInPoland } from './leave.js';
 import { requestWaiting, teamAwayNext, type LeaveFacts } from './leaveNotices.js';
 import { notify } from './notifications.js';
@@ -48,9 +51,13 @@ const facts = (row: Record<string, unknown>): LeaveFacts => ({
   note: (row.note as string | null) ?? null,
 });
 
-export async function runDaily(baseUrl: string): Promise<{ reminders: number; teamAway: number }> {
+export async function runDaily(baseUrl: string): Promise<{ reminders: number; teamAway: number; contestsEnded: number }> {
+  // C4 every day (a contest can end on a Friday): results of contests that ended recently, once each.
+  const contestsEnded = await recentlyEnded()
+    .then((ended) => finishContests(baseUrl, ended))
+    .catch((error) => (logError('daily.contests', error), 0));
   const today = todayInPoland();
-  if (!isWorkingDay(parseDate(today)!)) return { reminders: 0, teamAway: 0 };
+  if (!isWorkingDay(parseDate(today)!)) return { reminders: 0, teamAway: 0, contestsEnded };
   const [people, settings] = await Promise.all([appPeople('leave'), allSettings()]);
   const byId = new Map(people.map((p) => [p.id, p]));
 
@@ -87,5 +94,5 @@ export async function runDaily(baseUrl: string): Promise<{ reminders: number; te
     const notice = teamAwayNext(byId.get(managerId)!, away, next);
     if (notice) await notify(baseUrl, notice);
   }
-  return { reminders, teamAway: byManager.size };
+  return { reminders, teamAway: byManager.size, contestsEnded };
 }

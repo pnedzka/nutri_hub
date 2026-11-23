@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { safeLink, timeAgo } from '../../shared/notifications';
 import { accessChanges } from './accountNotices';
 import { renderApexMail } from './apexMail';
+import { contestAnnounced, contestFinished } from './contestNotices';
 import { dayInPoland, nextWorkingDay, workingDaysBefore } from './daily';
 import { leaveCancelled, leaveEntered, plDays, plRange, requestDecided, requestSubmitted, requestWaiting, requestWithdrawn, settingsChanged, teamAwayNext, type LeaveFacts } from './leaveNotices';
 import { recipientsOf } from './notifications';
@@ -123,5 +124,35 @@ describe('shared helpers', () => {
     const now = new Date('2026-11-23T12:00:00Z');
     expect(timeAgo('2026-11-23T11:55:00Z', now)).toBe('5 min ago');
     expect(timeAgo('2026-11-22T10:00:00Z', now)).toBe('yesterday');
+  });
+});
+
+describe('contest notices', () => {
+  const contest = { id: 'k1', name: 'Grudzień', startsOn: '2026-12-01', endsOn: '2026-12-31', weightCount: 70, prize: 'Weekend w SPA', participantIds: ['a', 'b'], createdAt: '' };
+  const entry = (p: typeof anna, contracts: number, score: number) => ({ ...p, avatarUrl: null, contracts, eur: null, score });
+
+  it('C1 tells the participants how the contest counts, in Polish by e-mail', () => {
+    const n = contestAnnounced(contest, [anna, boss], admin)!;
+    expect(n.to).toEqual([anna, boss]);
+    expect(n.link).toBe('/?contest=k1');
+    expect(n.email?.details).toContainEqual(['Co się liczy', '70% liczba kontraktów, 30% ich wartość w EUR']);
+    expect(contestAnnounced(contest, [], admin)).toBeNull();
+  });
+
+  it('C4 gives each participant their place and the administrators the winner', () => {
+    const result = { contest, status: 'finished' as const, daysLeft: null, entries: [entry(boss, 3, 100), entry(anna, 1, 40)], leader: { contracts: 3, eur: 0 } };
+    const notices = contestFinished(result, [anna, boss], [admin, boss]);
+    expect(notices.map((n) => [n.to.map((r) => r.id), n.title])).toEqual([
+      [['a'], 'Grudzień has ended: you placed 2 of 2'],
+      [['b'], 'You won the contest Grudzień!'],
+      [['c'], 'The contest Grudzień has ended'],
+    ]);
+    expect(notices[0].body).toBe('Winner: Marek Nowak (3 contracts).');
+    expect(notices.every((n) => !n.email)).toBe(true);
+  });
+
+  it('C4 names no winner when nobody had contracts', () => {
+    const result = { contest, status: 'finished' as const, daysLeft: null, entries: [entry(anna, 0, 0)], leader: null };
+    expect(contestFinished(result, [anna], [])[0].body).toBe('Nobody had contracts in it.');
   });
 });

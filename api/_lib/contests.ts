@@ -14,7 +14,9 @@ import { dayStart } from '../../shared/dashboard.js';
 import { isUuid } from '../../shared/profile.js';
 import { requireAdmin } from './auth.js';
 import { contractsBetween } from './intranetContracts.js';
-import { HttpError, handle, json, readJson } from './http.js';
+import { announceContest } from './contestNotices.js';
+import { HttpError, appUrl, handle, json, readJson } from './http.js';
+import { logError } from './monitoring.js';
 import { signAvatars } from './profiles.js';
 import { db } from './supabase.js';
 
@@ -92,6 +94,24 @@ export function contestsGet(request: Request): Promise<Response> {
   });
 }
 
+/** C1 to the people new in the contest; a failure here must not undo the saved contest. */
+async function announce(request: Request, contest: Contest, before: string[], adminId: string): Promise<void> {
+  try {
+    await announceContest(appUrl(request), contest, before, adminId);
+  } catch (error) {
+    logError('contests.announce', error);
+  }
+}
+
+/** Contests whose last day was in the 7 days before today (the daily run tells their results). */
+export async function recentlyEnded(): Promise<Contest[]> {
+  const today = todayInPoland();
+  const weekAgo = new Date(Date.parse(`${today}T12:00:00Z`) - 7 * 864e5).toISOString().slice(0, 10);
+  const { data, error } = await db().from('contests').select(COLUMNS).gte('ends_on', weekAgo).lt('ends_on', today);
+  if (error) throw error;
+  return (data ?? []).map(toContest);
+}
+
 export function contestsPost(request: Request): Promise<Response> {
   return handle(async () => {
     const admin = await requireAdmin(request);
@@ -113,14 +133,20 @@ export function contestsPost(request: Request): Promise<Response> {
     };
     if (body.id !== undefined) {
       if (!isUuid(body.id)) throw new HttpError(400, 'Contest ID is invalid.');
+      const { data: old, error: oldError } = await db().from('contests').select('participant_ids').eq('id', body.id).maybeSingle();
+      if (oldError) throw oldError;
       const { data, error } = await db().from('contests').update({ ...row, updated_at: new Date().toISOString() }).eq('id', body.id).select(COLUMNS).maybeSingle();
       if (error) throw error;
       if (!data) throw new HttpError(404, 'This contest does not exist.');
-      return json({ contest: toContest(data) });
+      const contest = toContest(data);
+      await announce(request, contest, (old?.participant_ids as string[] | null) ?? [], admin.id);
+      return json({ contest });
     }
     const { data, error } = await db().from('contests').insert({ ...row, created_by: admin.id }).select(COLUMNS).single();
     if (error) throw error;
-    return json({ contest: toContest(data) }, 201);
+    const contest = toContest(data);
+    await announce(request, contest, [], admin.id);
+    return json({ contest }, 201);
   });
 }
 
