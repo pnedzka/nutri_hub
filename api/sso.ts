@@ -11,7 +11,7 @@ import { HttpError, handle, json, readJson } from './_lib/http.js';
 import { db } from './_lib/supabase.js';
 import { logError } from './_lib/monitoring.js';
 
-const HUB_OWN: AppId[] = ['intranet', 'news', 'leave', 'purchase', 'create-users'];
+const HUB_OWN: AppId[] = ['intranet', 'news', 'leave', 'purchase', 'contracts', 'contracts-admin', 'contracts-sign', 'create-users'];
 
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {

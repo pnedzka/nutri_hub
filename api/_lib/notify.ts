@@ -117,3 +117,31 @@ export async function sendToEach(recipients: string[], mail: Omit<NoticeMail, 't
   }
   return sent;
 }
+
+/**
+ * Sends ready e-mails (each with its own recipient and content) in Resend batches of 100. Used where every person
+ * gets a different message (Contract generator). Failures are logged, not thrown.
+ */
+export async function sendPrepared(mails: { to: string; subject: string; html: string; text: string }[], tag: string): Promise<number> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || !mails.length) {
+    if (!key && mails.length) logError('mail', new Error('RESEND_API_KEY is missing; e-mail not sent'), { subject: mails[0].subject });
+    return 0;
+  }
+  let sent = 0;
+  for (let i = 0; i < mails.length; i += 100) {
+    const chunk = mails.slice(i, i + 100);
+    try {
+      const res = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+        body: JSON.stringify(chunk.map((m) => ({ from: FROM(), to: [m.to], subject: m.subject, html: m.html, text: m.text, tags: [{ name: 'type', value: tag }] }))),
+      });
+      if (res.ok) sent += chunk.length;
+      else logError('mail', new Error(`Resend answered ${res.status} (batch)`), { detail: await res.text().catch(() => '') });
+    } catch (error) {
+      logError('mail', error);
+    }
+  }
+  return sent;
+}

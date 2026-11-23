@@ -44,7 +44,9 @@ describe('sectionsFor', () => {
 
 describe('APPS', () => {
   it('has a tile for every app id', () => {
-    expect(APPS.filter((a) => a.audience === 'app').map((a) => a.id)).toEqual([...APP_IDS]);
+    // The two extra permissions of the Contract generator share its tile.
+    const withTiles = APP_IDS.filter((id) => id !== 'contracts-admin' && id !== 'contracts-sign');
+    expect(APPS.filter((a) => a.audience === 'app').map((a) => a.id)).toEqual(withTiles);
     expect(APPS.find((a) => a.id === 'create-users')?.url).toBe('/users');
   });
 
@@ -55,5 +57,16 @@ describe('APPS', () => {
 
   it('opens only the intranet in a new tab', () => {
     expect(APPS.filter((a) => a.newTab).map((a) => a.id)).toEqual(['intranet']);
+  });
+});
+
+describe('Contract generator tile', () => {
+  const tiles = (apps: string[]) => sectionsFor({ role: 'user', apps: apps as never }, APPS, 'contracts').flatMap((s) => s.apps.map((a) => a.id));
+  it('shows for traders, administration and signers, and only where the module is on', () => {
+    expect(tiles(['contracts'])).toContain('contracts');
+    expect(tiles(['contracts-admin'])).toContain('contracts');
+    expect(tiles(['contracts-sign'])).toContain('contracts');
+    expect(tiles(['news'])).not.toContain('contracts');
+    expect(sectionsFor({ role: 'user', apps: ['contracts'] }, APPS, '').flatMap((s) => s.apps.map((a) => a.id))).not.toContain('contracts');
   });
 });
