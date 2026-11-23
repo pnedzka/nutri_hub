@@ -5,6 +5,7 @@ import { LatestNews } from '../components/LatestNews';
 import { useAuth } from '../lib/auth';
 import { useMyProfile } from '../lib/people';
 import { firstName } from '../lib/user';
+import { ContestWidget } from './home/ContestWidget';
 import { ContractsWidget } from './home/ContractsWidget';
 import { LeaderboardWidget } from './home/LeaderboardWidget';
 
@@ -31,6 +32,7 @@ export function HomePage() {
           {anyWidget ? 'Here is what is going on. Your apps are in the menu.' : 'Choose an app to get started.'}
         </p>
       </div>
+      <ContestWidget />
       {(contracts || leaderboard) && (
         <div className="grid gap-4 lg:grid-cols-3">
           {contracts && <ContractsWidget className={leaderboard ? 'lg:col-span-2' : 'lg:col-span-3'} />}

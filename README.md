@@ -44,10 +44,15 @@ Od 23.11.2026 (decyzja właściciela) strona główna to dashboard z widgetami, 
 | Contracts | liczba kontraktów sprzedaży (S) i zakupu (P) w miesiącu, ich wartość w EUR, zmiana wobec poprzedniego miesiąca, ile czeka na akceptację | admini, działy Board i Administration |
 | Sales leaderboard | liczba kontraktów (S i P) na osobę w miesiącu, jak w starym intranecie; uczestnicy: dział Trade i każdy z kontraktem, bez Board; admin widzi wszystkich, pozostali osoby z kontraktami i zawsze pierwszą trójkę | admini, Trade, Administration, Board |
 | Latest news | 3 najnowsze wpisy | uprawnienie `news` |
+| Konkurs (nazwa konkursu) | trwający konkurs sprzedażowy: miejsce, kontrakty i wartość własna, dystans do lidera, ranking z punktami | uczestnicy konkursu i admini |
 
 - Reguły widoczności i liczenia są w `shared/dashboard.ts` (z testami): `canSeeWidget`, `summarize`, `rank`. Dział to `profiles.department`.
 - Dane: `GET /api/people?resource=dashboard&widget=contracts|leaderboard&month=YYYY-MM` (`api/_lib/dashboard.ts`; limit 12 funkcji). Serwer sprawdza widoczność jeszcze raz (403 bez danych) i wysyła tylko sumy, bez klientów i pojedynczych kontraktów. Wynik z bazy trzyma 5 minut.
 - Kontrakty pochodzą ze starego intranetu: `dashboard_api.intranet_contracts(p_from, p_to)` w `nutri-central-db` (`db/central/dashboard_api.sql`, uruchamia właściciel w SQL Editorze i dopisuje `dashboard_api` do Data API → Exposed schemas). Liczy jak dashboard intranetu: miesiąc utworzenia kontraktu (czas polski), bez anulowanych i zarchiwizowanych, wartość pozycji jak `calculateProductTotalPrice` intranetu, przeliczona na EUR kursem z dnia kontraktu (`core.eur_rate`). Dane odświeża synchronizacja n8n raz dziennie (6:40). Po wydaniu generatora kontraktów dojdzie drugie źródło (`contracts.contracts`).
+
+### Konkursy sprzedażowe
+
+Admini ustawiają je w **Sales contests** (`/contests`, Administration): nazwa, pierwszy i ostatni dzień (oba wliczone, czas polski), uczestnicy, nagroda i waga liczby kontraktów (reszta to wartość w EUR). Dane w tabeli `public.contests` bazy centrum (`db/schema.sql`, migracja `hub_contests`: nutri-dev 23.11.2026, produkcja przy wydaniu), API `?resource=contests` w `api/admin/users.ts` (`api/_lib/contests.ts`). Liczenie w `shared/contest.ts` (z testami): kontrakty sprzedaży i zakupu z intranetu bez anulowanych; punkty = waga × (liczba ÷ liczba lidera) + reszta × (wartość ÷ wartość lidera), 0–100. Poprawione względem intranetu (decyzja z 23.11.2026): wartości w EUR zamiast sumy różnych walut, punkty względem lidera zamiast min–max (najsłabszy z kontraktami nie dostaje 0, a dojście osoby bez kontraktów nie zmienia innych), ostatni dzień w całości, ranking widzą też admini. Uczestnik widzi swoją wartość i dystans do lidera, wartości innych tylko admin.
 
 ## Moduły: News i Leave
 

@@ -3,6 +3,7 @@
 //
 //   GET /api/people?resource=dashboard&widget=contracts&month=YYYY-MM   → ContractsSummary   (shared/dashboard.ts)
 //   GET /api/people?resource=dashboard&widget=leaderboard&month=YYYY-MM → Leaderboard
+//   GET /api/people?resource=dashboard&widget=contest                   → { result: ContestResult | null } (shared/contest.ts)
 //
 // Who sees which widget is decided by canSeeWidget (shared/dashboard.ts) from the person's role and department; a
 // widget the person may not see answers 403 without data. The contracts are those of the old intranet, read from the
@@ -17,42 +18,19 @@ import {
   rank,
   shiftMonth,
   summarize,
-  type ContractRow,
   type LeaderboardPerson,
   type WidgetId,
 } from '../../shared/dashboard.js';
 import { requireUser } from './auth.js';
-import { centralDb } from './central.js';
+import { activeContestFor } from './contests.js';
+import { contractsBetween } from './intranetContracts.js';
 import { HttpError, handle, json } from './http.js';
-import { logError } from './monitoring.js';
 import { signAvatars } from './profiles.js';
 import { db } from './supabase.js';
 
 export const isDashboardRequest = (request: Request) => new URL(request.url).searchParams.get('resource') === 'dashboard';
 
-/** The intranet's contracts are synced once a day, so a few minutes of caching per server instance is plenty. */
-const CACHE_MS = 5 * 60 * 1000;
-const cache = new Map<string, { at: number; rows: ContractRow[] }>();
-
-async function contracts(month: string): Promise<ContractRow[]> {
-  const hit = cache.get(month);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.rows;
-  const { data, error } = await centralDb()
-    .schema('dashboard_api')
-    .rpc('intranet_contracts', { p_from: monthStart(month), p_to: monthStart(shiftMonth(month, 1)) });
-  if (error) {
-    logError('dashboard.contracts', new Error(`dashboard_api.intranet_contracts failed (${error.code ?? 'unknown'})`), { code: error.code });
-    throw new HttpError(
-      error.code?.startsWith('PGRST') ? 503 : 500,
-      error.code?.startsWith('PGRST')
-        ? 'The central database is not ready for the dashboard yet (dashboard_api). Tell your administrator.'
-        : 'The central database did not answer. Try again in a moment.',
-    );
-  }
-  const rows = (data ?? []) as ContractRow[];
-  cache.set(month, { at: Date.now(), rows });
-  return rows;
-}
+const contracts = (month: string) => contractsBetween(monthStart(month), monthStart(shiftMonth(month, 1)));
 
 /** Active people of the hub with what the leaderboard shows of them. */
 async function people(): Promise<LeaderboardPerson[]> {
@@ -76,6 +54,8 @@ export function dashboardGet(request: Request): Promise<Response> {
     const viewer = await requireUser(request);
     const params = new URL(request.url).searchParams;
     const widget = params.get('widget') as WidgetId | null;
+    // The contest running today that the person takes part in (administrators: any), or null.
+    if (widget === 'contest') return json({ result: await activeContestFor({ id: viewer.id, isAdmin: viewer.role === 'admin' }) });
     if (widget !== 'contracts' && widget !== 'leaderboard') throw new HttpError(400, 'Unknown widget.');
     const month = params.get('month') || monthOf(new Date());
     if (!isMonth(month)) throw new HttpError(400, 'The month is invalid (expected YYYY-MM).');

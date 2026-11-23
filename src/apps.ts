@@ -1,10 +1,10 @@
-import { Building2, Calculator, CalendarDays, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, Calculator, CalendarDays, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, Trophy, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import type { AppUser } from './lib/user';
 
 export interface AppTile {
-  /** 'users' and 'calls' are administrators' tools (not in profiles.apps), 'team' is for everyone. */
-  id: AppId | 'users' | 'team' | 'calls';
+  /** 'users', 'calls' and 'contests' are administrators' tools (not in profiles.apps), 'team' is for everyone. */
+  id: AppId | 'users' | 'team' | 'calls' | 'contests';
   name: string;
   description: string;
   /** An address, or a path inside the hub (starts with "/"). */
@@ -141,6 +141,14 @@ export const APPS: AppTile[] = [
     description: 'Import T-Mobile invoices and see who called how much, month by month.',
     url: '/calls',
     icon: PhoneCall,
+    audience: 'admin',
+  },
+  {
+    id: 'contests',
+    name: 'Sales contests',
+    description: 'Set up sales contests: participants, days, prize and what counts.',
+    url: '/contests',
+    icon: Trophy,
     audience: 'admin',
   },
 ];

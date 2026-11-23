@@ -4,7 +4,7 @@
 
 import { canUse, type Role } from './access.js';
 
-export type WidgetId = 'news' | 'contracts' | 'leaderboard';
+export type WidgetId = 'news' | 'contracts' | 'leaderboard' | 'contest';
 
 /** Departments of `profiles.department` that the widgets look at (set in User management and My profile). */
 export const BOARD = 'Board';
@@ -24,10 +24,12 @@ const isIn = (department: string | null, ...names: string[]) => !!department && 
  * - news: people with News;
  * - contracts (the company's contracts and turnover in EUR): administrators, Board and Administration;
  * - leaderboard: administrators and the sales side, as in the old intranet (Admin, Sales Rep, Sales Support): Trade,
- *   Administration and Board.
+ *   Administration and Board;
+ * - contest: everyone may ask; the server answers only with a contest the person takes part in (administrators: any).
  */
 export function canSeeWidget(viewer: Viewer, widget: WidgetId, newsAvailable = true): boolean {
   if (widget === 'news') return newsAvailable && canUse(viewer, 'news');
+  if (widget === 'contest') return true;
   if (viewer.role === 'admin') return true;
   if (widget === 'contracts') return isIn(viewer.department, BOARD, ADMINISTRATION);
   return isIn(viewer.department, TRADE, ADMINISTRATION, BOARD);
@@ -51,16 +53,19 @@ export function shiftMonth(month: string, by: number): string {
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
 }
 
-/** Midnight in Warsaw on the first day of the month, as an ISO time (the start of a month's range). */
-export function monthStart(month: string): string {
-  const [y, m] = month.split('-').map(Number);
-  // Warsaw is UTC+1 in winter and UTC+2 in summer; take the offset that the first day of the month has there.
-  const probe = new Date(Date.UTC(y, m - 1, 1, 12));
+/** Midnight in Warsaw at the start of a day (YYYY-MM-DD), as an ISO time. */
+export function dayStart(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  // Warsaw is UTC+1 in winter and UTC+2 in summer; take the offset that this day has there (at noon).
+  const probe = new Date(Date.UTC(y, m - 1, d, 12));
   const local = new Date(probe.toLocaleString('en-US', { timeZone: 'Europe/Warsaw' }));
   const utc = new Date(probe.toLocaleString('en-US', { timeZone: 'UTC' }));
   const offsetMinutes = Math.round((local.getTime() - utc.getTime()) / 60000);
-  return new Date(Date.UTC(y, m - 1, 1) - offsetMinutes * 60000).toISOString();
+  return new Date(Date.UTC(y, m - 1, d) - offsetMinutes * 60000).toISOString();
 }
+
+/** Midnight in Warsaw on the first day of the month, as an ISO time (the start of a month's range). */
+export const monthStart = (month: string) => dayStart(`${month}-01`);
 
 /** "November 2026". */
 export function monthLabel(month: string): string {

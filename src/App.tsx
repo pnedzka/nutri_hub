@@ -6,6 +6,7 @@ import { canUse, type AppId } from '../shared/access.ts';
 import { available } from './apps';
 import { useAuth } from './lib/auth';
 import { CallsPage } from './pages/calls/CallsPage';
+import { ContestsPage } from './pages/ContestsPage';
 import { HomePage } from './pages/HomePage';
 import { LeavePage } from './pages/leave/LeavePage';
 import { LoginPage } from './pages/LoginPage';
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/users" element={<AccountCreatorsOnly><UsersPage /></AccountCreatorsOnly>} />
           <Route path="/users/:id" element={<AdminOnly><UserEditPage /></AdminOnly>} />
+          <Route path="/contests" element={<AdminOnly><ContestsPage /></AdminOnly>} />
           {available('calls') && <Route path="/calls" element={<AdminOnly><CallsPage /></AdminOnly>} />}
           <Route path="/sso" element={<SsoPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

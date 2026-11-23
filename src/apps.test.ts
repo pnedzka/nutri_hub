@@ -29,7 +29,7 @@ describe('sectionsFor', () => {
   it('hides News, Leave and Phone calls analyser where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'purchase', 'team', 'intranet']],
-      ['Administration', ['users']],
+      ['Administration', ['users', 'contests']],
     ]);
     expect(ids({ role: 'user', apps: ['news', 'leave', 'purchase', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'purchase', 'team']]]);
   });
@@ -37,7 +37,7 @@ describe('sectionsFor', () => {
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
       ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'news', 'leave', 'purchase', 'team', 'intranet']],
-      ['Administration', ['users', 'calls']],
+      ['Administration', ['users', 'calls', 'contests']],
     ]);
   });
 });
@@ -72,7 +72,7 @@ describe('navSectionsFor', () => {
   it('gives an admin every app, with User management and Phone calls analyser under Administration', () => {
     const sections = nav({ role: 'admin', apps: [] });
     expect(sections.map(([title]) => title)).toEqual(['Work', 'Tools', 'Administration']);
-    expect(sections[2][1]).toEqual(['users', 'calls']);
+    expect(sections[2][1]).toEqual(['users', 'calls', 'contests']);
   });
 
   it('shows only Team to a user without apps', () => {
