@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Heart, Images, MessageCircle, Plus, Users } from 'lucide-react';
+import { Heart, Images, LayoutList, MessageCircle, Plus, Search } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
+import { Input } from '../../components/Input';
 import { api } from '../../lib/api';
 import type { NewsListResponse, NewsPostSummary } from '../../../shared/newsApi';
 import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { formatDay } from './format';
 import { PageHeader } from './ui';
+import { useDebounced } from './useDebounced';
 
 function PostCard({ post }: { post: NewsPostSummary }) {
   return (
@@ -54,16 +56,25 @@ export function NewsList() {
   const [pages, setPages] = useState<NewsListResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [search, setSearch] = useState('');
+  const q = useDebounced(search.trim());
+  const query = q ? `&q=${encodeURIComponent(q)}` : '';
+  // The search the shown posts belong to (the last results stay while the next search loads).
+  const [shownQuery, setShownQuery] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
-    api<NewsListResponse>('/api/news', { signal: controller.signal })
-      .then((first) => setPages([first]))
+    api<NewsListResponse>(`/api/news?${query.slice(1)}`, { signal: controller.signal })
+      .then((first) => {
+        setPages([first]);
+        setShownQuery(query);
+        setError(null);
+      })
       .catch((e: Error) => {
         if (e.name !== 'AbortError') setError(e.message);
       });
     return () => controller.abort();
-  }, []);
+  }, [query]);
 
   const first = pages[0];
   const last = pages[pages.length - 1];
@@ -73,7 +84,7 @@ export function NewsList() {
     if (!last?.nextCursor) return;
     setLoadingMore(true);
     try {
-      const next = await api<NewsListResponse>(`/api/news?before=${encodeURIComponent(last.nextCursor)}`);
+      const next = await api<NewsListResponse>(`/api/news?before=${encodeURIComponent(last.nextCursor)}${shownQuery}`);
       setPages((p) => [...p, next]);
     } catch (e) {
       setError((e as Error).message);
@@ -89,10 +100,10 @@ export function NewsList() {
         title="News"
         actions={
           <>
-            {first?.isAdmin && (
-              <Button variant="secondary" className="min-h-11 sm:min-h-0" onClick={() => navigate('/news/editors')}>
-                <Users size={16} />
-                Editors
+            {first?.canPublish && (
+              <Button variant="secondary" className="min-h-11 sm:min-h-0" onClick={() => navigate('/news/manage')}>
+                <LayoutList size={16} />
+                Manager
               </Button>
             )}
             {first?.canPublish && (
@@ -104,11 +115,14 @@ export function NewsList() {
           </>
         }
       />
+      <div className="sm:max-w-sm">
+        <Input id="news-search" type="search" aria-label="Search news" placeholder="Search news…" leftIcon={<Search size={16} />} value={search} onChange={(e) => setSearch(e.target.value)} className="text-base sm:text-sm" />
+      </div>
       {error && <ErrorNote>{error}</ErrorNote>}
       {!first && !error && <Loading />}
       {first && !posts.length && (
         <Card>
-          <Empty>No news yet.{first.canPublish && ' Publish the first post with “New post”.'}</Empty>
+          {shownQuery ? <Empty>No news matches your search.</Empty> : <Empty>No news yet.{first.canPublish && ' Publish the first post with “New post”.'}</Empty>}
         </Card>
       )}
       {posts.length > 0 && (

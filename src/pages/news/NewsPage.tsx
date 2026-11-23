@@ -1,5 +1,6 @@
 import { Route, Routes, useParams } from 'react-router-dom';
 import { Editors } from './Editors';
+import { Manager } from './Manager';
 import { NewsList } from './NewsList';
 import { PostEditor } from './PostEditor';
 import { PostView } from './PostView';
@@ -19,6 +20,7 @@ export function NewsPage() {
     <Routes>
       <Route index element={<NewsList />} />
       <Route path="new" element={<PostEditor />} />
+      <Route path="manage" element={<Manager />} />
       <Route path="editors" element={<Editors />} />
       <Route path=":id" element={<ViewRoute />} />
       <Route path=":id/edit" element={<EditRoute />} />

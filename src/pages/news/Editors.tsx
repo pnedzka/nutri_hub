@@ -27,7 +27,7 @@ export function Editors() {
 
   return (
     <div className="space-y-6">
-      <PageHeader back={{ to: '/news', label: 'News' }} title="News editors" />
+      <PageHeader back={{ to: '/news/manage', label: 'Manager' }} title="News editors" />
       <p className="text-sm text-gray-600">Editors publish news and edit their own posts. Administrators can always publish and edit every post.</p>
       {error && <ErrorNote>{error}</ErrorNote>}
       {!data && !error && <Loading />}
