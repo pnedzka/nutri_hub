@@ -35,6 +35,8 @@ export interface TeamMember {
   mobile: string | null;
   linkedin: string | null;
   officeId: string | null;
+  /** Who the person reports to (profiles.manager_id, set in User management): Team → Org chart. */
+  managerId: string | null;
   /** Signed link to the photo (valid for a day), or null. */
   avatarUrl: string | null;
 }

@@ -1,20 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ExternalLink, Mail, MapPin, Phone, Search, Smartphone, UsersRound } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowLeft, LayoutGrid, MapPin, Network, Search, UsersRound } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { Office, TeamMember } from '../../../shared/profile.ts';
 import { Avatar } from '../../components/Avatar';
 import { Card } from '../../components/Card';
 import { Select } from '../../components/Field';
 import { Input } from '../../components/Input';
+import { useAuth } from '../../lib/auth';
 import { usePeople } from '../../lib/people';
 import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { ContactLinks } from './contacts';
+import { OrgChart } from './OrgChart';
 
-const tel = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;
+type View = 'chart' | 'list';
 
 /** Lower case without Polish diacritics, so "lodz" finds "Łódź". */
 const fold = (text: string) => text.toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-const contactClass = 'inline-flex items-center gap-2 min-w-0 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 text-sm text-gray-600 hover:text-[#CC1F1F] [overflow-wrap:anywhere]';
+const tabClass = (on: boolean) =>
+  `inline-flex min-h-11 sm:min-h-9 pointer-coarse:min-h-11 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition ${
+    on ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+  }`;
 
 function PersonCard({ person, office }: { person: TeamMember; office: Office | undefined }) {
   return (
@@ -33,39 +39,25 @@ function PersonCard({ person, office }: { person: TeamMember; office: Office | u
           )}
         </div>
       </div>
-      <div className="mt-3 flex flex-col">
-        <a href={`mailto:${person.email}`} className={contactClass}>
-          <Mail size={14} className="shrink-0" /> {person.email}
-        </a>
-        {person.phone && (
-          <a href={tel(person.phone)} className={contactClass}>
-            <Phone size={14} className="shrink-0" /> {person.phone}
-          </a>
-        )}
-        {person.mobile && (
-          <a href={tel(person.mobile)} className={contactClass}>
-            <Smartphone size={14} className="shrink-0" /> {person.mobile}
-          </a>
-        )}
-        {person.linkedin && (
-          <a href={person.linkedin} target="_blank" rel="noreferrer" className={contactClass}>
-            <ExternalLink size={14} className="shrink-0" /> LinkedIn
-          </a>
-        )}
+      <div className="mt-3">
+        <ContactLinks person={person} />
       </div>
     </Card>
   );
 }
 
-/** Team: everyone with an active account, with their photo, job and contact details. */
+/** Team: everyone with an active account, with their photo, job and contact details, and who reports to whom. */
 export function TeamPage() {
-  const { people, offices, error, load } = usePeople();
+  const { people, offices, me, error, load } = usePeople();
+  const isAdmin = useAuth((s) => s.user?.role === 'admin');
+  const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [officeId, setOfficeId] = useState('');
   // Always fresh on opening: a colleague may have changed their details.
   useEffect(() => void load(true), [load]);
 
   const officeById = useMemo(() => new Map(offices.map((o) => [o.id, o])), [offices]);
+  const filtered = Boolean(officeId || query.trim());
   const shown = useMemo(() => {
     const words = fold(query).split(/\s+/).filter(Boolean);
     return (people ?? []).filter((p) => {
@@ -74,6 +66,15 @@ export function TeamPage() {
       return words.every((w) => text.includes(w));
     });
   }, [people, query, officeId, officeById]);
+  const matches = useMemo(() => (filtered ? new Set(shown.map((p) => p.id)) : null), [filtered, shown]);
+  // The org chart first once anyone has a manager; the choice stays in the address (?view=).
+  const hasManagers = (people ?? []).some((p) => p.managerId);
+  const asked = params.get('view');
+  const view: View = asked === 'chart' || asked === 'list' ? asked : hasManagers ? 'chart' : 'list';
+  const setView = (next: View) => setParams((p) => {
+    p.set('view', next);
+    return p;
+  }, { replace: true });
 
   return (
     <div className="space-y-6">
@@ -85,8 +86,16 @@ export function TeamPage() {
           <UsersRound size={22} className="text-[#CC1F1F]" /> Team
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Contact details of everyone at Nutri Partners. Your own are in <Link to="/profile" className="text-[#CC1F1F] hover:underline">My profile</Link>.
+          Who is who at Nutri Partners and who reports to whom. Your own details are in <Link to="/profile" className="text-[#CC1F1F] hover:underline">My profile</Link>.
         </p>
+      </div>
+      <div className="inline-flex rounded-lg bg-gray-100 p-1" role="tablist" aria-label="Team view">
+        <button type="button" role="tab" aria-selected={view === 'chart'} className={tabClass(view === 'chart')} onClick={() => setView('chart')}>
+          <Network size={16} /> Org chart
+        </button>
+        <button type="button" role="tab" aria-selected={view === 'list'} className={tabClass(view === 'list')} onClick={() => setView('list')}>
+          <LayoutGrid size={16} /> Directory
+        </button>
       </div>
       <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
         <Input
@@ -112,7 +121,10 @@ export function TeamPage() {
       {error && !people && <ErrorNote>{error}</ErrorNote>}
       {!people && !error && <Loading />}
       {people && shown.length === 0 && <Empty>Nobody matches your search.</Empty>}
-      {shown.length > 0 && (
+      {people && view === 'chart' && (shown.length > 0 || !filtered) && (
+        <OrgChart people={people} offices={offices} me={me} isAdmin={isAdmin} matches={matches} />
+      )}
+      {view === 'list' && shown.length > 0 && (
         <ul className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((p) => (
             <li key={p.id} className="min-w-0">

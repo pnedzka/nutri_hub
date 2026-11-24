@@ -72,3 +72,70 @@ select:not([multiple]):not([size]) {
 select:disabled {
   cursor: default;
 }
+
+/* Team → Org chart: cards pop in, lines draw themselves, the line to a chosen person flows, the details slide in. */
+@keyframes org-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+}
+.org-pop {
+  animation: org-pop 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes org-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.org-draw {
+  stroke-dasharray: 1;
+  animation: org-draw 600ms ease-out 250ms both;
+}
+@keyframes org-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+.org-flow {
+  animation: org-flow 1.2s linear infinite;
+}
+@keyframes org-slide {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+@keyframes org-sheet {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes org-fade {
+  from {
+    opacity: 0;
+  }
+}
+.org-panel {
+  animation: org-sheet 350ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.org-fade {
+  animation: org-fade 250ms ease-out both;
+}
+@media (min-width: 768px) {
+  .org-panel {
+    animation-name: org-slide;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .org-pop,
+  .org-draw,
+  .org-flow,
+  .org-panel,
+  .org-fade {
+    animation: none;
+  }
+}
