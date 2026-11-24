@@ -512,18 +512,18 @@ export function ContractForm() {
               onChange={(e) => setParty({ companyName: e.target.value })} className="text-base sm:text-sm" />
             <Input label={vatNeeded ? 'VAT ID' : 'VAT ID (optional outside the EU)'} value={p.vatId} error={errors['party.vatId']}
               onChange={(e) => setParty({ vatId: e.target.value })} className="text-base sm:text-sm" />
-            <Input label="Street" value={p.street} error={errors['party.street']} onChange={(e) => setParty({ street: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="party-street" label="Street" value={p.street} error={errors['party.street']} onChange={(e) => setParty({ street: e.target.value })} className="text-base sm:text-sm" />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Postal code" value={p.postalCode} error={errors['party.postalCode']} onChange={(e) => setParty({ postalCode: e.target.value })} className="text-base sm:text-sm" />
-              <Input label="City" value={p.city} error={errors['party.city']} onChange={(e) => setParty({ city: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="party-postal-code" label="Postal code" value={p.postalCode} error={errors['party.postalCode']} onChange={(e) => setParty({ postalCode: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="party-city" label="City" value={p.city} error={errors['party.city']} onChange={(e) => setParty({ city: e.target.value })} className="text-base sm:text-sm" />
             </div>
             <CountrySelect id="party-country" label="Country" value={p.country} error={errors['party.country']} onChange={(country) => setParty({ country })} />
             <div />
             <Input label="Contact first name" value={p.contactFirstName} error={errors['party.contactFirstName']} onChange={(e) => setParty({ contactFirstName: e.target.value })} className="text-base sm:text-sm" />
             <Input label="Contact last name" value={p.contactLastName} error={errors['party.contactLastName']} onChange={(e) => setParty({ contactLastName: e.target.value })} className="text-base sm:text-sm" />
             <Input label="Position (optional)" value={p.contactPosition} onChange={(e) => setParty({ contactPosition: e.target.value })} className="text-base sm:text-sm" />
-            <Input label="E-mail" type="email" value={p.email} error={errors['party.email']} onChange={(e) => setParty({ email: e.target.value })} className="text-base sm:text-sm" />
-            <Input label="Phone" type="tel" value={p.phone} error={errors['party.phone']} onChange={(e) => setParty({ phone: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="party-email" label="E-mail" type="email" value={p.email} error={errors['party.email']} onChange={(e) => setParty({ email: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="party-phone" label="Phone" type="tel" value={p.phone} error={errors['party.phone']} onChange={(e) => setParty({ phone: e.target.value })} className="text-base sm:text-sm" />
           </div>
         </div>
       </Section>
@@ -580,10 +580,10 @@ export function ContractForm() {
             </button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Street" value={d.street} error={errors['delivery.street']} onChange={(e) => setDelivery({ street: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="delivery-street" label="Street" value={d.street} error={errors['delivery.street']} onChange={(e) => setDelivery({ street: e.target.value })} className="text-base sm:text-sm" />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Postal code" value={d.postalCode} error={errors['delivery.postalCode']} onChange={(e) => setDelivery({ postalCode: e.target.value })} className="text-base sm:text-sm" />
-              <Input label="City" value={d.city} error={errors['delivery.city']} onChange={(e) => setDelivery({ city: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="delivery-postal-code" label="Postal code" value={d.postalCode} error={errors['delivery.postalCode']} onChange={(e) => setDelivery({ postalCode: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="delivery-city" label="City" value={d.city} error={errors['delivery.city']} onChange={(e) => setDelivery({ city: e.target.value })} className="text-base sm:text-sm" />
             </div>
             <CountrySelect id="delivery-country" label="Country" value={d.country} error={errors['delivery.country']} onChange={(country) => setDelivery({ country })} />
             <div className="grid grid-cols-2 gap-3">

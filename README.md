@@ -275,3 +275,11 @@ cp .env.example .env.local   # uzupełnij klucz anon
 npm run dev
 npm test && npm run lint && npm run build
 ```
+
+## Testy
+
+- `npm test`: testy jednostkowe (vitest) reguł w `shared/` i serwera w `api/`.
+- `npm run e2e`: **testy funkcjonalne** (Playwright, od 24.11.2026). Uruchamiają prawdziwą aplikację (`vite`) w przeglądarce i wpisują, klikają i sprawdzają ekrany tak jak pracownik. API centrum i Supabase zastępuje backend w pamięci (`e2e/backend.ts`), więc testy nie dotykają żadnej bazy, e-maili ani plików i działają bez sieci. Backend sprawdza żądania tymi samymi regułami co serwer (`cleanContract`, `allowedActions`), więc formularz wysyłający coś, co serwer by odrzucił, wywraca test, a nie produkcję.
+  - Generator kontraktów (`e2e/contracts.spec.ts`): kwoty z przecinkiem i kropką, nowy kontrakt z wysłaniem, braki w formularzu, szkic, kilka produktów i przeliczanie jednostek, osobne pola adresu dostawy, unikalne `id` pól, akceptacja z obowiązkowym numerem enova i jego poprawka, podpis, zwrot z komentarzem, ścieżka powyżej 100 000 EUR, poprawka zwróconego kontraktu, widok na telefonie (projekt `phone`).
+  - Pierwszy raz: `npx playwright install chromium`. Przeglądarkę z innego miejsca wskazuje `PLAYWRIGHT_CHROMIUM=/ścieżka/do/chrome`.
+  - Nowy ekran lub poprawka błędu w interfejsie: dopisać scenariusz w `e2e/` (najpierw taki, który pokazuje błąd).

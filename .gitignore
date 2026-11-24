@@ -25,3 +25,7 @@ dist-ssr
 .vercel
 .env*.local
 .env
+
+# Playwright (npm run e2e)
+test-results
+playwright-report
