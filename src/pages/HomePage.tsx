@@ -33,13 +33,22 @@ export function HomePage() {
         </p>
       </div>
       <ContestWidget />
+      {/* Wide screens (xl): Contracts with Latest news under it, the Sales leaderboard beside both. Every card keeps
+          its own height (items-start; the second row takes the rest), so a short Contracts card is not stretched to
+          the leaderboard's height. Narrower screens (an iPad upright, phones): one column, Contracts, leaderboard,
+          news. */}
       {(contracts || leaderboard) && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {contracts && <ContractsWidget className={leaderboard ? 'lg:col-span-2' : 'lg:col-span-3'} />}
-          {leaderboard && <LeaderboardWidget className={contracts ? '' : 'lg:col-span-2'} />}
+        <div className="grid items-start gap-4 sm:gap-6 xl:grid-cols-3 xl:grid-rows-[auto_1fr]">
+          {contracts && <ContractsWidget className={leaderboard ? 'xl:col-span-2' : 'xl:col-span-3'} />}
+          {leaderboard && <LeaderboardWidget className={contracts ? 'xl:row-span-2' : 'xl:col-span-2'} />}
+          {news && (
+            <div className={contracts && leaderboard ? 'xl:col-span-2' : 'xl:col-span-3'}>
+              <LatestNews />
+            </div>
+          )}
         </div>
       )}
-      {news && <LatestNews />}
+      {news && !contracts && !leaderboard && <LatestNews />}
       {!anyWidget && <AppTiles />}
     </div>
   );
