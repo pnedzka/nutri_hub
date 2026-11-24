@@ -226,6 +226,14 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                   <td className={`${td} min-w-40`}>
                     <p className="font-medium text-gray-900">{o.supplier ?? (o.trader ? `BID SELL from ${o.trader}` : 'Unknown supplier')}</p>
                     {o.productName && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">{o.productName}</p>}
+                    {o.bidSell && (
+                      <p className="mt-1">
+                        <Pill tone="blue" title={o.bidSell.text ?? undefined}>
+                          {['BID SELL', o.bidSell.offeredAt && day(o.bidSell.offeredAt), o.bidSell.trader].filter(Boolean).join(' · ')}
+                        </Pill>
+                        {o.bidSell.paymentTerms && <span className="ml-1.5 text-xs text-gray-500">{o.bidSell.paymentTerms}</span>}
+                      </p>
+                    )}
                     {soldOptions.includes(o.id) && (
                       <p className="mt-1">
                         <Pill tone="green">Sold</Pill>
