@@ -13,6 +13,7 @@ import {
 } from '../shared/contractsApi.ts';
 import { archiveViewerName, type ArchiveContract, type ArchiveItem } from '../shared/contractsArchive.ts';
 import { dayOf, dayStart, monthOf, shiftDay, type CalendarItem, type CalendarWeek } from '../shared/dashboard.ts';
+import type { TeamMember } from '../shared/profile.ts';
 
 // An in-memory stand-in for the hub's API and Supabase, so the functional tests drive the real app without a database.
 // The contract generator's requests are checked with the same rules as the server (cleanContract, allowedActions), so a
@@ -72,7 +73,29 @@ function archiveContract(c: ArchiveItem): ArchiveContract {
   };
 }
 
+/** Team (GET /api/people): two people on the Board, a sales director with two traders, an administrator, a newcomer. */
+export function teamOf(): TeamMember[] {
+  const member = (p: Pick<TestPerson, 'email' | 'name'>, jobTitle: string, department: string, manager: TestPerson | null): TeamMember => ({
+    id: userId(p as TestPerson), email: p.email, name: p.name, jobTitle, department, phone: null, mobile: '+48 600 000 000', linkedin: null,
+    officeId: null, managerId: manager ? userId(manager) : null, avatarUrl: null,
+  });
+  return [
+    member(BOARD, 'Chief Executive Officer', 'Board', null),
+    member(PARTNER, 'Partner', 'Board', null),
+    member(SIGNER, 'Sales Director', 'Trade', BOARD),
+    member(TRADER, 'Trader', 'Trade', SIGNER),
+    member(TRADER_TWO, 'Junior Trader', 'Trade', SIGNER),
+    member(ADMINISTRATION, 'Office Manager', 'Administration', PARTNER),
+    member(NEWCOMER, 'Intern', 'Trade', null),
+  ];
+}
+export const PARTNER: TestPerson = { email: 'pia.partner@example.com', name: 'Pia Partner', role: 'admin', apps: [] };
+export const TRADER_TWO: TestPerson = { email: 'tia.trade@example.com', name: 'Tia Trade', role: 'user', apps: [] };
+export const NEWCOMER: TestPerson = { email: 'nina.new@example.com', name: 'Nina New', role: 'user', apps: [] };
+
 export interface Backend {
+  /** Everyone in Team; a test may change it before opening the page. */
+  people: TeamMember[];
   contracts: Map<string, Contract>;
   drafts: Map<string, Draft>;
   /** Every POST body the app sent to the contracts API, in order. */
@@ -126,6 +149,7 @@ export async function startBackend(page: Page): Promise<Backend> {
   const drafts = new Map<string, Draft>();
   const posts: Record<string, unknown>[] = [];
   let seq = 14;
+  const backend = { people: teamOf() };
   const files: Backend['files'] = { terms: null, signature: null, scan: null };
 
   const viewer = () => ({ email: me.email, isContractAdmin: Boolean(me.isContractAdmin), canSign: Boolean(me.canSign), isBoard: Boolean(me.isBoard) });
@@ -163,6 +187,9 @@ export async function startBackend(page: Page): Promise<Backend> {
     const url = new URL(request.url());
     if (url.searchParams.get('resource') === 'dashboard') return json(route, dashboard(url, me));
     if (url.pathname === '/api/news') return json(route, { posts: [] });
+    if (url.pathname === '/api/people' && !url.searchParams.has('resource') && request.method() === 'GET') {
+      return json(route, { people: backend.people, offices: [], me: userId(me) });
+    }
     if (url.searchParams.get('resource') !== 'contracts') return json(route, request.method() === 'GET' ? {} : { ok: true });
 
     if (request.method() === 'GET') {
@@ -261,6 +288,12 @@ export async function startBackend(page: Page): Promise<Backend> {
   });
 
   return {
+    get people() {
+      return backend.people;
+    },
+    set people(list) {
+      backend.people = list;
+    },
     contracts,
     drafts,
     posts,
