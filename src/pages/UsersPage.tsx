@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowLeft, Ban, KeyRound, Mail, Pencil, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Ban, KeyRound, Mail, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { APP_IDS, APP_NAMES, DEFAULT_APPS, grantableApps, type AppId, type Role } from '../../shared/access.ts';
+import { APP_NAMES, DEFAULT_APPS, grantableApps, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
 import { available } from '../apps';
 import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
+import { AppPicker } from '../components/AppPicker';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { OfficesCard } from '../components/OfficesCard';
@@ -56,53 +57,8 @@ function UserName({ user }: { user: UserRow }) {
   );
 }
 
-const APP_NOTES: Partial<Record<AppId, string>> = {
-  intranet: '(tile only, separate sign-in)',
-  'create-users': '(invites new people, with apps they have themselves)',
-  'contracts-admin': '(Contract generator: accepts contracts after entering the order in enova, sees all contracts)',
-  'contracts-sign': '(Contract generator: signs contracts; board members sign those above 100 000 EUR)',
-};
-
-/**
- * Checkboxes for the apps a person may use. Administrators may use every app, so the list is then fixed. `options`
- * limits the list (someone who is not an administrator gives only their own apps).
- */
-function AppPicker({
-  value,
-  onChange,
-  admin,
-  disabled,
-  options = APP_IDS,
-}: {
-  value: AppId[];
-  onChange: (apps: AppId[]) => void;
-  admin: boolean;
-  disabled?: boolean;
-  options?: readonly AppId[];
-}) {
-  const toggle = (id: AppId, on: boolean) => onChange(APP_IDS.filter((a) => (a === id ? on : value.includes(a))));
-  return (
-    <fieldset className="space-y-1" disabled={disabled}>
-      <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Apps</legend>
-      {options.filter((id) => available(id)).map((id) => (
-        <label key={id} className="flex items-start gap-2 py-1 min-h-8 pointer-coarse:min-h-11 text-sm text-gray-700">
-          <input type="checkbox" className="mt-0.5" checked={admin || value.includes(id)} disabled={admin} onChange={(e) => toggle(id, e.target.checked)} />
-          <span>
-            {APP_NAMES[id]}
-            {APP_NOTES[id] && <span className="ml-1 text-xs text-gray-400">{APP_NOTES[id]}</span>}
-          </span>
-        </label>
-      ))}
-      {admin && <p className="text-xs text-gray-500">Administrators can use every app.</p>}
-    </fieldset>
-  );
-}
-
-/** The person's apps as chips, with a button that turns them into checkboxes (Save / Cancel). */
-function UserApps({ user, onSave }: { user: UserRow; onSave: (apps: AppId[]) => Promise<boolean> }) {
-  const [draft, setDraft] = useState<AppId[] | null>(null);
-  const [saving, setSaving] = useState(false);
-
+/** The person's apps as chips; they are changed on the account's Edit page ("⋯" → Edit). */
+function UserApps({ user }: { user: UserRow }) {
   if (user.role === 'admin') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-[#CC1F1F]/10 px-2 py-0.5 text-[11px] font-medium text-[#CC1F1F]">
@@ -110,40 +66,12 @@ function UserApps({ user, onSave }: { user: UserRow; onSave: (apps: AppId[]) => 
       </span>
     );
   }
-
-  if (draft) {
-    const save = async () => {
-      setSaving(true);
-      const saved = await onSave(draft);
-      setSaving(false);
-      if (saved) setDraft(null);
-    };
-    return (
-      <div className="space-y-2">
-        <AppPicker value={draft} onChange={setDraft} admin={false} disabled={saving} />
-        <div className="flex gap-1">
-          <Button size="sm" onClick={() => void save()} isLoading={saving}>Save</Button>
-          <Button size="sm" variant="ghost" onClick={() => setDraft(null)} disabled={saving}>Cancel</Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-wrap items-center gap-1">
       {user.apps.length === 0 && <span className="text-xs text-amber-700">No apps</span>}
       {user.apps.filter((id) => available(id)).map((id) => (
         <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{APP_NAMES[id]}</span>
       ))}
-      <button
-        type="button"
-        onClick={() => setDraft(user.apps)}
-        className="rounded p-1 pointer-coarse:p-2.5 pointer-coarse:-my-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-        aria-label={`Edit the apps of ${user.email}`}
-        title="Edit apps"
-      >
-        <Pencil size={13} />
-      </button>
     </div>
   );
 }
@@ -211,7 +139,6 @@ export function UsersPage() {
     }
   };
 
-  const setApps = (u: UserRow) => (apps: AppId[]) => update(u.id, { apps }, 'Apps changed');
 
   const setActive = async (u: UserRow, active: boolean) => {
     const question = active
@@ -275,7 +202,7 @@ export function UsersPage() {
   const deactivated = (u: UserRow) => u.status === 'deactivated';
 
   const actions = (u: UserRow) => {
-    const items: MenuAction[] = [{ label: 'Edit profile and history', icon: <SquarePen size={15} />, to: `/users/${u.id}` }];
+    const items: MenuAction[] = [{ label: 'Edit profile, apps and history', icon: <SquarePen size={15} />, to: `/users/${u.id}` }];
     if (!deactivated(u)) {
       items.push(
         { label: u.status === 'invited' ? 'Resend invitation' : 'Reset password (e-mail link)', icon: <Mail size={15} />, onSelect: () => void sendLink(u) },
@@ -383,7 +310,7 @@ export function UsersPage() {
                   <div className="shrink-0 -mr-2 -mt-1">{actions(u)}</div>
                   </div>
                   {roleSelect(u)}
-                  <UserApps user={u} onSave={setApps(u)} />
+                  <UserApps user={u} />
                 </li>
               ))}
             </ul>
@@ -406,7 +333,7 @@ export function UsersPage() {
                         <div className="mt-1">{statusPill(u)}</div>
                       </td>
                       <td className="px-4 py-3">{roleSelect(u)}</td>
-                      <td className="px-4 py-3 max-w-[260px]"><UserApps user={u} onSave={setApps(u)} /></td>
+                      <td className="px-4 py-3 max-w-[260px]"><UserApps user={u} /></td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap" title={`Created ${formatDateTime(u.created_at)}`}>{formatDateTime(u.last_sign_in_at)}</td>
                       <td className="px-4 py-3 text-right">{actions(u)}</td>
                     </tr>
