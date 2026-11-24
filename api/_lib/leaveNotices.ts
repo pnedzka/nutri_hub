@@ -12,6 +12,7 @@ export const LEAVE_TYPE_PL: Record<LeaveType, string> = {
   childcare: 'opieka nad dzieckiem',
   unpaid: 'urlop bezpłatny',
   sick: 'zwolnienie lekarskie (L4)',
+  business_trip: 'delegacja',
 };
 
 const PL_DATE = new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });

@@ -13,6 +13,7 @@ import { ADMIN_ONLY, datesProblem, isLeaveType, LEAVE_TYPE_NAMES, limitProblem, 
 import type { LeaveDecision, LeaveOverview, NewLeaveRequest } from '../../shared/leaveApi.js';
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
+import { calendarLeave, syncToCalendar } from '../_lib/googleCalendar.js';
 import { allSettings, approversOf, balances, canDecide, REQUEST_COLUMNS, todayInPoland, toRequestView } from '../_lib/leave.js';
 import { appPeople, toPerson, type PersonRow } from '../_lib/people.js';
 import { leaveCancelled, leaveEntered, requestDecided, requestSubmitted, requestWithdrawn, type LeaveFacts } from '../_lib/leaveNotices.js';
@@ -137,12 +138,15 @@ export function POST(request: Request): Promise<Response> {
       ? leaveEntered(facts, owner, byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email }, managerOf(userId, settings, byId))
       : requestSubmitted(facts, owner, approversOf(userId, settings.get(userId), people));
     for (const notice of notices) await notify(appUrl(request), notice);
+    // Entered by an administrator = approved: into the shared Google Calendar (api/_lib/googleCalendar.ts).
+    if (row.status === 'approved') await syncToCalendar([calendarLeave(row, owner.name)], appUrl(request));
 
     return json({ request: toRequestView(row, new Map(people.map((p) => [p.id, p]))) }, 201);
   });
 }
 
 const ACTIONS = ['approve', 'reject', 'cancel'] as const;
+
 
 /** The person's manager, if they have one with access to Leave. */
 function managerOf(userId: string, settings: Map<string, { managerId: string | null }>, byId: Map<string, PersonRow>): PersonRow | null {
@@ -212,6 +216,8 @@ export function PATCH(request: Request): Promise<Response> {
           : requestDecided(facts, status, owner, actor, approvers.filter((p) => p.id !== viewer.id), note);
       for (const notice of notices) await notify(appUrl(request), notice);
     }
+    // Approved: into the shared Google Calendar; cancelled (also after approval): out of it. A rejected request was never there.
+    if (status !== 'rejected') await syncToCalendar([calendarLeave(updated, owner?.name ?? 'Pracownik')], appUrl(request));
 
     return json({ request: toRequestView(updated, byId) });
   });

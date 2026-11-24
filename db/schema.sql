@@ -39,7 +39,7 @@ create table if not exists public.leave_allowances (
 create table if not exists public.leave_requests (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  type text not null check (type in ('vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick')),
+  type text not null check (type in ('vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick', 'business_trip')),
   start_date date not null,
   end_date date not null,
   half_day boolean not null default false,
@@ -63,6 +63,10 @@ create index if not exists leave_settings_manager on public.leave_settings (mana
 alter table public.leave_settings enable row level security;
 alter table public.leave_allowances enable row level security;
 alter table public.leave_requests enable row level security;
+-- Business trips (24.11.2026): databases created before it get the wider list of types.
+-- One statement (the Supabase MCP hangs on a separate "drop").
+alter table public.leave_requests drop constraint if exists leave_requests_type_check,
+  add constraint leave_requests_type_check check (type in ('vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick', 'business_trip'));
 
 -- News: editors chosen by administrators in News → Editors (administrators always publish).
 create table if not exists public.news_editors (
