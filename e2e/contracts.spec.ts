@@ -234,3 +234,38 @@ test.describe('documents', () => {
     expect(downloads[1].at - downloads[0].at).toBeGreaterThanOrEqual(1000);
   });
 });
+
+test.describe('archive (intranet)', () => {
+  test('a trader sees only their own old contracts, read only, with the attachments', async ({ page }) => {
+    await backend.as(TRADER);
+    await page.goto('/contracts');
+    await page.getByRole('link', { name: 'Archive (intranet)' }).click();
+    await expect(page.getByText('Old Client SARL')).toBeVisible();
+    await expect(page.getByText('Supplier Ltd')).toHaveCount(0);
+    await page.getByText('Old Client SARL').click();
+    await expect(page).toHaveURL(/\/contracts\/archive\/13-S-TT-2026$/);
+    await expect(page.getByText('From the old intranet, read only')).toBeVisible();
+    await expect(page.getByText(money(4700, 'EUR')).first()).toBeVisible();
+    await expect(page.getByText('25 Nov 2026')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'signed contract.pdf' })).toHaveAttribute('href', 'http://files.test/signed.pdf');
+    await expect(page.getByRole('button', { name: /^(Sign the contract|Accept the contract|Correct the contract)$/ })).toHaveCount(0);
+
+    await page.goto('/contracts/archive/40-P-AA-2025');
+    await expect(page.getByText(/belongs to another trader/)).toBeVisible();
+  });
+
+  test('administration sees every old contract and can filter them', async ({ page }) => {
+    await backend.as(ADMINISTRATION);
+    await page.goto('/contracts/archive');
+    await expect(page.getByText('Supplier Ltd')).toBeVisible();
+    await page.getByLabel('Type').selectOption('S');
+    await expect(page.getByText('Supplier Ltd')).toHaveCount(0);
+    await page.getByLabel('Type').selectOption('');
+    await page.getByLabel('Trader').selectOption('Other Trader');
+    await expect(page.getByText('Old Client SARL')).toHaveCount(0);
+    await page.getByLabel('Trader').selectOption('');
+    await page.getByLabel('Search the archive').fill('pea protein');
+    await expect(page.getByText('Supplier Ltd')).toBeVisible();
+    await expect(page.getByText('Old Client SARL')).toHaveCount(0);
+  });
+});
