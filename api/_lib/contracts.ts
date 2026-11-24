@@ -364,10 +364,20 @@ export function contractsPost(request: Request): Promise<Response> {
         need(body.action);
         const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 1000) : null;
         const extra: Record<string, unknown> = {};
-        if (body.action === 'accept') extra.enovaOrder = String((body as { enovaOrder?: unknown }).enovaOrder ?? '').trim().slice(0, 60);
+        if (body.action === 'accept') {
+          extra.enovaOrder = String((body as { enovaOrder?: unknown }).enovaOrder ?? '').trim().slice(0, 60);
+          if (!extra.enovaOrder) throw new HttpError(400, 'Enter the internal order number from enova.');
+        }
         if (body.action === 'sign') extra.title = me.title || (isBoard(me) ? 'Board Member' : '');
         const contract = await call<Contract>('act', { p_id: id, p_action: body.action, p_actor: actor, p_comment: comment, p_extra: extra });
         await notify(request, contract, body.action, me, people, comment);
+        return json({ contract });
+      }
+      case 'order_number': {
+        need('order_number');
+        const enovaOrder = String(body.enovaOrder ?? '').trim().slice(0, 60);
+        if (!enovaOrder) throw new HttpError(400, 'Enter the internal order number from enova.');
+        const contract = await call<Contract>('set_enova_order', { p_id: id, p_order: enovaOrder, p_actor: actor });
         return json({ contract });
       }
       case 'scanUploadUrl': {

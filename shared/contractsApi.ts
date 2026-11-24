@@ -275,14 +275,15 @@ export const TERMS_TITLE: Record<ContractType, string> = {
 };
 export const signatureFile = (email: string) => `signatures/${email.trim().toLowerCase()}.png`;
 
-export type ContractAction = 'accept' | 'approve' | 'sign' | 'return' | 'cancel' | 'client_scan' | 'edit';
+export type ContractAction = 'accept' | 'approve' | 'sign' | 'return' | 'cancel' | 'client_scan' | 'edit' | 'order_number';
 
 export type ContractRequest =
   | { action: 'create'; contract: ContractInput; draftId?: string }
   | { action: 'saveDraft'; id?: string; contract: ContractInput }
   | { action: 'deleteDraft'; id: string }
   | { action: 'update'; id: string; contract: ContractInput }
-  | { action: 'accept'; id: string; enovaOrder?: string; comment?: string }
+  | { action: 'accept'; id: string; enovaOrder: string; comment?: string }
+  | { action: 'order_number'; id: string; enovaOrder: string }
   | { action: 'approve' | 'sign'; id: string; comment?: string }
   | { action: 'return' | 'cancel'; id: string; comment: string }
   | { action: 'scanUploadUrl'; id: string; fileName: string }
@@ -375,6 +376,8 @@ export function allowedActions(contract: Pick<Contract, 'status' | 'ownerEmail' 
       break;
   }
   if (['admin_review', 'signature', 'board', 'returned'].includes(contract.status) && (own || viewer.isContractAdmin)) can.push('cancel');
+  // Administration may add or correct the internal enova order number after accepting the contract.
+  if (['signature', 'board', 'signed', 'client_signed'].includes(contract.status) && viewer.isContractAdmin) can.push('order_number');
   return can;
 }
 

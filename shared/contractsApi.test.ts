@@ -111,7 +111,9 @@ describe('who may do what', () => {
     expect(allowedActions(c('signature'), marcin)).toEqual(['sign', 'return']);
     expect(allowedActions(c('signature', true), marcin)).toEqual(['approve', 'return']);
     expect(allowedActions(c('board', true), marcin)).toEqual([]);
-    expect(allowedActions(c('board', true), board)).toEqual(['sign', 'return', 'cancel']);
+    expect(allowedActions(c('board', true), board)).toEqual(['sign', 'return', 'cancel', 'order_number']);
+    expect(allowedActions(c('signed'), jadwiga)).toEqual(['client_scan', 'order_number']);
+    expect(allowedActions(c('admin_review'), jadwiga)).not.toContain('order_number');
     expect(allowedActions(c('signed'), trader)).toEqual(['client_scan']);
     expect(allowedActions(c('returned'), trader)).toEqual(['edit', 'cancel']);
     expect(allowedActions(c('cancelled'), board)).toEqual([]);
