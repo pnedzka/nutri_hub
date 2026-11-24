@@ -6,7 +6,8 @@
 // CENTRAL_DB_URL and CENTRAL_DB_SECRET_KEY. Who may take a step is decided here, from profiles.apps of the hub:
 //   contracts        traders: create contracts, see their own;
 //   contracts-admin  administration (Jadwiga) and the hub's administrators: accept, see all, upload terms and signatures;
-//   contracts-sign   Marcin Niećko and the board: sign; above 100 000 EUR net only people of the Board department.
+//   contracts-sign   Marcin Niećko and the board: sign; above 100 000 EUR net only the board: administrators of the
+//                    Board department (decision of 24.11.2026; Marcin is in Board but is not an administrator).
 
 import { randomUUID } from 'node:crypto';
 import { canUse, isAvailable, toApps, type AppId } from '../../shared/access.js';
@@ -72,7 +73,8 @@ async function members(): Promise<Member[]> {
 const uses = (m: Member, app: AppId) => canUse({ role: m.isAdmin ? 'admin' : 'user', apps: m.apps }, app);
 /** People who hold the permission themselves (not only as administrators): they get the e-mails. */
 const holds = (m: Member, app: AppId) => m.apps.includes(app);
-const isBoard = (m: Member) => m.department.toLowerCase() === 'board';
+/** The board signs above the threshold: administrators of the Board department (Paweł, Kacper), not Marcin. */
+const isBoard = (m: Member) => m.isAdmin && m.department.toLowerCase() === 'board';
 
 function viewerOf(m: Member): Viewer {
   return { email: m.email, isContractAdmin: uses(m, 'contracts-admin'), canSign: uses(m, 'contracts-sign'), isBoard: isBoard(m) };
