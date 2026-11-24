@@ -81,7 +81,7 @@ create or replace function contracts_api.archive_get(p_id text, p_viewer_name te
 returns jsonb language sql stable security definer set search_path = raw, public as $$
   select jsonb_build_object('id', a.id, 'type', a.type, 'status', a.status, 'archived', a.archived, 'ownerName', a.owner_name,
     'companyName', a.company_name, 'submissionDate', a.submission_date, 'currency', a.currency, 'amount', a.amount,
-    'buyer', a.payload->'buyer' - 'id', 'products', a.products, 'lines', coalesce(a.payload->'products', '[]'::jsonb), 'delivery', a.payload->'delivery',
+    'buyer', (a.payload->'buyer') - 'id', 'products', a.products, 'lines', coalesce(a.payload->'products', '[]'::jsonb), 'delivery', a.payload->'delivery',
     'paymentTerms', a.payload->'paymentTerms', 'requiredDocuments', a.payload->'requiredDocument',
     'representative', a.payload->>'representative', 'signedByRepresentative', a.payload->'isSignedByRepresentative',
     'linkedContractId', a.payload->>'linkedOppositeContractId', 'proformaInvoiceNumber', a.payload->>'proformaInvoiceNumber',
