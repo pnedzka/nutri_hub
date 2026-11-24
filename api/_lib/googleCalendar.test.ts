@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { calendarConfig, eventId, eventTitle, listEvents, toEvent } from './googleCalendar';
+import { calendarConfig, eventId, eventTitle, listEvents, syncToCalendar, toEvent, writesCalendar } from './googleCalendar';
 
 const leave = { id: '3F2A1C9E-0B1D-4E5F-8A9B-112233445566', type: 'vacation' as const, start: '2026-12-28', end: '2026-12-31', halfDay: false, status: 'approved', personName: 'Anna Kowalska' };
 
@@ -68,5 +68,25 @@ describe('events for the dashboard', () => {
     const listUrl = String(fetchMock.mock.calls.at(-1)?.[0]);
     expect(listUrl).toContain('singleEvents=true');
     expect(listUrl).toContain('calendars/team%40example.com/events');
+  });
+});
+
+describe('writing outside production', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('writes only in production', async () => {
+    expect(writesCalendar({ VERCEL_ENV: 'production' })).toBe(true);
+    expect(writesCalendar({ VERCEL_ENV: 'preview' })).toBe(false);
+    expect(writesCalendar({})).toBe(false);
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    vi.stubEnv('GOOGLE_CALENDAR_ID', 'team@example.com');
+    vi.stubEnv('GOOGLE_SERVICE_ACCOUNT', JSON.stringify({ client_email: 'a@b.c', private_key: 'x' }));
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await syncToCalendar([leave], 'https://hub.test')).toEqual({ synced: 0, failed: 0 });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

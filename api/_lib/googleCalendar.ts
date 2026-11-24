@@ -1,7 +1,8 @@
 // Approved leave and business trips from Leave, copied to the company's shared Google Calendar (decision of
 // 24.11.2026: the calendar the team already has in the company Gmail). One-way: the hub is the source, the calendar
 // only shows. A Google service account writes the events; the calendar is shared with its address ("Make changes to
-// events"). Without GOOGLE_CALENDAR_ID and GOOGLE_SERVICE_ACCOUNT (e.g. in Preview) nothing is sent.
+// events"). Without GOOGLE_CALENDAR_ID and GOOGLE_SERVICE_ACCOUNT nothing is sent; outside production (VERCEL_ENV) the
+// calendar is only read, for the dashboard's calendar widget.
 //
 // Each request has its own event id (lv + the request's uuid without dashes; Google allows a–v and 0–9), so writing
 // again only updates it and cancelling deletes it. The daily run (api/_lib/daily.ts) repeats the recent changes, so a
@@ -180,10 +181,15 @@ export async function listEvents(timeMin: string, timeMax: string): Promise<Cale
     });
 }
 
+/** Writes to the calendar only in production (VERCEL_ENV); elsewhere the calendar is only read. */
+export const writesCalendar = (env: Record<string, string | undefined> = process.env) => env.VERCEL_ENV === 'production';
+
 /** Copies requests to the calendar. Never throws: errors go to Sentry (without names) and the daily run repeats it. */
 export async function syncToCalendar(leaves: CalendarLeave[], hubUrl: string): Promise<{ synced: number; failed: number }> {
   const config = calendarConfig();
-  if (!config || !leaves.length) return { synced: 0, failed: 0 };
+  // Only production writes: Preview may have the settings to show the calendar on the dashboard (read only), and its
+  // test leave must not reach the company calendar.
+  if (!config || !leaves.length || !writesCalendar()) return { synced: 0, failed: 0 };
   let synced = 0;
   let failed = 0;
   for (const leave of leaves) {
