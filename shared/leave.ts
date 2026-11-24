@@ -91,6 +91,25 @@ export function polishHolidays(year: number): Set<string> {
   return days;
 }
 
+/** The name of a Polish public holiday on this day, or null. */
+export function holidayName(iso: string): string | null {
+  const year = Number(iso.slice(0, 4));
+  if (!polishHolidays(year).has(iso)) return null;
+  const easter = easterSunday(year);
+  const movable: Record<string, string> = {
+    [toIso(easter)]: 'Easter Sunday',
+    [toIso(addDays(easter, 1))]: 'Easter Monday',
+    [toIso(addDays(easter, 49))]: 'Pentecost',
+    [toIso(addDays(easter, 60))]: 'Corpus Christi',
+  };
+  const fixed: Record<string, string> = {
+    '01-01': "New Year's Day", '01-06': 'Epiphany', '05-01': 'Labour Day', '05-03': 'Constitution Day',
+    '08-15': 'Assumption Day', '11-01': "All Saints' Day", '11-11': 'Independence Day', '12-24': 'Christmas Eve',
+    '12-25': 'Christmas Day', '12-26': 'Second Day of Christmas',
+  };
+  return movable[iso] ?? fixed[iso.slice(5)] ?? 'Public holiday';
+}
+
 export function isWorkingDay(date: Date): boolean {
   const weekday = date.getUTCDay();
   return weekday !== 0 && weekday !== 6 && !polishHolidays(date.getUTCFullYear()).has(toIso(date));
