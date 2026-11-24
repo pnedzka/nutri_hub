@@ -31,3 +31,12 @@ describe('business trip approvers', () => {
     expect(ids('business_trip', 'director')).toEqual(['boss', 'admin']);
   });
 });
+
+describe('settingsFor', () => {
+  it('uses the saved settings, or the defaults of the year asked with the manager', async () => {
+    const { settingsFor } = await import('./leave');
+    const saved = { managerId: 'boss', annualDays: 20, startYear: 2024, carriedOver: 3 };
+    expect(settingsFor(saved, 2026)).toBe(saved);
+    expect(settingsFor(undefined, 2025)).toEqual({ managerId: null, annualDays: 26, startYear: 2025, carriedOver: 0 });
+  });
+});

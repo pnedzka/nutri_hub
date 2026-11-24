@@ -129,6 +129,7 @@ export const EVENT_LABELS: Record<string, string> = {
   link: 'E-mail link sent',
   deactivated: 'Account deactivated',
   reactivated: 'Account reactivated',
+  manager: 'Manager changed',
 };
 
 export interface ProfileEvent {

@@ -97,7 +97,8 @@ export interface EmployeesResponse {
 }
 
 /** PUT /api/leave/employees (administrators) */
-export interface EmployeeSettingsUpdate extends LeaveSettings {
+/** The manager is not here: it is set in User management (PATCH /api/admin/users). */
+export interface EmployeeSettingsUpdate extends Omit<LeaveSettings, 'managerId'> {
   userId: string;
   /** Days granted for the current year. */
   allowance: number;

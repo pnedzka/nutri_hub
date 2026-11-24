@@ -1,14 +1,14 @@
 //   GET /api/leave/employees → EmployeesResponse   (administrators)
 //   PUT /api/leave/employees  body EmployeeSettingsUpdate → { ok: true }
 //
-// Each person's manager, yearly leave, first year tracked and the days carried over into it, plus the days granted
-// for the current year, and whether the person approves everyone's business trips (besides the manager and the
+// Each person's yearly leave, first year tracked and the days carried over into it, plus the days granted
+// for the current year, the manager (read only: set in User management, profiles.manager_id), and whether the person approves everyone's business trips (besides the manager and the
 // administrators). Everyone with access to Leave is listed; people never set up show the defaults.
 
 import type { EmployeeRow, EmployeeSettingsUpdate, EmployeesResponse } from '../../shared/leaveApi.js';
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
-import { allSettings, balances, defaultSettings, todayInPoland, tripApprovers } from '../_lib/leave.js';
+import { allSettings, balances, isSaved, settingsFor, todayInPoland, tripApprovers } from '../_lib/leave.js';
 import { settingsChanged } from '../_lib/leaveNotices.js';
 import { notify } from '../_lib/notifications.js';
 import { appPeople, toPerson } from '../_lib/people.js';
@@ -31,7 +31,7 @@ export function GET(request: Request): Promise<Response> {
     const year = Number(todayInPoland().slice(0, 4));
     const [people, settings, trips] = await Promise.all([appPeople('leave'), allSettings(), tripApprovers()]);
     const byId = new Map(people.map((p) => [p.id, p]));
-    const all = new Map(people.map((p) => [p.id, settings.get(p.id) ?? defaultSettings(year)]));
+    const all = new Map(people.map((p) => [p.id, settingsFor(settings.get(p.id), year)]));
     const balanceById = await balances(
       people.map((p) => p.id),
       year,
@@ -43,7 +43,7 @@ export function GET(request: Request): Promise<Response> {
       return {
         person: toPerson(p),
         isAdmin: p.isAdmin,
-        configured: settings.has(p.id),
+        configured: isSaved(settings.get(p.id)),
         settings: s,
         manager: manager ? toPerson(manager) : null,
         balance: balanceById.get(p.id)!,
@@ -63,9 +63,6 @@ export function PUT(request: Request): Promise<Response> {
     const people = await appPeople('leave');
     const userId = String(body.userId ?? '');
     if (!people.some((p) => p.id === userId)) throw new HttpError(404, 'This person has no access to Leave.');
-    const managerId = body.managerId ? String(body.managerId) : null;
-    if (managerId === userId) throw new HttpError(400, 'A person cannot be their own manager.');
-    if (managerId && !people.some((p) => p.id === managerId)) throw new HttpError(400, 'The manager must have access to Leave.');
     const annualDays = halfDays(body.annualDays, 60);
     const allowance = halfDays(body.allowance, 60);
     const carriedOver = halfDays(body.carriedOver, 999);
@@ -75,7 +72,7 @@ export function PUT(request: Request): Promise<Response> {
     if (!Number.isInteger(startYear) || startYear < 2020 || startYear > year) throw new HttpError(400, `First year: 2020 to ${year}.`);
 
     const [before, { data: allowanceRow, error: readError }, trips] = await Promise.all([
-      allSettings().then((all) => all.get(userId) ?? defaultSettings(year)),
+      allSettings().then((all) => settingsFor(all.get(userId), year)),
       db().from('leave_allowances').select('days').eq('user_id', userId).eq('year', year).maybeSingle(),
       tripApprovers(),
     ]);
@@ -84,7 +81,6 @@ export function PUT(request: Request): Promise<Response> {
 
     const { error } = await db().from('leave_settings').upsert({
       user_id: userId,
-      manager_id: managerId,
       annual_days: annualDays,
       start_year: startYear,
       carried_over: carriedOver,
@@ -106,9 +102,7 @@ export function PUT(request: Request): Promise<Response> {
     }
 
     // L11: the person learns what changed (README "Powiadomienia").
-    const name = (id: string | null) => (id ? (people.find((p) => p.id === id)?.name ?? 'someone') : 'nobody');
     const changes = [
-      ...(before.managerId !== managerId ? [`Manager: ${name(managerId)}`] : []),
       ...(before.annualDays !== annualDays ? [`Days of leave a year: ${annualDays}`] : []),
       ...(before.carriedOver !== carriedOver || before.startYear !== startYear ? [`Days carried over into ${startYear}: ${carriedOver}`] : []),
       ...(beforeAllowance !== allowance && before.annualDays === annualDays ? [`Days for ${year}: ${allowance}`] : []),

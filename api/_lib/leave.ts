@@ -31,9 +31,39 @@ const toSettings = (row: Record<string, unknown>): LeaveSettings => ({
 
 /** Saved settings by person (people without a row use defaultSettings). */
 export async function allSettings(): Promise<Map<string, LeaveSettings>> {
-  const { data, error } = await db().from('leave_settings').select('user_id, manager_id, annual_days, start_year, carried_over');
+  const [{ data, error }, managers] = await Promise.all([
+    db().from('leave_settings').select('user_id, annual_days, start_year, carried_over'),
+    allManagers(),
+  ]);
   if (error) throw error;
-  return new Map((data ?? []).map((row) => [String(row.user_id), toSettings(row)]));
+  const settings = new Map((data ?? []).map((row) => [String(row.user_id), { ...toSettings(row), managerId: managers.get(String(row.user_id)) ?? null }]));
+  // Someone with a manager but no leave settings yet: the defaults (of the year asked, see settingsFor), with the manager.
+  const year = Number(todayInPoland().slice(0, 4));
+  for (const [userId, managerId] of managers) {
+    if (settings.has(userId)) continue;
+    const entry = { ...defaultSettings(year), managerId };
+    UNSAVED.add(entry);
+    settings.set(userId, entry);
+  }
+  return settings;
+}
+
+/** Entries of allSettings() that only carry the manager: no leave settings were saved for the person. */
+const UNSAVED = new WeakSet<LeaveSettings>();
+
+/** Leave settings were saved for the person in Leave → Employees (otherwise the defaults apply). */
+export const isSaved = (settings: LeaveSettings | undefined): boolean => Boolean(settings) && !UNSAVED.has(settings!);
+
+/** The settings that count for a year: the saved ones, or the defaults of that year with the person's manager. */
+export function settingsFor(settings: LeaveSettings | undefined, year: number): LeaveSettings {
+  return settings && isSaved(settings) ? settings : { ...defaultSettings(year), managerId: settings?.managerId ?? null };
+}
+
+/** Everyone's manager (profiles.manager_id, set in User management), by person. */
+async function allManagers(): Promise<Map<string, string>> {
+  const { data, error } = await db().from('profiles').select('id, manager_id').not('manager_id', 'is', null);
+  if (error) throw error;
+  return new Map((data ?? []).map((row) => [String(row.id), String(row.manager_id)]));
 }
 
 /**
@@ -53,7 +83,7 @@ async function ensureAllowances(userId: string, settings: LeaveSettings, year: n
 export async function balances(userIds: string[], year: number, settingsById: Map<string, LeaveSettings>): Promise<Map<string, Balance>> {
   const result = new Map<string, Balance>();
   if (!userIds.length) return result;
-  for (const id of userIds) await ensureAllowances(id, settingsById.get(id) ?? defaultSettings(year), year);
+  for (const id of userIds) await ensureAllowances(id, settingsFor(settingsById.get(id), year), year);
   const [{ data: allowanceRows, error: allowanceError }, { data: requestRows, error: requestError }] = await Promise.all([
     db().from('leave_allowances').select('user_id, year, days').in('user_id', userIds).lte('year', year),
     db()
@@ -71,7 +101,7 @@ export async function balances(userIds: string[], year: number, settingsById: Ma
     const requests: CountedRequest[] = (requestRows ?? [])
       .filter((row) => row.user_id === id)
       .map((row) => ({ type: row.type as LeaveType, start: String(row.start_date), days: Number(row.days), status: row.status as LeaveStatus }));
-    result.set(id, leaveBalance(year, settingsById.get(id) ?? defaultSettings(year), allowances, requests));
+    result.set(id, leaveBalance(year, settingsFor(settingsById.get(id), year), allowances, requests));
   }
   return result;
 }
