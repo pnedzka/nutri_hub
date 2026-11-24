@@ -29,12 +29,7 @@ export function HomePage() {
   const anyWidget = contracts || leaderboard || news || calendar;
   return (
     <div className="space-y-6 sm:space-y-8">
-      <WelcomeCard
-        name={name}
-        email={user.email}
-        avatarUrl={profile?.avatarUrl ?? null}
-        subtitle={anyWidget ? 'Here is what is going on. Your apps are in the menu.' : 'Choose an app to get started.'}
-      />
+      <WelcomeCard name={name} email={user.email} avatarUrl={profile?.avatarUrl ?? null} />
       <ContestWidget />
       {/* Wide screens (xl): Contracts with Latest news under it, the Sales leaderboard beside both. Every card keeps
           its own height (items-start; the second row takes the rest), so a short Contracts card is not stretched to

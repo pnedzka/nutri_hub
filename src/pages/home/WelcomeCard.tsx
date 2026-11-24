@@ -4,9 +4,9 @@ import { Avatar } from '../../components/Avatar';
 
 /**
  * The top of the home page: the person's photo, "Welcome, Paweł!" and a business quote, a new one at every visit
- * (as in the old intranet, in the hub's look). The line under it says what the page shows.
+ * (as in the old intranet, in the hub's look).
  */
-export function WelcomeCard({ name, email, avatarUrl, subtitle }: { name: string | null; email: string; avatarUrl: string | null; subtitle: string }) {
+export function WelcomeCard({ name, email, avatarUrl }: { name: string | null; email: string; avatarUrl: string | null }) {
   const [quote] = useState(() => pickQuote());
   return (
     <section
@@ -22,7 +22,6 @@ export function WelcomeCard({ name, email, avatarUrl, subtitle }: { name: string
             {name ? `Welcome, ${name}!` : 'Welcome!'} <span aria-hidden="true">👋</span>
           </h1>
           <blockquote className="mt-2 border-gray-200 text-sm italic text-gray-600 sm:border-l-2 sm:pl-3 sm:text-base">“{quote}”</blockquote>
-          <p className="mt-2 text-xs text-gray-500">{subtitle}</p>
         </div>
       </div>
     </section>
