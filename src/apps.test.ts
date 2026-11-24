@@ -47,7 +47,7 @@ describe('APPS', () => {
     // The two extra permissions of the Contract generator share its tile.
     const withTiles = APP_IDS.filter((id) => id !== 'contracts-admin' && id !== 'contracts-sign');
     expect(APPS.filter((a) => a.audience === 'app').map((a) => a.id)).toEqual(withTiles);
-    expect(APPS.find((a) => a.id === 'create-users')?.url).toBe('/users');
+    expect(APPS.find((a) => a.id === 'create-users')?.url).toBe('/users/new');
   });
 
   it('has unique ids, https addresses or hub paths', () => {

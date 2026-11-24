@@ -12,6 +12,7 @@ import { ContractsPage } from './pages/contracts/ContractsPage';
 import { HomePage } from './pages/HomePage';
 import { LeavePage } from './pages/leave/LeavePage';
 import { LoginPage } from './pages/LoginPage';
+import { NewUserPage } from './pages/NewUserPage';
 import { NewsPage } from './pages/news/NewsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -73,6 +74,7 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/users" element={<AccountCreatorsOnly><UsersPage /></AccountCreatorsOnly>} />
+          <Route path="/users/new" element={<AccountCreatorsOnly><NewUserPage /></AccountCreatorsOnly>} />
           <Route path="/users/:id" element={<AdminOnly><UserEditPage /></AdminOnly>} />
           <Route path="/contests" element={<AdminOnly><ContestsPage /></AdminOnly>} />
           {available('calls') && <Route path="/calls" element={<AdminOnly><CallsPage /></AdminOnly>} />}

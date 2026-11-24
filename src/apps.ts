@@ -132,7 +132,7 @@ export const APPS: AppTile[] = [
     id: 'create-users',
     name: 'New user accounts',
     description: 'Invite new colleagues and choose which of your apps they can use.',
-    url: '/users',
+    url: '/users/new',
     icon: UserPlus,
     audience: 'app',
   },
