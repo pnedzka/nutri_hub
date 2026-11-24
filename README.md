@@ -41,7 +41,7 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 
 Od 23.11.2026 (decyzja właściciela) strona główna to dashboard z widgetami, a aplikacje są w **menu bocznym** (`src/components/SideNav.tsx`; na telefonie i tablecie przycisk „Menu” pod belką otwiera szufladę). Menu ma grupy Work (moduły centrum), Tools (osobne aplikacje i stary intranet) i Administration, liczone tymi samymi regułami co dawne kafelki (`navSectionsFor` w `src/apps.ts`). Osoba bez żadnego widgetu widzi na stronie głównej kafelki, jak wcześniej. Wygląd jak reszta centrum (białe karty), nie jak stary intranet.
 
-Na górze karta powitalna (`src/pages/home/WelcomeCard.tsx`, od 24.11.2026, jak w starym intranecie): zdjęcie, „Welcome, <imię>! 👋” i losowy cytat biznesowy, inny przy każdym wejściu (lista w `shared/quotes.ts`, bez autorów; nowe dopisywać na końcu).
+Na górze karta powitalna (`src/pages/home/WelcomeCard.tsx`, od 24.11.2026, jak w starym intranecie): zdjęcie, „Welcome, <imię>! 👋” i losowy cytat, inny przy każdym wejściu. Cytaty pobierają się same: serwer centrum (`api/_lib/quotes.ts`, `GET /api/people?resource=quotes`) bierze z [ZenQuotes](https://zenquotes.io/) 50 cytatów z autorami, a Vercel trzyma je w cache 6 godzin, więc lista odświeża się sama kilka razy dziennie i nikt jej nie prowadzi. Odrzucamy zbyt długie i powtórzone (`cleanQuotes` w `shared/quotes.ts`). Pod cytatem jest autor i link do ZenQuotes, bo darmowe API prosi o podanie źródła. Gdy ZenQuotes nie odpowiada, karta bierze cytat z krótkiej listy zapasowej (`FALLBACK_QUOTES` w `shared/quotes.ts`). Stary intranet miał na sztywno 60 cytatów, jeden na dzień.
 
 | Widget | Co pokazuje | Kto widzi |
 | --- | --- | --- |

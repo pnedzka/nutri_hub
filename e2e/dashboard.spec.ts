@@ -44,8 +44,11 @@ test('without Leave and outside the Board and Administration there is no calenda
   await backend.as(TRADER);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
-  // A business quote under the greeting, a new one at every visit.
-  await expect(page.getByRole('region', { name: 'Welcome' }).locator('blockquote')).not.toBeEmpty();
+  // A quote under the greeting, fetched by the hub's server (ZenQuotes), with its author and the source.
+  const welcome = page.getByRole('region', { name: 'Welcome' });
+  await expect(welcome.locator('blockquote')).toHaveText('“Keep going.”');
+  await expect(welcome.getByText('— Test Author')).toBeVisible();
+  await expect(welcome.getByRole('link', { name: 'ZenQuotes' })).toBeVisible();
   await expect(calendar(page)).toHaveCount(0);
 });
 
