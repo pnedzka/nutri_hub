@@ -1,7 +1,7 @@
 // Leave rules shared by the server (which decides) and the browser (which previews): leave types, working days
 // without Polish public holidays, balances and the checks on a request.
 
-export const LEAVE_TYPES = ['vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick'] as const;
+export const LEAVE_TYPES = ['vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick', 'business_trip'] as const;
 export type LeaveType = (typeof LEAVE_TYPES)[number];
 
 export const LEAVE_STATUSES = ['pending', 'approved', 'rejected', 'cancelled'] as const;
@@ -14,6 +14,8 @@ export const LEAVE_TYPE_NAMES: Record<LeaveType, string> = {
   childcare: 'Childcare leave',
   unpaid: 'Unpaid leave',
   sick: 'Sick leave',
+  // Not leave, but an absence the team should see (decision of 24.11.2026): approved like leave, no balance used.
+  business_trip: 'Business trip',
 };
 
 export const LEAVE_STATUS_NAMES: Record<LeaveStatus, string> = {
