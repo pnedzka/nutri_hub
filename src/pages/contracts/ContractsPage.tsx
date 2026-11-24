@@ -5,6 +5,7 @@ import type { ContractSetup } from '../../../shared/contractsApi.ts';
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
 import { CONTRACTS_API, SetupContext } from './common';
+import { ArchiveDetail, ArchiveList } from './Archive';
 import { ContractDetail } from './ContractDetail';
 import { ContractForm } from './ContractForm';
 import { ContractList } from './ContractList';
@@ -33,6 +34,7 @@ export function ContractsPage() {
     ...(reviewer ? [{ to: '/contracts/todo', label: 'To do' }] : []),
     { to: '/contracts', label: 'My contracts' },
     ...(reviewer ? [{ to: '/contracts/all', label: 'All contracts' }] : []),
+    { to: '/contracts/archive', label: 'Archive (intranet)' },
     ...(reviewer ? [{ to: '/contracts/settings', label: 'Settings' }] : []),
   ];
 
@@ -79,6 +81,8 @@ export function ContractsPage() {
             {reviewer && <Route path="todo" element={<ContractList scope="todo" />} />}
             {reviewer && <Route path="all" element={<ContractList scope="all" />} />}
             {reviewer && <Route path="settings" element={<ContractSettings />} />}
+            <Route path="archive" element={<ArchiveList />} />
+            <Route path="archive/:id" element={<ArchiveDetail />} />
             <Route path="new" element={<ContractForm key={location.search} />} />
             <Route path=":id/edit" element={<ContractForm />} />
             <Route path=":id" element={<ContractDetail />} />

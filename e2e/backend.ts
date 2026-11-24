@@ -11,6 +11,7 @@ import {
   type Draft,
   type ProductOption,
 } from '../shared/contractsApi.ts';
+import { archiveViewerName, type ArchiveContract, type ArchiveItem } from '../shared/contractsArchive.ts';
 
 // An in-memory stand-in for the hub's API and Supabase, so the functional tests drive the real app without a database.
 // The contract generator's requests are checked with the same rules as the server (cleanContract, allowedActions), so a
@@ -45,6 +46,30 @@ export const PRODUCTS: ProductOption[] = [
   { id: 11, name: 'Whey protein concentrate 80%', enovaCode: null, cnCode: '04041002' },
   { id: 12, name: 'Pea protein isolate', enovaCode: null, cnCode: null },
 ];
+
+/** Old contracts from the intranet (Archive tab), in the shape contracts_api.archive_list returns. */
+export const ARCHIVE: ArchiveItem[] = [
+  { id: '13-S-TT-2026', type: 'S', status: 'Approved', archived: false, ownerName: TRADER.name, companyName: 'Old Client SARL', submissionDate: '2026-11-19', currency: 'EUR', amount: 4700, products: 'Xylitol' },
+  { id: '40-P-AA-2025', type: 'P', status: 'Approved', archived: false, ownerName: 'Other Trader', companyName: 'Supplier Ltd', submissionDate: '2025-07-02', currency: 'USD', amount: 600, products: 'Pea protein isolate' },
+];
+
+function archiveContract(c: ArchiveItem): ArchiveContract {
+  return {
+    ...c,
+    buyer: { companyName: c.companyName, vatId: 'FR12345678901', street: 'Agropole 1', postalCode: '47931', city: 'Agen', countryCode: 'FR', contactPersonFirstName: 'Helen', contactPersonLastName: 'Smith', contactPersonPosition: '-' },
+    lines: [{ productName: c.products, productGrade: 'Standard', quantity: '1', unit: 'MT', unitPrice: 4.7, priceUnit: 'KG', currency: c.currency }],
+    delivery: { deliveryBasis: 'DDP', city: 'Estillac', countryCode: 'FR', dateFrom: { seconds: Date.UTC(2026, 10, 25, 12) / 1000 }, instructions: '-' },
+    paymentTerms: { paymentType: 'Prepayment', usesFactoring: false, prepaymentDetails: { prepaymentDueDate: '2026-11-23T23:00:00Z' } },
+    requiredDocuments: ['COA', 'Invoice'],
+    representative: 'Bo Board – Chief Executive Officer',
+    signedByRepresentative: true,
+    linkedContractId: null,
+    proformaInvoiceNumber: null,
+    vatInvoiceNumber: null,
+    shipmentDate: null,
+    attachments: [{ type: 'Signed Contract', fileName: 'signed contract.pdf', url: 'http://files.test/signed.pdf', uploadedAt: '2026-11-19T14:38:14Z', uploadedBy: c.ownerName }],
+  };
+}
 
 export interface Backend {
   contracts: Map<string, Contract>;
@@ -151,6 +176,23 @@ export async function startBackend(page: Page): Promise<Backend> {
           return d ? json(route, { draft: d }) : json(route, { error: 'No such draft.' }, 404);
         }
         case 'files': return json(route, { files: [] });
+        case 'archive': {
+          // Same rules as contracts_api.archive_list: a trader sees only their own old contracts, by name.
+          const viewerName = archiveViewerName({ name: me.name, ...viewer() });
+          const mine = ARCHIVE.filter((c) => viewerName === null || c.ownerName === viewerName);
+          const type = url.searchParams.get('type');
+          const owner = url.searchParams.get('owner');
+          const year = Number(url.searchParams.get('year'));
+          const items = mine.filter((c) => (!type || c.type === type) && (!owner || c.ownerName === owner)
+            && (!year || c.submissionDate?.startsWith(String(year)))
+            && (!q || [c.id, c.companyName, c.products].some((v) => v.toLowerCase().includes(q))));
+          return json(route, { total: items.length, items, owners: [...new Set(mine.map((c) => c.ownerName))].sort(), years: [...new Set(mine.map((c) => Number(c.submissionDate?.slice(0, 4))))] });
+        }
+        case 'archiveOne': {
+          const viewerName = archiveViewerName({ name: me.name, ...viewer() });
+          const c = ARCHIVE.find((a) => a.id === url.searchParams.get('id') && (viewerName === null || a.ownerName === viewerName));
+          return c ? json(route, { contract: archiveContract(c) }) : json(route, { error: 'There is no such contract in the intranet archive, or it belongs to another trader.' }, 404);
+        }
         case 'list': return json(route, { items: [...contracts.values()], total: contracts.size });
         case 'one': {
           const c = contracts.get(url.searchParams.get('id') ?? '');
