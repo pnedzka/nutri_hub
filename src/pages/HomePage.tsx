@@ -5,6 +5,7 @@ import { LatestNews } from '../components/LatestNews';
 import { useAuth } from '../lib/auth';
 import { useMyProfile } from '../lib/people';
 import { firstName } from '../lib/user';
+import { CalendarWidget } from './home/CalendarWidget';
 import { ContestWidget } from './home/ContestWidget';
 import { ContractsWidget } from './home/ContractsWidget';
 import { LeaderboardWidget } from './home/LeaderboardWidget';
@@ -23,7 +24,8 @@ export function HomePage() {
   const contracts = canSeeWidget(viewer, 'contracts');
   const leaderboard = canSeeWidget(viewer, 'leaderboard');
   const news = canSeeWidget(viewer, 'news', available('news'));
-  const anyWidget = contracts || leaderboard || news;
+  const calendar = canSeeWidget(viewer, 'calendar', available('leave'));
+  const anyWidget = contracts || leaderboard || news || calendar;
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
@@ -49,6 +51,8 @@ export function HomePage() {
         </div>
       )}
       {news && !contracts && !leaderboard && <LatestNews />}
+      {/* The week across the whole width (seven columns on wide screens, the days with entries on phones). */}
+      {calendar && <CalendarWidget />}
       {!anyWidget && <AppTiles />}
     </div>
   );

@@ -1,7 +1,8 @@
 // Approved leave and business trips from Leave, copied to the company's shared Google Calendar (decision of
 // 24.11.2026: the calendar the team already has in the company Gmail). One-way: the hub is the source, the calendar
 // only shows. A Google service account writes the events; the calendar is shared with its address ("Make changes to
-// events"). Without GOOGLE_CALENDAR_ID and GOOGLE_SERVICE_ACCOUNT (e.g. in Preview) nothing is sent.
+// events"). Without GOOGLE_CALENDAR_ID and GOOGLE_SERVICE_ACCOUNT nothing is sent; outside production (VERCEL_ENV) the
+// calendar is only read, for the dashboard's calendar widget.
 //
 // Each request has its own event id (lv + the request's uuid without dashes; Google allows a–v and 0–9), so writing
 // again only updates it and cancelling deletes it. The daily run (api/_lib/daily.ts) repeats the recent changes, so a
@@ -125,10 +126,70 @@ async function syncOne(config: Config, leave: CalendarLeave, hubUrl: string): Pr
   }
 }
 
+/** An event of the calendar as the dashboard needs it (api/_lib/dashboard.ts). */
+export interface CalendarEventRow {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string | null;
+}
+
+interface GoogleEvent {
+  id?: string;
+  status?: string;
+  summary?: string;
+  location?: string;
+  visibility?: string;
+  start?: { date?: string; dateTime?: string };
+  end?: { date?: string; dateTime?: string };
+  extendedProperties?: { private?: { source?: string } };
+}
+
+/**
+ * The events between two times (repeating ones as single events), for the dashboard's calendar widget; null when the
+ * calendar is not set up. Leaves out the copies of Leave (the widget reads leave from the database) and the titles of
+ * events marked private in Google. Throws when Google does not answer.
+ */
+export async function listEvents(timeMin: string, timeMax: string): Promise<CalendarEventRow[] | null> {
+  const config = calendarConfig();
+  if (!config) return null;
+  const query = new URLSearchParams({
+    singleEvents: 'true', orderBy: 'startTime', timeMin, timeMax, maxResults: '250', timeZone: 'Europe/Warsaw',
+    fields: 'items(id,status,summary,location,visibility,start,end,extendedProperties)',
+  });
+  const response = await fetch(`${API}/calendars/${encodeURIComponent(config.calendarId)}/events?${query}`, {
+    headers: { authorization: `Bearer ${await accessToken(config)}` },
+  });
+  if (!response.ok) throw new Error(`Google Calendar list: HTTP ${response.status}`);
+  const body = (await response.json()) as { items?: GoogleEvent[] };
+  return (body.items ?? [])
+    .filter((e) => e.id && e.status !== 'cancelled' && e.extendedProperties?.private?.source !== 'nutri-hub-leave')
+    .filter((e) => (e.start?.date || e.start?.dateTime) && (e.end?.date || e.end?.dateTime))
+    .map((e) => {
+      const hidden = e.visibility === 'private' || e.visibility === 'confidential';
+      const allDay = Boolean(e.start!.date);
+      return {
+        id: e.id!,
+        title: hidden ? 'Private event' : e.summary?.trim() || '(No title)',
+        start: allDay ? e.start!.date! : e.start!.dateTime!,
+        end: allDay ? e.end!.date! : e.end!.dateTime!,
+        allDay,
+        location: hidden ? null : e.location?.trim() || null,
+      };
+    });
+}
+
+/** Writes to the calendar only in production (VERCEL_ENV); elsewhere the calendar is only read. */
+export const writesCalendar = (env: Record<string, string | undefined> = process.env) => env.VERCEL_ENV === 'production';
+
 /** Copies requests to the calendar. Never throws: errors go to Sentry (without names) and the daily run repeats it. */
 export async function syncToCalendar(leaves: CalendarLeave[], hubUrl: string): Promise<{ synced: number; failed: number }> {
   const config = calendarConfig();
-  if (!config || !leaves.length) return { synced: 0, failed: 0 };
+  // Only production writes: Preview may have the settings to show the calendar on the dashboard (read only), and its
+  // test leave must not reach the company calendar.
+  if (!config || !leaves.length || !writesCalendar()) return { synced: 0, failed: 0 };
   let synced = 0;
   let failed = 0;
   for (const leave of leaves) {
