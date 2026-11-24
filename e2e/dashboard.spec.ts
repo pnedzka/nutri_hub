@@ -43,7 +43,12 @@ test('a person with Leave sees only who is away, without the type or the company
 test('without Leave and outside the Board and Administration there is no calendar', async ({ page }) => {
   await backend.as(TRADER);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /Hello/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
+  // A quote under the greeting, fetched by the hub's server (ZenQuotes), with its author and the source.
+  const welcome = page.getByRole('region', { name: 'Welcome' });
+  await expect(welcome.locator('blockquote')).toHaveText('“Keep going.”');
+  await expect(welcome.getByText('— Test Author')).toBeVisible();
+  await expect(welcome.getByRole('link', { name: 'ZenQuotes' })).toBeVisible();
   await expect(calendar(page)).toHaveCount(0);
 });
 
