@@ -28,7 +28,7 @@ export const APP_NAMES: Record<AppId, string> = {
   news: 'News',
   leave: 'Leave',
   purchase: 'Purchase Manager',
-  contracts: 'Contract generator',
+  contracts: 'Contracts',
   'contracts-admin': 'Contract administration (accepts contracts)',
   'contracts-sign': 'Contract signing',
   intranet: 'Intranet',
