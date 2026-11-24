@@ -37,7 +37,7 @@ import { requireUser } from './auth.js';
 import { activeContestFor } from './contests.js';
 import { listEvents } from './googleCalendar.js';
 import { contractsBetween } from './intranetContracts.js';
-import { allSettings, seesType } from './leave.js';
+import { allSettings, seesType, tripApprovers } from './leave.js';
 import { logError } from './monitoring.js';
 import { HttpError, handle, json } from './http.js';
 import { signAvatars } from './profiles.js';
@@ -74,9 +74,10 @@ const leaveOn = () => isAvailable('leave', process.env.VITE_HUB_MODULES);
 
 /** Approved leave in the days, as the widget shows it: the type only to those who see it in Leave, else "Absent". */
 async function absences(viewer: { id: string; isAdmin: boolean }, from: string, to: string): Promise<CalendarItem[]> {
-  const [{ data, error }, settings] = await Promise.all([
+  const [{ data, error }, settings, trips] = await Promise.all([
     db().from('leave_requests').select('id, user_id, type, start_date, end_date, half_day').eq('status', 'approved').lte('start_date', to).gte('end_date', from),
     allSettings(),
+    tripApprovers(),
   ]);
   if (error) throw error;
   const rows = data ?? [];
@@ -87,7 +88,7 @@ async function absences(viewer: { id: string; isAdmin: boolean }, from: string, 
   const names = new Map((people ?? []).map((p) => [String(p.id), (p.full_name as string | null)?.trim() || String(p.email ?? 'Former user')]));
   return rows.map((r) => {
     const owner = String(r.user_id);
-    const detailed = seesType({ id: viewer.id, email: '', name: null, isAdmin: viewer.isAdmin }, owner, settings.get(owner));
+    const detailed = seesType({ id: viewer.id, email: '', name: null, isAdmin: viewer.isAdmin }, owner, settings.get(owner), { type: String(r.type), tripApprovers: trips });
     const what = detailed ? LEAVE_TYPE_NAMES[r.type as LeaveType] ?? 'Absent' : 'Absent';
     return {
       id: `leave-${r.id}`,

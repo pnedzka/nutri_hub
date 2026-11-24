@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, History, KeyRound, UserRound } from 'lucide-react';
+import { ArrowLeft, History, KeyRound, UserRound, Users } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { EVENT_LABELS, type ProfileEvent, type TeamMember } from '../../shared/profile.ts';
 import { APP_NAMES, isAppId, type AppId } from '../../shared/access.ts';
@@ -7,6 +7,7 @@ import { AppPicker } from '../components/AppPicker';
 import { Button } from '../components/Button';
 import { Card, CardBody, CardHeader } from '../components/Card';
 import { MailboxCard } from '../components/MailboxCard';
+import { ManagerSelect } from '../components/ManagerSelect';
 import { ProfileForm } from '../components/ProfileForm';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
@@ -26,6 +27,7 @@ function eventDetails(event: ProfileEvent): string | null {
   if (event.action === 'apps') return appList(d.to);
   if (event.action === 'created') return d.role === 'admin' ? 'administrator' : `apps: ${appList(d.apps)}`;
   if (event.action === 'link') return d.kind === 'invite' ? 'invitation' : 'password reset';
+  if (event.action === 'manager') return typeof d.to === 'string' ? d.to : 'none';
   return null;
 }
 
@@ -73,12 +75,54 @@ function AccessCard({ user, onSaved }: { user: UserRow; onSaved: (apps: AppId[])
   );
 }
 
+/** The person's manager (approves their leave), saved on its own like the apps. */
+function ManagerCard({ user, people, onSaved }: { user: UserRow; people: UserRow[]; onSaved: (managerId: string | null) => void }) {
+  const toast = useToast();
+  const [managerId, setManagerId] = useState(user.manager_id ?? '');
+  const [saving, setSaving] = useState(false);
+  const changed = managerId !== (user.manager_id ?? '');
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api('/api/admin/users', { method: 'PATCH', body: { id: user.id, managerId: managerId || null } });
+      toast.success('Manager changed');
+      onSaved(managerId || null);
+    } catch (e) {
+      toast.error('Could not save the manager', (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Card>
+      <CardHeader className="flex items-center gap-2">
+        <Users size={16} className="text-[#CC1F1F]" />
+        <h2 className="text-sm font-semibold text-gray-900">Manager</h2>
+      </CardHeader>
+      <CardBody className="space-y-4">
+        <ManagerSelect id="manager" value={managerId} onChange={setManagerId} people={people} personId={user.id} disabled={saving} />
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => void save()} isLoading={saving} disabled={!changed}>
+            Save manager
+          </Button>
+          {changed && (
+            <Button variant="ghost" onClick={() => setManagerId(user.manager_id ?? '')} disabled={saving}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
 /** User management → Edit: an administrator changes a person's contact details and photo, and sees the history. */
 export function UserEditPage() {
   const { id } = useParams();
   const toast = useToast();
   const { offices, load: loadPeople } = usePeople();
   const [user, setUser] = useState<UserRow | null | undefined>(undefined);
+  const [people, setPeople] = useState<UserRow[]>([]);
   const [events, setEvents] = useState<ProfileEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,7 +139,10 @@ export function UserEditPage() {
   useEffect(() => {
     void loadPeople();
     void api<{ users: UserRow[] }>('/api/admin/users')
-      .then(({ users }) => setUser(users.find((u) => u.id === id) ?? null))
+      .then(({ users }) => {
+        setPeople(users);
+        setUser(users.find((u) => u.id === id) ?? null);
+      })
       .catch((e: Error) => setError(e.message));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set when the request resolves
     void loadHistory();
@@ -141,6 +188,17 @@ export function UserEditPage() {
           user={user}
           onSaved={(apps) => {
             setUser((u) => (u ? { ...u, apps } : u));
+            void loadHistory();
+          }}
+        />
+      )}
+      {user && (
+        <ManagerCard
+          key={`manager-${user.id}`}
+          user={user}
+          people={people}
+          onSaved={(managerId) => {
+            setUser((u) => (u ? { ...u, manager_id: managerId } : u));
             void loadHistory();
           }}
         />

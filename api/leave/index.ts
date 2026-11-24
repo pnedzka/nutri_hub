@@ -14,7 +14,7 @@ import type { LeaveDecision, LeaveOverview, NewLeaveRequest } from '../../shared
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
 import { calendarLeave, syncToCalendar } from '../_lib/googleCalendar.js';
-import { allSettings, approversOf, balances, canDecide, REQUEST_COLUMNS, todayInPoland, toRequestView } from '../_lib/leave.js';
+import { allSettings, approversOf, balances, canDecide, REQUEST_COLUMNS, todayInPoland, toRequestView, tripApprovers } from '../_lib/leave.js';
 import { appPeople, toPerson, type PersonRow } from '../_lib/people.js';
 import { leaveCancelled, leaveEntered, requestDecided, requestSubmitted, requestWithdrawn, type LeaveFacts } from '../_lib/leaveNotices.js';
 import { notify } from '../_lib/notifications.js';
@@ -27,7 +27,7 @@ export function GET(request: Request): Promise<Response> {
     const asked = Number(new URL(request.url).searchParams.get('year'));
     const year = Number.isInteger(asked) && asked >= 2020 && asked <= 2100 ? asked : Number(today.slice(0, 4));
 
-    const [people, settings] = await Promise.all([appPeople('leave'), allSettings()]);
+    const [people, settings, trips] = await Promise.all([appPeople('leave'), allSettings(), tripApprovers()]);
     const byId = new Map(people.map((p) => [p.id, p]));
 
     const [{ data: mine, error: mineError }, { data: pending, error: pendingError }] = await Promise.all([
@@ -43,7 +43,7 @@ export function GET(request: Request): Promise<Response> {
     if (mineError) throw mineError;
     if (pendingError) throw pendingError;
 
-    const toDecide = (pending ?? []).filter((row) => canDecide(viewer, settings.get(String(row.user_id))));
+    const toDecide = (pending ?? []).filter((row) => canDecide(viewer, settings.get(String(row.user_id)), { type: String(row.type), tripApprovers: trips }));
     const balanceYears = new Map<number, string[]>();
     for (const row of toDecide) {
       const y = Number(String(row.start_date).slice(0, 4));
@@ -62,7 +62,7 @@ export function GET(request: Request): Promise<Response> {
         request: toRequestView(row, byId),
         balance: others.get(String(row.start_date).slice(0, 4))!.get(String(row.user_id))!,
       })),
-      isApprover: viewer.isAdmin || [...settings.values()].some((s) => s.managerId === viewer.id),
+      isApprover: viewer.isAdmin || trips.has(viewer.id) || [...settings.values()].some((s) => s.managerId === viewer.id),
       isAdmin: viewer.isAdmin,
       people: viewer.isAdmin ? people.map(toPerson) : [],
     };
@@ -136,7 +136,7 @@ export function POST(request: Request): Promise<Response> {
     const byId = new Map(people.map((p) => [p.id, p]));
     const notices = forSomeoneElse
       ? leaveEntered(facts, owner, byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email }, managerOf(userId, settings, byId))
-      : requestSubmitted(facts, owner, approversOf(userId, settings.get(userId), people));
+      : requestSubmitted(facts, owner, approversOf(userId, settings.get(userId), people, { type, tripApprovers: await tripApprovers() }));
     for (const notice of notices) await notify(appUrl(request), notice);
     // Entered by an administrator = approved: into the shared Google Calendar (api/_lib/googleCalendar.ts).
     if (row.status === 'approved') await syncToCalendar([calendarLeave(row, owner.name)], appUrl(request));
@@ -166,7 +166,8 @@ export function PATCH(request: Request): Promise<Response> {
     if (error) throw error;
     if (!row) throw new HttpError(404, 'This request no longer exists.');
     const ownerId = String(row.user_id);
-    const settings = await allSettings();
+    const [settings, trips] = await Promise.all([allSettings(), tripApprovers()]);
+    const deciders = { type: String(row.type), tripApprovers: trips };
 
     let status: 'approved' | 'rejected' | 'cancelled';
     if (action === 'cancel') {
@@ -177,7 +178,7 @@ export function PATCH(request: Request): Promise<Response> {
       }
       status = 'cancelled';
     } else {
-      if (!canDecide(viewer, settings.get(ownerId))) throw new HttpError(403, "Only the person's manager or an administrator can decide.");
+      if (!canDecide(viewer, settings.get(ownerId), deciders)) throw new HttpError(403, "Only the person's manager or an administrator can decide.");
       if (row.status !== 'pending') throw new HttpError(409, 'This request has already been decided or cancelled.');
       status = action === 'approve' ? 'approved' : 'rejected';
     }
@@ -207,7 +208,7 @@ export function PATCH(request: Request): Promise<Response> {
         days: Number(row.days),
         note: (row.note as string | null) ?? null,
       };
-      const approvers = approversOf(ownerId, settings.get(ownerId), people);
+      const approvers = approversOf(ownerId, settings.get(ownerId), people, deciders);
       const notices =
         status === 'cancelled'
           ? ownerId === viewer.id
