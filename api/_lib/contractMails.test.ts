@@ -81,9 +81,37 @@ describe('contract e-mails: who gets what', () => {
   it('return, cancel and the client scan reach everyone involved, never the author', () => {
     const c = contract({ status: 'returned', acceptedBy: stamp('admin@example.com', 'Ada Admin') });
     expect(summary(planContractMails(c, 'return', { email: 'signer@example.com', name: 'Sam Signer' }, people))).toEqual({ 'trader@example.com': 'turn', 'admin@example.com': 'info' });
-    expect(summary(planContractMails({ ...c, status: 'cancelled' }, 'cancel', admin, people))).toEqual({ 'trader@example.com': 'info' });
+    expect(summary(planContractMails({ ...c, status: 'cancelled' }, 'cancel', admin, people))).toEqual({ 'trader@example.com': 'info', 'signer@example.com': 'info' });
     const scanned = contract({ status: 'client_signed', acceptedBy: stamp('admin@example.com', 'Ada Admin'), signedBy: { ...stamp('signer@example.com', 'Sam Signer'), title: 'CEO' } });
     expect(summary(planContractMails(scanned, 'client_scan', trader, people))).toEqual({ 'admin@example.com': 'turn', 'signer@example.com': 'info' });
+  });
+});
+
+describe('contract e-mails: everyone who accepts hears about each step (24.11.2026)', () => {
+  const signer = { email: 'signer@example.com', name: 'Sam Signer' };
+  const board = { email: 'board@example.com', name: 'Bo Board' };
+  const otherBoard: FlowPeople = { ...people, board: ['board@example.com', 'board2@example.com'] };
+
+  it('up to the threshold: administration and the signer, after each other\'s step', () => {
+    const accepted = contract({ status: 'signature', enovaOrder: 'ZO/1', acceptedBy: stamp('admin@example.com', 'Ada Admin') });
+    expect(summary(planContractMails(accepted, 'accept', admin, otherBoard))).toEqual({ 'signer@example.com': 'turn', 'trader@example.com': 'info' });
+    const signed = { ...accepted, status: 'signed' as const };
+    expect(summary(planContractMails(signed, 'sign', signer, otherBoard))).toEqual({ 'trader@example.com': 'turn', 'admin@example.com': 'info' });
+  });
+
+  it('above the threshold: administration, the signer and the whole board, after each step', () => {
+    const accepted = contract({ status: 'signature', boardRequired: true, enovaOrder: 'ZO/2', acceptedBy: stamp('admin@example.com', 'Ada Admin') });
+    expect(summary(planContractMails(accepted, 'accept', admin, otherBoard))).toEqual({
+      'signer@example.com': 'turn', 'trader@example.com': 'info', 'board@example.com': 'info', 'board2@example.com': 'info',
+    });
+    const approved = { ...accepted, status: 'board' as const, approvedBy: stamp('signer@example.com', 'Sam Signer') };
+    expect(summary(planContractMails(approved, 'approve', signer, otherBoard))).toEqual({
+      'board@example.com': 'turn', 'board2@example.com': 'turn', 'trader@example.com': 'info', 'admin@example.com': 'info',
+    });
+    const signed = { ...approved, status: 'signed' as const };
+    expect(summary(planContractMails(signed, 'sign', board, otherBoard))).toEqual({
+      'trader@example.com': 'turn', 'admin@example.com': 'info', 'signer@example.com': 'info', 'board2@example.com': 'info',
+    });
   });
 });
 

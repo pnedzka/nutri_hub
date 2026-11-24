@@ -103,7 +103,7 @@ export const APPS: AppTile[] = [
   },
   {
     id: 'contracts',
-    name: 'Contract generator',
+    name: 'Contracts',
     description: 'Sales and purchase contracts: generate, accept, sign and send them to the client.',
     url: '/contracts',
     icon: FileSignature,
