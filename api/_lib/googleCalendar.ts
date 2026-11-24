@@ -125,6 +125,61 @@ async function syncOne(config: Config, leave: CalendarLeave, hubUrl: string): Pr
   }
 }
 
+/** An event of the calendar as the dashboard needs it (api/_lib/dashboard.ts). */
+export interface CalendarEventRow {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string | null;
+}
+
+interface GoogleEvent {
+  id?: string;
+  status?: string;
+  summary?: string;
+  location?: string;
+  visibility?: string;
+  start?: { date?: string; dateTime?: string };
+  end?: { date?: string; dateTime?: string };
+  extendedProperties?: { private?: { source?: string } };
+}
+
+/**
+ * The events between two times (repeating ones as single events), for the dashboard's calendar widget; null when the
+ * calendar is not set up. Leaves out the copies of Leave (the widget reads leave from the database) and the titles of
+ * events marked private in Google. Throws when Google does not answer.
+ */
+export async function listEvents(timeMin: string, timeMax: string): Promise<CalendarEventRow[] | null> {
+  const config = calendarConfig();
+  if (!config) return null;
+  const query = new URLSearchParams({
+    singleEvents: 'true', orderBy: 'startTime', timeMin, timeMax, maxResults: '250', timeZone: 'Europe/Warsaw',
+    fields: 'items(id,status,summary,location,visibility,start,end,extendedProperties)',
+  });
+  const response = await fetch(`${API}/calendars/${encodeURIComponent(config.calendarId)}/events?${query}`, {
+    headers: { authorization: `Bearer ${await accessToken(config)}` },
+  });
+  if (!response.ok) throw new Error(`Google Calendar list: HTTP ${response.status}`);
+  const body = (await response.json()) as { items?: GoogleEvent[] };
+  return (body.items ?? [])
+    .filter((e) => e.id && e.status !== 'cancelled' && e.extendedProperties?.private?.source !== 'nutri-hub-leave')
+    .filter((e) => (e.start?.date || e.start?.dateTime) && (e.end?.date || e.end?.dateTime))
+    .map((e) => {
+      const hidden = e.visibility === 'private' || e.visibility === 'confidential';
+      const allDay = Boolean(e.start!.date);
+      return {
+        id: e.id!,
+        title: hidden ? 'Private event' : e.summary?.trim() || '(No title)',
+        start: allDay ? e.start!.date! : e.start!.dateTime!,
+        end: allDay ? e.end!.date! : e.end!.dateTime!,
+        allDay,
+        location: hidden ? null : e.location?.trim() || null,
+      };
+    });
+}
+
 /** Copies requests to the calendar. Never throws: errors go to Sentry (without names) and the daily run repeats it. */
 export async function syncToCalendar(leaves: CalendarLeave[], hubUrl: string): Promise<{ synced: number; failed: number }> {
   const config = calendarConfig();

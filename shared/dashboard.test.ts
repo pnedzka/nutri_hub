@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canSeeWidget, isMonth, monthLabel, monthOf, monthStart, rank, shiftMonth, summarize, type ContractRow, type LeaderboardPerson } from './dashboard';
+import { calendarDays, canSeeWidget, dayOf, isDay, seesCompanyCalendar, shiftDay, type CalendarItem, isMonth, monthLabel, monthOf, monthStart, rank, shiftMonth, summarize, type ContractRow, type LeaderboardPerson } from './dashboard';
 
 const viewer = (role: 'admin' | 'user', department: string | null, apps: string[] = []) => ({ role, department, apps });
 
@@ -24,6 +24,56 @@ describe('canSeeWidget', () => {
     expect(canSeeWidget(viewer('user', null, ['news']), 'news')).toBe(true);
     expect(canSeeWidget(viewer('user', 'Trade'), 'news')).toBe(false);
     expect(canSeeWidget(viewer('admin', null), 'news', false)).toBe(false);
+  });
+
+  it('shows the calendar to people with Leave and to those who see the company calendar', () => {
+    expect(canSeeWidget(viewer('user', 'Trade', ['leave']), 'calendar')).toBe(true);
+    expect(canSeeWidget(viewer('user', 'Trade', ['leave']), 'calendar', false)).toBe(false);
+    expect(canSeeWidget(viewer('user', 'Trade'), 'calendar')).toBe(false);
+    expect(canSeeWidget(viewer('user', 'Administration'), 'calendar', false)).toBe(true);
+    expect(canSeeWidget(viewer('admin', null), 'calendar', false)).toBe(true);
+  });
+
+  it('keeps the company Google Calendar (private entries too) to administrators, Board and Administration', () => {
+    expect(seesCompanyCalendar(viewer('admin', null))).toBe(true);
+    expect(seesCompanyCalendar(viewer('user', 'Board'))).toBe(true);
+    expect(seesCompanyCalendar(viewer('user', 'administration'))).toBe(true);
+    expect(seesCompanyCalendar(viewer('user', 'Trade', ['leave']))).toBe(false);
+  });
+});
+
+describe('calendar', () => {
+  const item = (patch: Partial<CalendarItem> & Pick<CalendarItem, 'id' | 'start' | 'end'>): CalendarItem => ({
+    kind: 'event', title: patch.id, detail: null, allDay: false, location: null, ...patch,
+  });
+
+  it('works with days in Polish time', () => {
+    expect(dayOf(new Date('2026-11-24T23:30:00Z'))).toBe('2026-11-25');
+    expect(shiftDay('2026-11-30', 1)).toBe('2026-12-01');
+    expect(shiftDay('2026-01-01', -1)).toBe('2025-12-31');
+    expect(isDay('2026-02-29')).toBe(false);
+    expect(isDay('2026-13-01')).toBe(false);
+    expect(isDay('2026-11-24')).toBe(true);
+  });
+
+  it('puts each entry on the days it lasts, holidays and all-day entries first, then by time', () => {
+    const days = calendarDays('2026-11-24', [
+      item({ id: 'board', start: '2026-11-24T09:00:00+01:00', end: '2026-11-24T10:00:00+01:00' }),
+      item({ id: 'early', start: '2026-11-24T08:00:00+01:00', end: '2026-11-24T09:00:00+01:00' }),
+      item({ id: 'away', kind: 'absence', allDay: true, start: '2026-11-24', end: '2026-11-26' }),
+      item({ id: 'late', start: '2026-11-25T23:30:00+01:00', end: '2026-11-26T00:30:00+01:00' }),
+      item({ id: 'xmas', kind: 'holiday', allDay: true, start: '2026-11-30', end: '2026-12-01' }),
+    ]);
+    expect(days).toHaveLength(7);
+    expect(days.map((d) => d.items.map((i) => i.id))).toEqual([
+      ['away', 'early', 'board'],
+      ['away', 'late'],
+      ['late'],
+      [],
+      [],
+      [],
+      ['xmas'],
+    ]);
   });
 });
 

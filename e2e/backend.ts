@@ -12,6 +12,7 @@ import {
   type ProductOption,
 } from '../shared/contractsApi.ts';
 import { archiveViewerName, type ArchiveContract, type ArchiveItem } from '../shared/contractsArchive.ts';
+import { dayOf, dayStart, monthOf, shiftDay, type CalendarItem, type CalendarWeek } from '../shared/dashboard.ts';
 
 // An in-memory stand-in for the hub's API and Supabase, so the functional tests drive the real app without a database.
 // The contract generator's requests are checked with the same rules as the server (cleanContract, allowedActions), so a
@@ -160,6 +161,8 @@ export async function startBackend(page: Page): Promise<Backend> {
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (url.searchParams.get('resource') === 'dashboard') return json(route, dashboard(url, me));
+    if (url.pathname === '/api/news') return json(route, { posts: [] });
     if (url.searchParams.get('resource') !== 'contracts') return json(route, request.method() === 'GET' ? {} : { ok: true });
 
     if (request.method() === 'GET') {
@@ -272,6 +275,34 @@ export async function startBackend(page: Page): Promise<Backend> {
       return c;
     },
   };
+}
+
+/**
+ * The home page's widgets. Calendar: an absence today and tomorrow for everyone with Leave (the type only for an
+ * administrator), and the company's Google Calendar (a meeting today at 9:00) only for administrators, as the server.
+ */
+const atHour = (day: string, hour: number) => new Date(new Date(dayStart(day)).getTime() + hour * 3_600_000).toISOString();
+
+function dashboard(url: URL, me: TestPerson): unknown {
+  const month = url.searchParams.get('month') ?? monthOf(new Date());
+  const none = { count: 0, eur: 0 };
+  switch (url.searchParams.get('widget')) {
+    case 'contracts': return { month, sales: none, purchases: none, pending: 0, withoutEur: 0, previous: { month, sales: none, purchases: none } };
+    case 'leaderboard': return { month, entries: [] };
+    case 'contest': return { result: null };
+    case 'calendar': {
+      const today = dayOf(new Date());
+      const from = url.searchParams.get('from') ?? today;
+      const admin = me.role === 'admin';
+      const items: CalendarItem[] = from !== today ? [] : [
+        { id: 'leave-1', kind: 'absence', title: 'Tom Trader', detail: admin ? 'Business trip' : 'Absent', start: today, end: shiftDay(today, 2), allDay: true, location: null },
+        ...(admin ? [{ id: 'event-1', kind: 'event' as const, title: 'Meeting Board', detail: null, start: atHour(today, 9), end: atHour(today, 10), allDay: false, location: 'Rzeszów' }] : []),
+      ];
+      const week: CalendarWeek = { from, google: admin ? 'on' : null, items };
+      return week;
+    }
+    default: return { error: 'Unknown widget' };
+  }
 }
 
 const userId = (p: TestPerson) => `00000000-0000-4000-8000-${Buffer.from(p.email).toString('hex').slice(0, 12).padEnd(12, '0')}`;
