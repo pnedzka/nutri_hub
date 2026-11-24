@@ -215,3 +215,22 @@ test('@phone the form fits a phone and amounts can be typed', async ({ page }) =
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test.describe('documents', () => {
+  test('"Download both PDFs" saves the contract and the terms, one after another', async ({ page }) => {
+    backend.files.terms = 'http://files.test/ows.pdf';
+    backend.files.signature = 'http://files.test/signature.png';
+    backend.seed({
+      id: '12-S-TT-2026', status: 'signed', boardRequired: true, amountNet: 160000, amountEur: 160000, enovaOrder: 'ZO/4',
+      signedBy: { email: BOARD.email, name: BOARD.name, at: '2026-11-24T12:00:00Z', title: 'Chief Operating Officer' } as never,
+    });
+    await backend.as(TRADER);
+    await page.goto('/contracts/12-S-TT-2026');
+    const downloads: { name: string; at: number }[] = [];
+    page.on('download', (d) => downloads.push({ name: d.suggestedFilename(), at: Date.now() }));
+    await page.getByRole('button', { name: 'Download both PDFs' }).click();
+    await expect.poll(() => downloads.map((d) => d.name), { timeout: 15_000 }).toEqual(['12-S-TT-2026.pdf', '12-S-TT-2026 - OWS.pdf']);
+    // A moment apart: a browser drops a download that starts while the previous one is being handed over.
+    expect(downloads[1].at - downloads[0].at).toBeGreaterThanOrEqual(1000);
+  });
+});

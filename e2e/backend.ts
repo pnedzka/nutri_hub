@@ -51,6 +51,8 @@ export interface Backend {
   drafts: Map<string, Draft>;
   /** Every POST body the app sent to the contracts API, in order. */
   posts: Record<string, unknown>[];
+  /** Signed links the contract screen gets (terms, signature, scan); served by http://files.test in the tests. */
+  files: { terms: string | null; signature: string | null; scan: string | null };
   /** Signs in as this person (call before page.goto). */
   as(person: TestPerson): Promise<void>;
   /** Adds a contract as if another person had generated it. */
@@ -98,6 +100,7 @@ export async function startBackend(page: Page): Promise<Backend> {
   const drafts = new Map<string, Draft>();
   const posts: Record<string, unknown>[] = [];
   let seq = 14;
+  const files: Backend['files'] = { terms: null, signature: null, scan: null };
 
   const viewer = () => ({ email: me.email, isContractAdmin: Boolean(me.isContractAdmin), canSign: Boolean(me.canSign), isBoard: Boolean(me.isBoard) });
   const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -124,6 +127,11 @@ export async function startBackend(page: Page): Promise<Backend> {
     return json(route, {});
   });
 
+  // Files from signed links: a tiny PDF or PNG, whatever the name says.
+  await page.route('http://files.test/**', (route) => route.request().url().endsWith('.png')
+    ? route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64') })
+    : route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4\n%%EOF\n' }));
+
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -147,7 +155,7 @@ export async function startBackend(page: Page): Promise<Backend> {
         case 'one': {
           const c = contracts.get(url.searchParams.get('id') ?? '');
           if (!c) return json(route, { error: 'No such contract.' }, 404);
-          return json(route, { contract: c, can: allowedActions(c, viewer()), files: { terms: null, signature: null, scan: null } });
+          return json(route, { contract: c, can: allowedActions(c, viewer()), files });
         }
         default: return json(route, { error: `Unknown view ${view}` }, 400);
       }
@@ -211,6 +219,7 @@ export async function startBackend(page: Page): Promise<Backend> {
     contracts,
     drafts,
     posts,
+    files,
     async as(person) {
       me = person;
       await signIn(page, person);
