@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, History, UserRound } from 'lucide-react';
+import { ArrowLeft, History, KeyRound, UserRound } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { EVENT_LABELS, type ProfileEvent, type TeamMember } from '../../shared/profile.ts';
-import { APP_NAMES, isAppId } from '../../shared/access.ts';
+import { APP_NAMES, isAppId, type AppId } from '../../shared/access.ts';
+import { AppPicker } from '../components/AppPicker';
+import { Button } from '../components/Button';
 import { Card, CardBody, CardHeader } from '../components/Card';
 import { MailboxCard } from '../components/MailboxCard';
 import { ProfileForm } from '../components/ProfileForm';
@@ -25,6 +27,50 @@ function eventDetails(event: ProfileEvent): string | null {
   if (event.action === 'created') return d.role === 'admin' ? 'administrator' : `apps: ${appList(d.apps)}`;
   if (event.action === 'link') return d.kind === 'invite' ? 'invitation' : 'password reset';
   return null;
+}
+
+/** The apps the person may use (profiles.apps); administrators may use every app, so the list is then fixed. */
+function AccessCard({ user, onSaved }: { user: UserRow; onSaved: (apps: AppId[]) => void }) {
+  const toast = useToast();
+  const [apps, setApps] = useState<AppId[]>(user.apps);
+  const [saving, setSaving] = useState(false);
+  const admin = user.role === 'admin';
+  const changed = apps.join() !== user.apps.join();
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api('/api/admin/users', { method: 'PATCH', body: { id: user.id, apps } });
+      toast.success('Apps changed');
+      onSaved(apps);
+    } catch (e) {
+      toast.error('Could not save the apps', (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Card>
+      <CardHeader className="flex items-center gap-2">
+        <KeyRound size={16} className="text-[#CC1F1F]" />
+        <h2 className="text-sm font-semibold text-gray-900">Apps and access</h2>
+      </CardHeader>
+      <CardBody className="space-y-4">
+        <AppPicker value={apps} onChange={setApps} admin={admin} disabled={saving} />
+        {!admin && (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void save()} isLoading={saving} disabled={!changed}>
+              Save apps
+            </Button>
+            {changed && (
+              <Button variant="ghost" onClick={() => setApps(user.apps)} disabled={saving}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
 }
 
 /** User management → Edit: an administrator changes a person's contact details and photo, and sees the history. */
@@ -88,6 +134,16 @@ export function UserEditPage() {
             <ProfileForm key={user.id} person={user.profile} offices={offices} onSaved={saved} asAdmin />
           </CardBody>
         </Card>
+      )}
+      {user && (
+        <AccessCard
+          key={`access-${user.id}-${user.role}`}
+          user={user}
+          onSaved={(apps) => {
+            setUser((u) => (u ? { ...u, apps } : u));
+            void loadHistory();
+          }}
+        />
       )}
       {user && user.status !== 'deactivated' && <MailboxCard key={`mailbox-${user.id}`} userId={user.id} owner={user.full_name || user.email} />}
       {user && (
