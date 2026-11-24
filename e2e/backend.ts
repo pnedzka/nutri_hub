@@ -186,6 +186,7 @@ export async function startBackend(page: Page): Promise<Backend> {
     const request = route.request();
     const url = new URL(request.url());
     if (url.searchParams.get('resource') === 'dashboard') return json(route, dashboard(url, me));
+    if (url.searchParams.get('resource') === 'quotes') return json(route, { quotes: [{ text: 'Keep going.', author: 'Test Author' }], source: 'zenquotes' });
     if (url.pathname === '/api/news') return json(route, { posts: [] });
     if (url.pathname === '/api/people' && !url.searchParams.has('resource') && request.method() === 'GET') {
       return json(route, { people: backend.people, offices: [], me: userId(me) });

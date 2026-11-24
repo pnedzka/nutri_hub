@@ -9,6 +9,7 @@ import { CalendarWidget } from './home/CalendarWidget';
 import { ContestWidget } from './home/ContestWidget';
 import { ContractsWidget } from './home/ContractsWidget';
 import { LeaderboardWidget } from './home/LeaderboardWidget';
+import { WelcomeCard } from './home/WelcomeCard';
 
 /**
  * The home page: a dashboard of widgets (decision of 23.11.2026; the apps are in the side menu). Each person sees the
@@ -28,12 +29,7 @@ export function HomePage() {
   const anyWidget = contracts || leaderboard || news || calendar;
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{name ? `Hello, ${name}` : 'Hello'}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {anyWidget ? 'Here is what is going on. Your apps are in the menu.' : 'Choose an app to get started.'}
-        </p>
-      </div>
+      <WelcomeCard name={name} email={user.email} avatarUrl={profile?.avatarUrl ?? null} />
       <ContestWidget />
       {/* Wide screens (xl): Contracts with Latest news under it, the Sales leaderboard beside both. Every card keeps
           its own height (items-start; the second row takes the rest), so a short Contracts card is not stretched to
