@@ -328,6 +328,7 @@ export function ContractDetail() {
                   <td className="px-4 sm:px-0 py-2 text-gray-900">
                     {line.name}
                     {line.cnCode && <span className="block text-xs text-gray-500 tabular-nums">CN {formatCn(line.cnCode)}</span>}
+                    {line.notes && <span className="block text-xs text-gray-600 whitespace-pre-line">{line.notes}</span>}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{line.quantity.toLocaleString('en-GB')} {line.unit}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{money(line.unitPrice, c.currency)} / {line.priceUnit === '1000PCS' ? '1000 PCS' : line.priceUnit}</td>

@@ -82,6 +82,8 @@ export interface ProductLine {
   productId: number | null;
   /** CN code (Combined Nomenclature), digits only; optional until enova has codes for every product. */
   cnCode: string;
+  /** Notes for this product (grade, packaging, specification…), printed under its name. */
+  notes: string;
   quantity: number;
   unit: QuantityUnit;
   unitPrice: number;
@@ -437,6 +439,7 @@ export function cleanContract(raw: unknown, today = new Date().toISOString().sli
     name: text(line.name),
     productId: Number.isInteger(line.productId) ? (line.productId as number) : null,
     cnCode: text(line.cnCode, 20).replace(/[^0-9]/g, ''),
+    notes: text(line.notes, 500),
     quantity: num(line.quantity),
     unit: pick(line.unit, QUANTITY_UNITS, 'KG'),
     unitPrice: num(line.unitPrice),

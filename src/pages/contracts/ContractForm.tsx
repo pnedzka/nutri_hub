@@ -45,7 +45,7 @@ import { Section } from './ui';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-const emptyLine = (): ProductLine => ({ name: '', productId: null, cnCode: '', quantity: NaN, unit: 'KG', unitPrice: NaN, priceUnit: 'KG' });
+const emptyLine = (): ProductLine => ({ name: '', productId: null, cnCode: '', notes: '', quantity: NaN, unit: 'KG', unitPrice: NaN, priceUnit: 'KG' });
 
 function blank(owner: string): ContractInput {
   return {
@@ -66,6 +66,7 @@ const restoreLine = (l: Partial<ProductLine>): ProductLine => ({
   ...emptyLine(),
   ...l,
   cnCode: l.cnCode ?? '',
+  notes: l.notes ?? '',
   quantity: typeof l.quantity === 'number' ? l.quantity : NaN,
   unitPrice: typeof l.unitPrice === 'number' ? l.unitPrice : NaN,
 });
@@ -302,15 +303,21 @@ function ProductRow({
           {PRICE_UNITS.map((u) => <option key={u} value={u}>{u === '1000PCS' ? '1000 PCS' : u}</option>)}
         </Select>
       </div>
-      <div className="col-span-2 sm:col-span-12 flex items-center justify-end gap-2">
-        <span className={`text-sm ${total === null ? 'text-red-600' : 'text-gray-900 font-medium'}`}>
-          {total === null ? 'Units do not match' : money(total, currency)}
-        </span>
-        {onRemove && (
-          <button type="button" aria-label="Remove product" onClick={onRemove} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50">
-            <Trash2 size={16} />
-          </button>
-        )}
+      <div className="col-span-2 sm:col-span-12 flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="flex-1">
+          <Input aria-label="Product notes" placeholder="Notes for this product (grade, packaging, specification…)" maxLength={500} value={line.notes}
+            onChange={(e) => onChange({ ...line, notes: e.target.value })} className="text-base sm:text-sm" />
+        </div>
+        <div className="flex items-center justify-end gap-2 sm:min-w-40">
+          <span className={`text-sm ${total === null ? 'text-red-600' : 'text-gray-900 font-medium'}`}>
+            {total === null ? 'Units do not match' : money(total, currency)}
+          </span>
+          {onRemove && (
+            <button type="button" aria-label="Remove product" onClick={onRemove} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50">
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

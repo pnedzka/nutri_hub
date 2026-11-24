@@ -180,3 +180,14 @@ describe('CN codes', () => {
     expect(cleanContract(bad, '2026-11-23').problems.map((p) => p.field)).toContain('products.0.cnCode');
   });
 });
+
+describe('product notes', () => {
+  it('keeps a trimmed note per product, at most 500 characters', () => {
+    const c = valid();
+    c.products[0] = { ...c.products[0], notes: '  Bags 25 kg  ' } as (typeof c.products)[0];
+    expect(cleanContract(c, '2026-11-24').contract.products[0].notes).toBe('Bags 25 kg');
+    c.products[0] = { ...c.products[0], notes: 'x'.repeat(900) } as (typeof c.products)[0];
+    expect(cleanContract(c, '2026-11-24').contract.products[0].notes).toHaveLength(500);
+    expect(cleanContract(valid(), '2026-11-24').contract.products[0].notes).toBe('');
+  });
+});
