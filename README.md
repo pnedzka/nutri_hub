@@ -41,6 +41,8 @@ Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady R
 
 Od 23.11.2026 (decyzja właściciela) strona główna to dashboard z widgetami, a aplikacje są w **menu bocznym** (`src/components/SideNav.tsx`; na telefonie i tablecie przycisk „Menu” pod belką otwiera szufladę). Menu ma grupy Work (moduły centrum), Tools (osobne aplikacje i stary intranet) i Administration, liczone tymi samymi regułami co dawne kafelki (`navSectionsFor` w `src/apps.ts`). Osoba bez żadnego widgetu widzi na stronie głównej kafelki, jak wcześniej. Wygląd jak reszta centrum (białe karty), nie jak stary intranet.
 
+Na górze karta powitalna (`src/pages/home/WelcomeCard.tsx`, od 24.11.2026, jak w starym intranecie): zdjęcie, „Welcome, <imię>! 👋” i losowy cytat biznesowy, inny przy każdym wejściu (lista w `shared/quotes.ts`, bez autorów; nowe dopisywać na końcu).
+
 | Widget | Co pokazuje | Kto widzi |
 | --- | --- | --- |
 | Contracts | liczba kontraktów sprzedaży (S) i zakupu (P) w miesiącu, ich wartość w EUR, zmiana wobec poprzedniego miesiąca, ile czeka na akceptację | admini, działy Board i Administration |

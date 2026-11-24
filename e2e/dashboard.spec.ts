@@ -43,7 +43,9 @@ test('a person with Leave sees only who is away, without the type or the company
 test('without Leave and outside the Board and Administration there is no calendar', async ({ page }) => {
   await backend.as(TRADER);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /Hello/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
+  // A business quote under the greeting, a new one at every visit.
+  await expect(page.getByRole('region', { name: 'Welcome' }).locator('blockquote')).not.toBeEmpty();
   await expect(calendar(page)).toHaveCount(0);
 });
 
