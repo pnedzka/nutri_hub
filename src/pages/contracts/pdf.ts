@@ -98,7 +98,15 @@ export function contractDocument(contract: Contract, images: { logo?: string; si
       body: [
         ['Product', 'Quantity', 'Unit price', 'Total'].map((t, i) => ({ text: t, bold: true, alignment: i ? 'right' : 'left', fillColor: '#F5F5F5' })),
         ...products.map((line) => [
-          line.cnCode ? { stack: [line.name, { text: `CN ${formatCn(line.cnCode)}`, fontSize: 8, color: '#6B7280' }] } : line.name,
+          line.cnCode || line.notes
+            ? {
+                stack: [
+                  line.name,
+                  ...(line.cnCode ? [{ text: `CN ${formatCn(line.cnCode)}`, fontSize: 8, color: '#6B7280' }] : []),
+                  ...(line.notes ? [{ text: line.notes, fontSize: 8, italics: true, color: '#374151' }] : []),
+                ],
+              }
+            : line.name,
           { text: `${qty(line.quantity)} ${line.unit}`, alignment: 'right' },
           { text: `${money(line.unitPrice, contract.currency)} / ${line.priceUnit === '1000PCS' ? '1000 PCS' : line.priceUnit}`, alignment: 'right' },
           { text: money(lineTotal(line) ?? 0, contract.currency), alignment: 'right' },

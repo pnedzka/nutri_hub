@@ -69,7 +69,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
       turn(people.administration, {
         title: `Kontrakt ${id} czeka na Twoją akceptację`,
         lead: `${who} ${verb} kontrakt ${kind} ${id} dla ${contract.companyName}.`,
-        todo: 'Wprowadź zamówienie w enova, a potem zaakceptuj kontrakt w module (możesz dopisać numer zamówienia). Jeśli coś się nie zgadza, zwróć go do poprawki z komentarzem.',
+        todo: 'Wprowadź zamówienie w enova, a potem zaakceptuj kontrakt w module (wpisz wewnętrzny numer zamówienia z enova). Jeśli coś się nie zgadza, zwróć go do poprawki z komentarzem.',
       });
       const next = 'Teraz administracja wprowadza zamówienie w enova i akceptuje kontrakt.';
       info([owner], { title: `Kontrakt ${id} jest u administracji`, lead: `${who} ${verb} kontrakt ${id} w Twoim imieniu. ${next}` });
@@ -79,7 +79,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
     case 'accept':
       turn(signers, {
         title: contract.boardRequired ? `Kontrakt ${id} czeka na Twoje zatwierdzenie` : `Kontrakt ${id} czeka na Twój podpis`,
-        lead: `${who} zaakceptował(a) kontrakt ${id} dla ${contract.companyName}${contract.enovaOrder ? ` (zamówienie enova ${contract.enovaOrder})` : ''}.`,
+        lead: `${who} zaakceptował(a) kontrakt ${id} dla ${contract.companyName}${contract.enovaOrder ? ` (numer zamówienia enova ${contract.enovaOrder})` : ''}.`,
         todo: contract.boardRequired
           ? `Kontrakt przekracza ${threshold} netto: zatwierdź go, a podpisze członek zarządu. Możesz też zwrócić go do poprawki.`
           : 'Sprawdź kontrakt i podpisz go w module. Możesz też zwrócić go do poprawki.',
@@ -176,7 +176,7 @@ export function renderContractMail(contract: Contract, m: Message, name: string,
     ['Wartość netto', amount(contract.amountNet, contract.currency)],
     ['Handlowiec', contract.ownerName],
   ];
-  if (contract.enovaOrder) details.push(['Zamówienie enova', contract.enovaOrder]);
+  if (contract.enovaOrder) details.push(['Numer zamówienia enova', contract.enovaOrder]);
   const hello = `Cześć ${firstName(name)},`;
 
   const P = `margin:0 0 6px;font-size:13px;line-height:1.5;color:${C.text};${FONT}`;

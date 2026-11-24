@@ -111,7 +111,9 @@ describe('who may do what', () => {
     expect(allowedActions(c('signature'), marcin)).toEqual(['sign', 'return']);
     expect(allowedActions(c('signature', true), marcin)).toEqual(['approve', 'return']);
     expect(allowedActions(c('board', true), marcin)).toEqual([]);
-    expect(allowedActions(c('board', true), board)).toEqual(['sign', 'return', 'cancel']);
+    expect(allowedActions(c('board', true), board)).toEqual(['sign', 'return', 'cancel', 'order_number']);
+    expect(allowedActions(c('signed'), jadwiga)).toEqual(['client_scan', 'order_number']);
+    expect(allowedActions(c('admin_review'), jadwiga)).not.toContain('order_number');
     expect(allowedActions(c('signed'), trader)).toEqual(['client_scan']);
     expect(allowedActions(c('returned'), trader)).toEqual(['edit', 'cancel']);
     expect(allowedActions(c('cancelled'), board)).toEqual([]);
@@ -178,5 +180,16 @@ describe('CN codes', () => {
     const bad = valid();
     bad.products[0] = { ...bad.products[0], cnCode: '04' } as (typeof bad.products)[0];
     expect(cleanContract(bad, '2026-11-23').problems.map((p) => p.field)).toContain('products.0.cnCode');
+  });
+});
+
+describe('product notes', () => {
+  it('keeps a trimmed note per product, at most 500 characters', () => {
+    const c = valid();
+    c.products[0] = { ...c.products[0], notes: '  Bags 25 kg  ' } as (typeof c.products)[0];
+    expect(cleanContract(c, '2026-11-24').contract.products[0].notes).toBe('Bags 25 kg');
+    c.products[0] = { ...c.products[0], notes: 'x'.repeat(900) } as (typeof c.products)[0];
+    expect(cleanContract(c, '2026-11-24').contract.products[0].notes).toHaveLength(500);
+    expect(cleanContract(valid(), '2026-11-24').contract.products[0].notes).toBe('');
   });
 });

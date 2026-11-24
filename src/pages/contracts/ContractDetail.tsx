@@ -38,6 +38,7 @@ const ACTION_TEXT: Record<string, string> = {
   return: 'Returned for corrections',
   cancel: 'Cancelled',
   client_scan: 'Scan signed by the client uploaded',
+  order_number: 'Internal order number set',
 };
 
 function Rows({ rows }: { rows: [string, React.ReactNode][] }) {
@@ -92,9 +93,9 @@ function Actions({ detail, onDone }: { detail: Detail; onDone: (c: Contract) => 
             <p className="text-sm text-gray-700">Enter the order in enova, then accept the contract. It goes to Marcin Niećko for signature.</p>
             <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
               <div className="sm:w-64">
-                <Input label="enova order number (optional)" value={enovaOrder} onChange={(e) => setEnovaOrder(e.target.value)} className="text-base sm:text-sm" />
+                <Input label="Internal order number (enova)" required maxLength={60} value={enovaOrder} onChange={(e) => setEnovaOrder(e.target.value)} className="text-base sm:text-sm" />
               </div>
-              <Button className="min-h-11" isLoading={busy === 'accept'} onClick={() => run('accept', { enovaOrder })}>
+              <Button className="min-h-11" isLoading={busy === 'accept'} disabled={!enovaOrder.trim()} onClick={() => run('accept', { enovaOrder: enovaOrder.trim() })}>
                 Accept the contract
               </Button>
             </div>
@@ -151,6 +152,42 @@ function Actions({ detail, onDone }: { detail: Detail; onDone: (c: Contract) => 
             </Button>
           </div>
         )}
+      </div>
+    </Section>
+  );
+}
+
+/** Administration adds or corrects the internal enova order number after accepting the contract. */
+function OrderNumber({ detail, onDone }: { detail: Detail; onDone: () => void }) {
+  const { contract, can } = detail;
+  const toast = useToast();
+  const [value, setValue] = useState(contract.enovaOrder ?? '');
+  const [busy, setBusy] = useState(false);
+  if (!can.includes('order_number')) return null;
+  const changed = value.trim() !== '' && value.trim() !== (contract.enovaOrder ?? '');
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api<{ contract: Contract }>(CONTRACTS_API, { method: 'POST', body: { action: 'order_number', id: contract.id, enovaOrder: value.trim() } });
+      toast.success('Order number saved');
+      onDone();
+    } catch (error) {
+      toast.error('The order number was not saved', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title="Internal order number">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+        <div className="sm:w-64">
+          <Input label="Internal order number (enova)" maxLength={60} value={value} onChange={(e) => setValue(e.target.value)} className="text-base sm:text-sm" />
+        </div>
+        <Button variant="secondary" className="min-h-11" isLoading={busy} disabled={!changed} onClick={save}>
+          Save
+        </Button>
       </div>
     </Section>
   );
@@ -298,6 +335,7 @@ export function ContractDetail() {
       )}
 
       <Actions detail={detail} onDone={load} />
+      <OrderNumber key={c.enovaOrder ?? ''} detail={detail} onDone={load} />
       {c.status !== 'cancelled' && <Documents detail={detail} onDone={load} />}
 
       <Section title={sale ? 'Buyer' : 'Supplier'}>
@@ -328,6 +366,7 @@ export function ContractDetail() {
                   <td className="px-4 sm:px-0 py-2 text-gray-900">
                     {line.name}
                     {line.cnCode && <span className="block text-xs text-gray-500 tabular-nums">CN {formatCn(line.cnCode)}</span>}
+                    {line.notes && <span className="block text-xs text-gray-600 whitespace-pre-line">{line.notes}</span>}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{line.quantity.toLocaleString('en-GB')} {line.unit}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{money(line.unitPrice, c.currency)} / {line.priceUnit === '1000PCS' ? '1000 PCS' : line.priceUnit}</td>
@@ -350,7 +389,7 @@ export function ContractDetail() {
           ['Factoring', payment.factoring ? 'Yes' : 'No'],
           ['Payment notes', payment.notes],
           ['Documents', documents.join(', ')],
-          ['enova order', c.enovaOrder ?? ''],
+          ['Internal order number (enova)', c.enovaOrder ?? ''],
         ]} />
       </Section>
 
