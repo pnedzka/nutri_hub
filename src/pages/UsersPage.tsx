@@ -27,6 +27,8 @@ export interface UserRow {
   last_sign_in_at: string | null;
   /** Contact details and photo, as Team shows them. */
   profile: TeamMember;
+  /** The person's manager (approves their leave), set by administrators. */
+  manager_id: string | null;
 }
 
 const STATUS: Record<UserRow['status'], { label: string; className: string }> = {

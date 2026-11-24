@@ -8,7 +8,7 @@ import { calendarLeave, calendarConfig, syncToCalendar } from './googleCalendar.
 import { recentlyEnded } from './contests.js';
 import { HttpError } from './http.js';
 import { logError } from './monitoring.js';
-import { allSettings, approversOf, todayInPoland } from './leave.js';
+import { allSettings, approversOf, todayInPoland, tripApprovers } from './leave.js';
 import { requestWaiting, teamAwayNext, type LeaveFacts } from './leaveNotices.js';
 import { notify } from './notifications.js';
 import { appPeople } from './people.js';
@@ -82,7 +82,7 @@ export async function runDaily(baseUrl: string): Promise<{ reminders: number; te
   const calendar = await resyncCalendar(baseUrl).catch((error) => (logError('daily.calendar', error), 0));
   const today = todayInPoland();
   if (!isWorkingDay(parseDate(today)!)) return { reminders: 0, teamAway: 0, contestsEnded, calendar };
-  const [people, settings] = await Promise.all([appPeople('leave'), allSettings()]);
+  const [people, settings, trips] = await Promise.all([appPeople('leave'), allSettings(), tripApprovers()]);
   const byId = new Map(people.map((p) => [p.id, p]));
 
   // L9: sent exactly 2 working days ago (so each request is reminded once).
@@ -94,7 +94,7 @@ export async function runDaily(baseUrl: string): Promise<{ reminders: number; te
   for (const row of waiting) {
     const owner = byId.get(String(row.user_id));
     if (!owner) continue;
-    await notify(baseUrl, requestWaiting(facts(row), owner, approversOf(owner.id, settings.get(owner.id), people)));
+    await notify(baseUrl, requestWaiting(facts(row), owner, approversOf(owner.id, settings.get(owner.id), people, { type: String(row.type), tripApprovers: trips })));
     reminders++;
   }
 

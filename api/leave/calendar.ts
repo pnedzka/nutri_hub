@@ -7,7 +7,7 @@ import { eachDate, polishHolidays, type LeaveType } from '../../shared/leave.js'
 import type { CalendarEntry, CalendarResponse } from '../../shared/leaveApi.js';
 import { requireApp } from '../_lib/auth.js';
 import { handle, HttpError, json } from '../_lib/http.js';
-import { allSettings, seesType, todayInPoland } from '../_lib/leave.js';
+import { allSettings, seesType, todayInPoland, tripApprovers } from '../_lib/leave.js';
 import { appPeople, toPerson } from '../_lib/people.js';
 import { db } from '../_lib/supabase.js';
 
@@ -21,9 +21,10 @@ export function GET(request: Request): Promise<Response> {
     const first = `${month}-01`;
     const last = `${month}-${String(new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()).padStart(2, '0')}`;
 
-    const [people, settings, { data, error }] = await Promise.all([
+    const [people, settings, trips, { data, error }] = await Promise.all([
       appPeople('leave'),
       allSettings(),
+      tripApprovers(),
       db()
         .from('leave_requests')
         .select('user_id, type, start_date, end_date, half_day, status')
@@ -36,7 +37,7 @@ export function GET(request: Request): Promise<Response> {
     const entries: CalendarEntry[] = [];
     for (const row of data ?? []) {
       const ownerId = String(row.user_id);
-      const detailed = seesType(viewer, ownerId, settings.get(ownerId));
+      const detailed = seesType(viewer, ownerId, settings.get(ownerId), { type: String(row.type), tripApprovers: trips });
       if (row.status === 'pending' && !detailed) continue;
       entries.push({
         personId: ownerId,

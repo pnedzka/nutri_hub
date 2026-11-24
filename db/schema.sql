@@ -13,7 +13,7 @@ where 'intranet' = any (apps) and not (apps @> array['news', 'leave']::text[]);
 -- Leave: per-employee settings, set by administrators in Leave → Employees.
 create table if not exists public.leave_settings (
   user_id uuid primary key references public.profiles (id) on delete cascade,
-  -- Approves this person's requests (administrators can too).
+  -- No longer read (24.11.2026): the manager is profiles.manager_id, set in User management.
   manager_id uuid references public.profiles (id) on delete set null,
   -- Days of annual leave for each new year, in half days.
   annual_days numeric(4, 1) not null default 26 check (annual_days >= 0 and annual_days <= 60 and annual_days * 2 = floor(annual_days * 2)),
@@ -67,6 +67,15 @@ alter table public.leave_requests enable row level security;
 -- One statement (the Supabase MCP hangs on a separate "drop").
 alter table public.leave_requests drop constraint if exists leave_requests_type_check,
   add constraint leave_requests_type_check check (type in ('vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick', 'business_trip'));
+
+-- Leave: people who approve everyone's business trips besides the manager and the administrators (24.11.2026, e.g.
+-- the sales director), chosen by administrators in Leave → Employees.
+create table if not exists public.leave_trip_approvers (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  added_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table public.leave_trip_approvers enable row level security;
 
 -- News: editors chosen by administrators in News → Editors (administrators always publish).
 create table if not exists public.news_editors (
@@ -190,6 +199,14 @@ alter table public.profiles add column if not exists avatar_path text check (cha
 -- Deactivated accounts cannot sign in (the account is also banned in Supabase Auth) and are hidden from Team and the
 -- modules; their documents, leave and posts stay. Reactivating restores access.
 alter table public.profiles add column if not exists deactivated_at timestamptz;
+-- The person's manager (24.11.2026): set in User management (new account and Edit), approves their leave
+-- (api/_lib/leave.ts). Replaces leave_settings.manager_id, copied over once and no longer read.
+alter table public.profiles add column if not exists manager_id uuid references public.profiles (id) on delete set null;
+alter table public.profiles drop constraint if exists profiles_manager_not_self;
+alter table public.profiles add constraint profiles_manager_not_self check (manager_id is null or manager_id <> id);
+update public.profiles p set manager_id = s.manager_id
+  from public.leave_settings s
+  where s.user_id = p.id and s.manager_id is not null and p.manager_id is null;
 
 -- Who changed an account and when (User management → Edit → History). Written by the hub's server only.
 create table if not exists public.profile_events (
