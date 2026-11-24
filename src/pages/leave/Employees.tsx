@@ -19,6 +19,7 @@ function EditForm({ row, year, people, onSaved, onCancel }: { row: EmployeeRow; 
   const [allowance, setAllowance] = useState(String(row.balance.allowance));
   const [startYear, setStartYear] = useState(String(row.settings.startYear));
   const [carriedOver, setCarriedOver] = useState(String(row.settings.carriedOver));
+  const [approvesTrips, setApprovesTrips] = useState(row.approvesTrips);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +35,7 @@ function EditForm({ row, year, people, onSaved, onCancel }: { row: EmployeeRow; 
         allowance: Number(allowance),
         startYear: Number(startYear),
         carriedOver: Number(carriedOver),
+        approvesTrips,
       };
       await api('/api/leave/employees', { method: 'PUT', body });
       toast.success('Saved', row.person.name);
@@ -74,6 +76,15 @@ function EditForm({ row, year, people, onSaved, onCancel }: { row: EmployeeRow; 
         />
         <Input id={`carried-${row.person.id}`} label={`Carried over into ${startYear || 'that year'}`} {...number} value={carriedOver} onChange={(e) => setCarriedOver(e.target.value)} />
       </div>
+      {!row.isAdmin && (
+        <label className="flex min-h-11 items-start gap-3 text-sm text-gray-700 sm:min-h-0">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#CC1F1F]" checked={approvesTrips} onChange={(e) => setApprovesTrips(e.target.checked)} />
+          <span>
+            Approves business trips
+            <span className="block text-xs text-gray-500">Can approve or reject everyone's business trip requests, besides their manager and the administrators.</span>
+          </span>
+        </label>
+      )}
       <p className="text-xs text-gray-500">
         “Days a year” is used for each new year. “Carried over” is the leave left from before (the old intranet), added to the first year.
       </p>
@@ -100,7 +111,7 @@ export function Employees({ onChange }: { onChange: () => void }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">Everyone with access to Leave. Set each person's manager and days of leave; people not set up yet use 26 days a year.</p>
+      <p className="text-sm text-gray-600">Everyone with access to Leave. Set each person's manager, days of leave and who approves business trips; people not set up yet use 26 days a year.</p>
       <div className="grid gap-4 lg:grid-cols-2">
         {data.employees.map((row) => (
           <Card key={row.person.id}>
@@ -116,6 +127,7 @@ export function Employees({ onChange }: { onChange: () => void }) {
                     Manager: {row.manager?.name ?? '—'} · {formatDays(row.settings.annualDays)} a year
                     {!row.configured && <span className="ml-2 text-amber-700">Not set up</span>}
                   </p>
+                  {row.approvesTrips && !row.isAdmin && <p className="mt-1 text-sm text-gray-600">Approves business trips</p>}
                 </div>
                 {editing !== row.person.id && (
                   <Button variant="secondary" size="sm" className="min-h-11 sm:min-h-0" onClick={() => setEditing(row.person.id)}>

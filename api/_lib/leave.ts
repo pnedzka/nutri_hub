@@ -103,17 +103,35 @@ export function toRequestView(row: RequestRow, people: Map<string, PersonRow>): 
   };
 }
 
-/** Approves or rejects this person's requests: their manager, or any administrator. */
-export function canDecide(viewer: AppUser, ownerSettings: LeaveSettings | undefined): boolean {
-  return viewer.isAdmin || (ownerSettings?.managerId ?? null) === viewer.id;
+/** People who approve everyone's business trips (Leave → Employees, table leave_trip_approvers). */
+export async function tripApprovers(): Promise<Set<string>> {
+  const { data, error } = await db().from('leave_trip_approvers').select('user_id');
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => String(row.user_id)));
+}
+
+/** What a decision depends on besides the person: the request's type and the business trip approvers. */
+export interface Deciders {
+  type?: string;
+  tripApprovers?: ReadonlySet<string>;
+}
+
+const approvesTrip = (id: string, { type, tripApprovers }: Deciders) => type === 'business_trip' && Boolean(tripApprovers?.has(id));
+
+/**
+ * Approves or rejects this person's requests: their manager, any administrator, and for a business trip also the
+ * business trip approvers (decision of 24.11.2026).
+ */
+export function canDecide(viewer: AppUser, ownerSettings: LeaveSettings | undefined, deciders: Deciders = {}): boolean {
+  return viewer.isAdmin || (ownerSettings?.managerId ?? null) === viewer.id || approvesTrip(viewer.id, deciders);
 }
 
 /** Sees the type of this person's leave (the calendar shows others only as absent). */
-export function seesType(viewer: AppUser, ownerId: string, ownerSettings: LeaveSettings | undefined): boolean {
-  return viewer.id === ownerId || canDecide(viewer, ownerSettings);
+export function seesType(viewer: AppUser, ownerId: string, ownerSettings: LeaveSettings | undefined, deciders: Deciders = {}): boolean {
+  return viewer.id === ownerId || canDecide(viewer, ownerSettings, deciders);
 }
 
-/** The people who decide on this person's requests (their manager and the administrators), without the person. */
-export function approversOf(ownerId: string, ownerSettings: LeaveSettings | undefined, people: PersonRow[]): PersonRow[] {
-  return people.filter((p) => p.id !== ownerId && (p.isAdmin || p.id === ownerSettings?.managerId));
+/** The people who decide on this person's requests (as canDecide), without the person. */
+export function approversOf(ownerId: string, ownerSettings: LeaveSettings | undefined, people: PersonRow[], deciders: Deciders = {}): PersonRow[] {
+  return people.filter((p) => p.id !== ownerId && (p.isAdmin || p.id === ownerSettings?.managerId || approvesTrip(p.id, deciders)));
 }

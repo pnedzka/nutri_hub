@@ -87,6 +87,8 @@ export interface EmployeeRow {
   settings: LeaveSettings;
   manager: Person | null;
   balance: Balance;
+  /** Approves everyone's business trips (table leave_trip_approvers); administrators always can. */
+  approvesTrips: boolean;
 }
 
 export interface EmployeesResponse {
@@ -99,4 +101,6 @@ export interface EmployeeSettingsUpdate extends LeaveSettings {
   userId: string;
   /** Days granted for the current year. */
   allowance: number;
+  /** Approves everyone's business trips; left out = unchanged. */
+  approvesTrips?: boolean;
 }

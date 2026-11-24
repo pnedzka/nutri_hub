@@ -68,6 +68,15 @@ alter table public.leave_requests enable row level security;
 alter table public.leave_requests drop constraint if exists leave_requests_type_check,
   add constraint leave_requests_type_check check (type in ('vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick', 'business_trip'));
 
+-- Leave: people who approve everyone's business trips besides the manager and the administrators (24.11.2026, e.g.
+-- the sales director), chosen by administrators in Leave → Employees.
+create table if not exists public.leave_trip_approvers (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  added_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table public.leave_trip_approvers enable row level security;
+
 -- News: editors chosen by administrators in News → Editors (administrators always publish).
 create table if not exists public.news_editors (
   user_id uuid primary key references public.profiles (id) on delete cascade,

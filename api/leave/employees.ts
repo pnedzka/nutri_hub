@@ -2,12 +2,13 @@
 //   PUT /api/leave/employees  body EmployeeSettingsUpdate → { ok: true }
 //
 // Each person's manager, yearly leave, first year tracked and the days carried over into it, plus the days granted
-// for the current year. Everyone with access to Leave is listed; people never set up show the defaults.
+// for the current year, and whether the person approves everyone's business trips (besides the manager and the
+// administrators). Everyone with access to Leave is listed; people never set up show the defaults.
 
 import type { EmployeeRow, EmployeeSettingsUpdate, EmployeesResponse } from '../../shared/leaveApi.js';
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
-import { allSettings, balances, defaultSettings, todayInPoland } from '../_lib/leave.js';
+import { allSettings, balances, defaultSettings, todayInPoland, tripApprovers } from '../_lib/leave.js';
 import { settingsChanged } from '../_lib/leaveNotices.js';
 import { notify } from '../_lib/notifications.js';
 import { appPeople, toPerson } from '../_lib/people.js';
@@ -28,7 +29,7 @@ export function GET(request: Request): Promise<Response> {
   return handle(async () => {
     await requireAdmin(request);
     const year = Number(todayInPoland().slice(0, 4));
-    const [people, settings] = await Promise.all([appPeople('leave'), allSettings()]);
+    const [people, settings, trips] = await Promise.all([appPeople('leave'), allSettings(), tripApprovers()]);
     const byId = new Map(people.map((p) => [p.id, p]));
     const all = new Map(people.map((p) => [p.id, settings.get(p.id) ?? defaultSettings(year)]));
     const balanceById = await balances(
@@ -46,6 +47,7 @@ export function GET(request: Request): Promise<Response> {
         settings: s,
         manager: manager ? toPerson(manager) : null,
         balance: balanceById.get(p.id)!,
+        approvesTrips: trips.has(p.id),
       };
     });
     const response: EmployeesResponse = { year, employees };
@@ -72,9 +74,10 @@ export function PUT(request: Request): Promise<Response> {
     if (carriedOver === null) throw new HttpError(400, 'Days carried over: a number from 0, in half days.');
     if (!Number.isInteger(startYear) || startYear < 2020 || startYear > year) throw new HttpError(400, `First year: 2020 to ${year}.`);
 
-    const [before, { data: allowanceRow, error: readError }] = await Promise.all([
+    const [before, { data: allowanceRow, error: readError }, trips] = await Promise.all([
       allSettings().then((all) => all.get(userId) ?? defaultSettings(year)),
       db().from('leave_allowances').select('days').eq('user_id', userId).eq('year', year).maybeSingle(),
+      tripApprovers(),
     ]);
     if (readError) throw readError;
     const beforeAllowance = allowanceRow ? Number(allowanceRow.days) : before.annualDays;
@@ -94,6 +97,13 @@ export function PUT(request: Request): Promise<Response> {
     if (cleanError) throw cleanError;
     const { error: allowanceError } = await db().from('leave_allowances').upsert({ user_id: userId, year, days: allowance }, { onConflict: 'user_id,year' });
     if (allowanceError) throw allowanceError;
+    const approvesTrips = typeof body.approvesTrips === 'boolean' ? body.approvesTrips : trips.has(userId);
+    if (approvesTrips !== trips.has(userId)) {
+      const { error: tripError } = approvesTrips
+        ? await db().from('leave_trip_approvers').upsert({ user_id: userId, added_by: viewer.id })
+        : await db().from('leave_trip_approvers').delete().eq('user_id', userId);
+      if (tripError) throw tripError;
+    }
 
     // L11: the person learns what changed (README "Powiadomienia").
     const name = (id: string | null) => (id ? (people.find((p) => p.id === id)?.name ?? 'someone') : 'nobody');
@@ -102,6 +112,7 @@ export function PUT(request: Request): Promise<Response> {
       ...(before.annualDays !== annualDays ? [`Days of leave a year: ${annualDays}`] : []),
       ...(before.carriedOver !== carriedOver || before.startYear !== startYear ? [`Days carried over into ${startYear}: ${carriedOver}`] : []),
       ...(beforeAllowance !== allowance && before.annualDays === annualDays ? [`Days for ${year}: ${allowance}`] : []),
+      ...(approvesTrips !== trips.has(userId) ? [approvesTrips ? "You now approve everyone's business trips" : "You no longer approve everyone's business trips"] : []),
     ];
     const owner = people.find((p) => p.id === userId)!;
     const admin = people.find((p) => p.id === viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email };
