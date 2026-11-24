@@ -44,7 +44,7 @@ export function ContractsPage() {
             <ArrowLeft size={16} />
             All apps
           </Link>
-          <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-gray-900">Contract generator</h1>
+          <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-gray-900">Contracts</h1>
         </div>
         {trader && (
           <Button className="min-h-11 sm:min-h-0 inline-flex items-center gap-1.5" onClick={() => navigate('/contracts/new')}>
@@ -56,7 +56,7 @@ export function ContractsPage() {
       {error && <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       {setup && (
         <SetupContext.Provider value={setup}>
-          <nav className="-mx-4 sm:mx-0 overflow-x-auto border-b border-gray-200" aria-label="Contract generator">
+          <nav className="-mx-4 sm:mx-0 overflow-x-auto border-b border-gray-200" aria-label="Contracts">
             <div className="flex gap-1 px-4 sm:px-0">
               {tabs.map((tab) => (
                 <NavLink

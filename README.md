@@ -143,7 +143,7 @@ Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centr
 - **Połączenie z bazą:** serwer woła tylko funkcje schematu `purchase_api` (`db/central/purchase_api.sql`, SECURITY DEFINER, wykonuje je tylko `service_role`) kluczem secret centralnej bazy. Zmienne (Production i Preview, ta sama baza): `CENTRAL_DB_URL` = `https://blbcudymvackpudywdyy.supabase.co`, `CENTRAL_DB_SECRET_KEY` = klucz secret `nutri-central-db`.
 - **Uruchomienie:** (1) `db/central/purchase_api.sql`, potem `db/central/purchase_undo.sql`, `db/central/bid_option_reject.sql`, `db/central/bid_all_offers.sql`, `db/central/offer_search.sql`, `db/central/offer_email.sql` `db/central/bid_card_ranking.sql`, `db/central/bid_card_notify.sql`, `db/central/bid_refresh.sql`, `db/central/bid_card_purchases.sql` `db/central/bid_search_cards.sql` , `db/central/bid_original_prices.sql`, `db/central/offer_spark_link.sql` i `db/central/bid_refresh_new_offers.sql` w SQL Editorze `nutri-central-db`; (2) Project Settings → Data API → Exposed schemas: dopisać `purchase_api`; (3) zmienne wyżej w Vercelu; (4) uprawnienie Purchase Manager w User management. Nowe konta nie dostają go domyślnie (`DEFAULT_APPS`).
 
-## Generator kontraktów (Contract generator, tylko dev)
+## Generator kontraktów (moduł „Contracts”, na produkcji w teście)
 
 Moduł `/contracts` zastępuje generator kontraktów ze starego intranetu (decyzje właściciela z 23.11.2026; specyfikacja starego systemu i audyt pól w Claude Doc „Generator kontraktów: specyfikacja obecnego intranetu”). Na razie tylko w dev, równolegle z intranetem (`contracts` w `DEV_MODULES`, włącza go `VITE_HUB_MODULES`).
 
