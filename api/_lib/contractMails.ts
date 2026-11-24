@@ -54,6 +54,9 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
   const terms = sale ? 'OWS' : 'OWZ';
   const stamps = [contract.acceptedBy?.email, contract.approvedBy?.email].filter((e): e is string => Boolean(e)).map((e) => e.toLowerCase());
   const signers = people.firstSigners.length ? people.firstSigners : people.board;
+  // Everyone who takes part in accepting the contract hears about each step of it (decision of 24.11.2026): administration,
+  // the signer and, above the threshold, the board.
+  const circle = [...people.administration, ...signers, ...(contract.boardRequired ? people.board : [])];
   const plan = new Map<string, Message>();
   const turn = (emails: string[], m: Omit<Message, 'turn'>) => emails.forEach((e) => plan.set(e.toLowerCase(), { ...m, turn: true }));
   // A status update never replaces "your turn".
@@ -88,6 +91,10 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
         title: `Administracja zaakceptowała kontrakt ${id}`,
         lead: `${who} zaakceptował(a) Twój kontrakt ${id} dla ${contract.companyName}. Teraz czeka na ${contract.boardRequired ? 'zatwierdzenie i podpis zarządu' : 'podpis'}.`,
       });
+      info(circle, {
+        title: `Administracja zaakceptowała kontrakt ${id}`,
+        lead: `${who} zaakceptował(a) kontrakt ${id} dla ${contract.companyName}${contract.enovaOrder ? ` (numer zamówienia enova ${contract.enovaOrder})` : ''}. Teraz ${contract.boardRequired ? 'zatwierdza go podpisujący, a potem podpisuje członek zarządu' : 'czeka na podpis'}.`,
+      });
       break;
     case 'approve':
       turn(people.board, {
@@ -95,7 +102,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
         lead: `${who} zatwierdził(a) kontrakt ${id} dla ${contract.companyName}. Kontrakt przekracza ${threshold} netto.`,
         todo: 'Podpisz kontrakt w module jako członek zarządu albo zwróć go do poprawki.',
       });
-      info([owner, ...stamps], {
+      info([owner, ...stamps, ...circle], {
         title: `Kontrakt ${id} czeka na podpis zarządu`,
         lead: `${who} zatwierdził(a) kontrakt ${id}. Teraz podpisuje go członek zarządu.`,
       });
@@ -106,7 +113,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
         lead: `${who} podpisał(a) Twój kontrakt ${id} dla ${contract.companyName}.`,
         todo: `Pobierz w module oba PDF-y (kontrakt i ${terms}), wyślij je klientowi, a skan podpisany przez klienta wgraj do kontraktu.`,
       });
-      info([...people.administration, ...stamps], {
+      info([...people.administration, ...stamps, ...circle], {
         title: `Kontrakt ${id} jest podpisany`,
         lead: `${who} podpisał(a) kontrakt ${id} dla ${contract.companyName}. Handlowiec wyśle go klientowi i wgra skan podpisany przez klienta.`,
       });
@@ -117,13 +124,13 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
         lead: `${who} zwrócił(a) Twój kontrakt ${id} dla ${contract.companyName}.`,
         todo: 'Popraw kontrakt według komentarza i wyślij go ponownie. Wróci do administracji.',
       });
-      info([...people.administration, ...stamps], {
+      info([...people.administration, ...stamps, ...circle], {
         title: `Kontrakt ${id} wrócił do poprawki`,
         lead: `${who} zwrócił(a) kontrakt ${id} handlowcowi. Po poprawce wróci do administracji.`,
       });
       break;
     case 'cancel':
-      info([owner, contract.createdByEmail, ...people.administration, ...stamps], {
+      info([owner, contract.createdByEmail, ...people.administration, ...stamps, ...circle], {
         title: `Kontrakt ${id} został anulowany`,
         lead: `${who} anulował(a) kontrakt ${id} dla ${contract.companyName}. Nie trzeba nic robić.`,
       });
@@ -134,7 +141,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
         lead: `${who} wgrał(a) skan kontraktu ${id} podpisanego przez ${contract.companyName}.`,
         todo: 'Skan jest w module. Na jego podstawie można wystawić fakturę w enova.',
       });
-      info([owner, ...stamps, contract.signedBy?.email ?? ''], {
+      info([owner, ...stamps, contract.signedBy?.email ?? '', ...circle], {
         title: `Klient podpisał kontrakt ${id}`,
         lead: `${contract.companyName} podpisał(a) kontrakt ${id}. Obieg w module jest zakończony.`,
       });
