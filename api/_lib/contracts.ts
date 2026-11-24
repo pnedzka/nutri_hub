@@ -37,6 +37,7 @@ import { centralDb } from './central.js';
 import { appUrl, handle, HttpError, json, readJson } from './http.js';
 import { logError } from './monitoring.js';
 import { contractMails, planContractMails, type ContractStep, type FlowPeople } from './contractMails.js';
+import { archiveViewerName, type ArchiveContract } from '../../shared/contractsArchive.js';
 import { notify as notifyBell } from './notifications.js';
 import { sendPrepared } from './notify.js';
 import { db } from './supabase.js';
@@ -208,6 +209,30 @@ export function contractsGet(request: Request): Promise<Response> {
           contract.clientScan ? signedUrl(contract.clientScan.path) : Promise.resolve(null),
         ]);
         return json({ contract, can, files: { terms, signature, scan } });
+      }
+      case 'archive': {
+        // Old contracts from the intranet, read only (db/central/contracts_archive.sql).
+        const year = Number(params.get('year'));
+        const type = params.get('type');
+        return json(
+          await call('archive_list', {
+            p_viewer_name: archiveViewerName({ name: me.name, ...viewer }),
+            p_q: params.get('q') || null,
+            p_type: type === 'S' || type === 'P' ? type : null,
+            p_owner: params.get('owner') || null,
+            p_year: Number.isInteger(year) && year > 2000 ? year : null,
+            p_limit: 100,
+            p_offset: Math.max(0, Number(params.get('offset')) || 0),
+          }),
+        );
+      }
+      case 'archiveOne': {
+        const contract = await call<ArchiveContract | null>('archive_get', {
+          p_id: params.get('id') ?? '',
+          p_viewer_name: archiveViewerName({ name: me.name, ...viewer }),
+        });
+        if (!contract) throw new HttpError(404, 'There is no such contract in the intranet archive, or it belongs to another trader.');
+        return json({ contract });
       }
       case 'companies':
         return json({ companies: await call('company_search', { p_q: params.get('q') ?? '', p_limit: 10 }) });
