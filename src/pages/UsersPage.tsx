@@ -1,19 +1,18 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowLeft, Ban, KeyRound, Mail, RotateCcw, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { APP_NAMES, DEFAULT_APPS, grantableApps, type AppId, type Role } from '../../shared/access.ts';
+import { useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, Ban, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
+import { APP_NAMES, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
 import { available } from '../apps';
 import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
-import { AppPicker } from '../components/AppPicker';
 import { Avatar } from '../components/Avatar';
-import { Button } from '../components/Button';
 import { OfficesCard } from '../components/OfficesCard';
-import { Card, CardBody, CardHeader } from '../components/Card';
+import { Card, CardHeader } from '../components/Card';
 import { Input } from '../components/Input';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatDateTime } from '../lib/format';
+import { randomPassword } from '../lib/password';
 import { useToast } from '../lib/toast';
 
 export interface UserRow {
@@ -36,12 +35,6 @@ const STATUS: Record<UserRow['status'], { label: string; className: string }> = 
   created: { label: 'Never signed in', className: 'bg-gray-100 text-gray-600' },
   deactivated: { label: 'Deactivated', className: 'bg-gray-200 text-gray-700' },
 };
-
-function randomPassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-  const bytes = crypto.getRandomValues(new Uint32Array(14));
-  return Array.from(bytes, (b) => chars[b % chars.length]).join('');
-}
 
 /** The account's photo, name, e-mail and job title; the name is changed under Edit (the "⋯" menu). */
 function UserName({ user }: { user: UserRow }) {
@@ -80,21 +73,9 @@ export function UsersPage() {
   const me = useAuth((s) => s.user);
   // Not an administrator: "Create user accounts" only, so the page is just the form for a new account.
   const isAdmin = me?.role === 'admin';
-  const grantable = me ? grantableApps(me) : [];
   const toast = useToast();
   const [users, setUsers] = useState<UserRow[] | null>(null);
-  const emptyForm = () => ({
-    email: '',
-    fullName: '',
-    password: randomPassword(),
-    role: 'user' as Role,
-    apps: DEFAULT_APPS.filter((id) => grantable.includes(id)),
-    invite: true,
-  });
-  const [form, setForm] = useState(emptyForm);
-  const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null);
-
+  const [query, setQuery] = useState('');
   const load = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -109,23 +90,6 @@ export function UsersPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set when the request resolves
     void load();
   }, [load]);
-
-  const create = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const body = form.invite ? { ...form, password: undefined } : form;
-      await api('/api/admin/users', { method: 'POST', body });
-      toast.success(form.invite ? 'Invitation sent' : 'Account created');
-      setCreated({ email: form.email.trim().toLowerCase(), password: form.invite ? null : form.password });
-      setForm(emptyForm());
-      await load();
-    } catch (err) {
-      toast.error('Could not create the account', (err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const update = async (id: string, body: Record<string, unknown>, done: string) => {
     try {
@@ -226,78 +190,57 @@ export function UsersPage() {
     return <ActionsMenu label={`Actions for ${u.email}`} actions={items} />;
   };
 
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = (users ?? []).filter((u) => {
+    const text = [u.full_name, u.email, u.profile.jobTitle, u.profile.department].filter(Boolean).join(' ').toLowerCase();
+    return words.every((w) => text.includes(w));
+  });
+
+  // Not an administrator ("Create user accounts" only): the page is the form for a new account.
+  if (!isAdmin) return <Navigate to="/users/new" replace />;
+
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={14} /> All apps
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
+            <ArrowLeft size={14} /> All apps
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Accounts of the Nutri Partners apps. Contact details, photo and apps are under Edit ("⋯"); everyone can also change their own details in My profile.
+          </p>
+        </div>
+        <Link
+          to="/users/new"
+          className="inline-flex shrink-0 items-center justify-center gap-2 min-h-11 sm:min-h-10 rounded-lg bg-[#CC1F1F] px-4 py-2 text-sm font-medium text-white hover:bg-[#A01818] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2"
+        >
+          <UserPlus size={16} /> Add user
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">{isAdmin ? 'Users' : 'New user accounts'}</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {isAdmin
-            ? 'Accounts are created here. A new person gets an e-mail with a link to set a password, and then sees only the apps you choose. Contact details and photos are under Edit; everyone can also change their own in My profile.'
-            : 'Invite a new colleague: they get an e-mail with a link to set a password, and then see only the apps you choose (from the ones you have). Changes to existing accounts are made by administrators.'}
-        </p>
       </div>
       <div className="grid grid-cols-1 gap-6 items-start">
-        <Card className="max-w-xl">
-          <CardHeader className="flex items-center gap-2">
-            <UserPlus size={16} className="text-[#CC1F1F]" />
-            <h2 className="text-sm font-semibold text-gray-900">New account</h2>
-          </CardHeader>
-          <CardBody>
-            <form onSubmit={create} className="space-y-4">
-              <Input label="E-mail" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <Input label="Full name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
-              {/* Only administrators may set a start password or create administrators (newAccountProblem). */}
-              {isAdmin && (
-                <label className="flex items-start gap-2 text-sm text-gray-700">
-                  <input type="checkbox" className="mt-0.5" checked={form.invite} onChange={(e) => setForm({ ...form, invite: e.target.checked })} />
-                  <span>
-                    Send an e-mail invitation
-                    <span className="block text-xs text-gray-500">The user sets their own password via the link in the e-mail.</span>
-                  </span>
-                </label>
-              )}
-              {!form.invite && (
-                <Input label="Initial password" required minLength={10} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-              )}
-              {isAdmin && (
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" checked={form.role === 'admin'} onChange={(e) => setForm({ ...form, role: e.target.checked ? 'admin' : 'user' })} />
-                  Administrator (manages users, can use every app)
-                </label>
-              )}
-              <AppPicker value={form.apps} onChange={(apps) => setForm({ ...form, apps })} admin={form.role === 'admin'} options={grantable} />
-              <Button type="submit" isLoading={busy}>{form.invite ? 'Send invitation' : 'Create account'}</Button>
-            </form>
-            {created && (
-              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
-                {created.password ? (
-                  <>
-                    <p className="font-medium">Account created – pass on the sign-in details:</p>
-                    <p className="mt-1 font-mono break-all">{created.email}</p>
-                    <p className="font-mono break-all">{created.password}</p>
-                  </>
-                ) : (
-                  <p>
-                    Invitation sent to <span className="font-medium break-all">{created.email}</span>. The link in the e-mail works only once.{' '}
-                    {isAdmin ? 'If it expires, send it again from the account list.' : 'If it expires, an administrator can send it again.'}
-                  </p>
-                )}
-              </div>
-            )}
-          </CardBody>
-        </Card>
         {isAdmin && (
           <Card>
-            <CardHeader className="flex items-center gap-2">
-              <Users size={16} className="text-[#CC1F1F]" />
-              <h2 className="text-sm font-semibold text-gray-900">Accounts {users ? `(${users.length})` : ''}</h2>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <Users size={16} className="text-[#CC1F1F]" />
+                Accounts {users ? `(${words.length ? `${shown.length} of ${users.length}` : users.length})` : ''}
+              </h2>
+              <div className="sm:w-72">
+                <Input
+                  id="users-search"
+                  type="search"
+                  placeholder="Search by name, e-mail, job…"
+                  aria-label="Search accounts"
+                  leftIcon={<Search size={16} />}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
             </CardHeader>
             {/* Phones: one card per account. */}
             <ul className="md:hidden divide-y divide-gray-100">
-              {(users ?? []).map((u) => (
+              {shown.map((u) => (
                 <li key={u.id} className="px-4 py-4 space-y-3">
                   <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
@@ -326,7 +269,7 @@ export function UsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(users ?? []).map((u) => (
+                  {shown.map((u) => (
                     <tr key={u.id} className="border-b border-gray-50 last:border-0">
                       <td className="px-6 py-3">
                         <UserName user={u} />
