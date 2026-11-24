@@ -100,6 +100,31 @@ function fromDraft(d: Draft, owner: string): ContractInput {
 const FROM_LABEL: Record<Payment['from'], string> = { delivery: 'after delivery', collection: 'after collection', invoice: 'from the invoice date' };
 const numberValue = (n: number) => (Number.isFinite(n) ? String(n) : '');
 const toNumber = (s: string) => (s.trim() === '' ? NaN : Number(s.replace(',', '.').replace(/\s+/g, '')));
+const sameNumber = (a: number, b: number) => a === b || (Number.isNaN(a) && Number.isNaN(b));
+
+/**
+ * A number field that keeps what the person types ("12," or "0,5") while the form holds the parsed number, so a
+ * decimal comma or point is not lost halfway through typing. A new value from outside (a draft, a reset) replaces the text.
+ */
+function NumberInput({ value, onValue, ...props }: Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'> & { value: number; onValue: (n: number) => void }) {
+  const [field, setField] = useState({ text: numberValue(value), value });
+  let text = field.text;
+  if (!sameNumber(field.value, value)) {
+    text = numberValue(value);
+    setField({ text, value });
+  }
+  return (
+    <Input
+      {...props}
+      value={text}
+      onChange={(e) => {
+        const next = toNumber(e.target.value);
+        setField({ text: e.target.value, value: next });
+        onValue(next);
+      }}
+    />
+  );
+}
 
 /** Debounced search in the module's lists (companies, products, CN codes). */
 function useSearch<T>(view: 'companies' | 'products' | 'cn', q: string, key: 'companies' | 'products' | 'codes'): T[] {
@@ -280,8 +305,8 @@ function ProductRow({
         <CnInput value={line.cnCode} productName={line.name} error={err('cnCode')} showLabel={index === 0} onChange={(cnCode) => onChange({ ...line, cnCode })} />
       </div>
       <div className="sm:col-span-2">
-        <Input label={index === 0 ? 'Quantity' : undefined} aria-label="Quantity" inputMode="decimal" value={numberValue(line.quantity)} error={err('quantity')}
-          onChange={(e) => onChange({ ...line, quantity: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+        <NumberInput label={index === 0 ? 'Quantity' : undefined} aria-label="Quantity" inputMode="decimal" value={line.quantity} error={err('quantity')}
+          onValue={(n) => onChange({ ...line, quantity: n })} className="text-base sm:text-sm" />
       </div>
       <div className="sm:col-span-1">
         <Select label={index === 0 ? 'Unit' : undefined} aria-label="Unit" value={line.unit}
@@ -294,8 +319,8 @@ function ProductRow({
         </Select>
       </div>
       <div className="sm:col-span-2">
-        <Input label={index === 0 ? `Price (${currency})` : undefined} aria-label="Unit price" inputMode="decimal" value={numberValue(line.unitPrice)} error={err('unitPrice')}
-          onChange={(e) => onChange({ ...line, unitPrice: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+        <NumberInput label={index === 0 ? `Price (${currency})` : undefined} aria-label="Unit price" inputMode="decimal" value={line.unitPrice} error={err('unitPrice')}
+          onValue={(n) => onChange({ ...line, unitPrice: n })} className="text-base sm:text-sm" />
       </div>
       <div className="sm:col-span-1">
         <Select label={index === 0 ? 'Per' : undefined} aria-label="Price per" value={line.priceUnit}
@@ -580,12 +605,12 @@ export function ContractForm() {
       <Section title="Payment">
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Input label="Prepayment before shipment (%)" inputMode="numeric" value={numberValue(pay.prepaymentPercent)} error={errors['payment.prepaymentPercent']}
-              onChange={(e) => setPayment({ prepaymentPercent: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+            <NumberInput label="Prepayment before shipment (%)" inputMode="numeric" value={pay.prepaymentPercent} error={errors['payment.prepaymentPercent']}
+              onValue={(n) => setPayment({ prepaymentPercent: n })} className="text-base sm:text-sm" />
             {pay.prepaymentPercent < 100 && (
               <>
-                <Input label={`The rest (${100 - (pay.prepaymentPercent || 0)}%) within days`} inputMode="numeric" value={numberValue(pay.days)} error={errors['payment.days']}
-                  onChange={(e) => setPayment({ days: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+                <NumberInput label={`The rest (${100 - (pay.prepaymentPercent || 0)}%) within days`} inputMode="numeric" value={pay.days} error={errors['payment.days']}
+                  onValue={(n) => setPayment({ days: n })} className="text-base sm:text-sm" />
                 <Select id="payment-from" label="Counted" value={pay.from} onChange={(e) => setPayment({ from: e.target.value as Payment['from'] })} className="text-base sm:text-sm">
                   {PAYMENT_FROM.map((f) => <option key={f} value={f}>{FROM_LABEL[f]}</option>)}
                 </Select>
