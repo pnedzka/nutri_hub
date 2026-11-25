@@ -1,4 +1,4 @@
-import { APP_NAMES, canUse, isAvailable, toApps, type AppId, type Role } from '../../shared/access.js';
+import { APP_NAMES, canEditProfiles, canUse, isAvailable, toApps, type AppId, type Role } from '../../shared/access.js';
 import { HttpError } from './http.js';
 import { db } from './supabase.js';
 import { logError } from './monitoring.js';
@@ -61,6 +61,13 @@ export async function requireUser(request: Request): Promise<Profile> {
 export async function requireAdmin(request: Request): Promise<Profile> {
   const profile = await requireUser(request);
   if (profile.role !== 'admin') throw new HttpError(403, 'This feature is available to administrators only.');
+  return profile;
+}
+
+/** An administrator, or someone with "Edit user profiles" (canEditProfiles): User management without admin rights. */
+export async function requireProfileEditor(request: Request): Promise<Profile> {
+  const profile = await requireUser(request);
+  if (!canEditProfiles(profile)) throw new HttpError(403, 'This feature is available to administrators only.');
   return profile;
 }
 
