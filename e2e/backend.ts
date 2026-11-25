@@ -40,6 +40,9 @@ export const ADMINISTRATION: TestPerson = {
 };
 export const SIGNER: TestPerson = { email: 'sam.signer@example.com', name: 'Sam Signer', role: 'user', apps: ['contracts', 'contracts-sign'], canSign: true };
 
+/** Administration who creates contracts for traders but does not accept them (Klaudia, contracts-for-others). */
+export const ASSISTANT: TestPerson = { email: 'kim.assistant@example.com', name: 'Kim Assistant', role: 'user', apps: ['contracts', 'contracts-for-others'] };
+
 export const BOARD: TestPerson = {
   email: 'bo.board@example.com', name: 'Bo Board', role: 'admin', apps: [], isContractAdmin: true, canSign: true, isBoard: true,
 };
@@ -159,7 +162,7 @@ export async function startBackend(page: Page): Promise<Backend> {
   });
   const setup = (): ContractSetup => ({
     numberPreview: `${seq}-S-TT-2026`,
-    owners: me.isContractAdmin ? [TRADER, ADMINISTRATION].map((p) => ({ email: p.email, name: p.name, initials: 'TT' })) : [{ email: me.email, name: me.name, initials: 'TT' }],
+    owners: me.isContractAdmin || me.apps.includes('contracts-for-others') ? [TRADER, ADMINISTRATION].map((p) => ({ email: p.email, name: p.name, initials: 'TT' })) : [{ email: me.email, name: me.name, initials: 'TT' }],
     me: viewer(),
   } as ContractSetup);
 
@@ -247,6 +250,8 @@ export async function startBackend(page: Page): Promise<Backend> {
         id, type: input.type, currency: input.currency, companyName: input.party.companyName, amountNet: amount, amountEur: amount,
         boardRequired: amount > BOARD_THRESHOLD_EUR, factoring: input.payment.factoring, submissionDate: input.submissionDate,
         data: { party: input.party, products: input.products, delivery: input.delivery, payment: input.payment, documents: input.documents },
+        ...(input.ownerEmail ? { ownerEmail: input.ownerEmail, ownerName: [TRADER, ADMINISTRATION].find((p) => p.email === input.ownerEmail)?.name ?? input.ownerEmail } : {}),
+        createdByEmail: me.email,
       });
       c.events = [event(c, 'create')];
       contracts.set(id, c);

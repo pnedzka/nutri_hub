@@ -44,8 +44,8 @@ describe('sectionsFor', () => {
 
 describe('APPS', () => {
   it('has a tile for every app id', () => {
-    // The two extra permissions of the Contract generator share its tile.
-    const withTiles = APP_IDS.filter((id) => id !== 'contracts-admin' && id !== 'contracts-sign');
+    // The extra permissions of the Contract generator share its tile.
+    const withTiles = APP_IDS.filter((id) => !id.startsWith('contracts-'));
     expect(APPS.filter((a) => a.audience === 'app').map((a) => a.id)).toEqual(withTiles);
     expect(APPS.find((a) => a.id === 'create-users')?.url).toBe('/users/new');
   });
