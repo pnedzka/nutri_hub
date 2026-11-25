@@ -51,6 +51,21 @@ test.describe('new contract', () => {
     await expect(page.getByLabel(/The rest \(70%\) within days/)).toBeVisible();
   });
 
+  test('the currency is chosen in the Goods section, next to the prices, and shown with them', async ({ page }) => {
+    await backend.as(TRADER);
+    await page.goto('/contracts/new');
+    const goods = section(page, 'Goods');
+    await expect(section(page, 'New contract').getByLabel('Currency of the contract')).toHaveCount(0);
+    await goods.getByLabel('Currency of the contract').selectOption('USD');
+    await expect(goods.getByText('Price (USD)')).toBeVisible();
+    await fillNewContract(page);
+    await expect(goods.getByText('Total net:')).toContainText(money(1250.5 * 4.25, 'USD'));
+    await page.getByRole('button', { name: 'Generate and send to administration' }).click();
+    await expect(page).toHaveURL(/\/contracts\/14-S-TT-2026$/);
+    const sent = backend.posts.find((p) => p.action === 'create') as { contract: { currency: string } };
+    expect(sent.contract.currency).toBe('USD');
+  });
+
   test('a trader generates a contract and the server accepts what the form sends', async ({ page }) => {
     await backend.as(TRADER);
     await page.goto('/contracts/new');

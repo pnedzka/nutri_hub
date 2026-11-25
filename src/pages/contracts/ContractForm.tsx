@@ -476,7 +476,7 @@ export function ContractForm() {
       )}
 
       <Section title={id ? `Correct contract ${id}` : 'New contract'} aside={!id && numberPreview ? <span className="text-xs text-gray-500">Number: {numberPreview} (final when saved)</span> : undefined}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</span>
             <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50" role="radiogroup" aria-label="Contract type">
@@ -498,9 +498,6 @@ export function ContractForm() {
           ) : (
             <Input label="Trader" value={setup.owners.find((o) => o.email === form.ownerEmail)?.name ?? form.ownerEmail} disabled />
           )}
-          <Select id="currency" label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value as ContractInput['currency'])} className="text-base sm:text-sm">
-            {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
-          </Select>
         </div>
       </Section>
 
@@ -528,8 +525,14 @@ export function ContractForm() {
         </div>
       </Section>
 
-      <Section title="Goods" aside={<span className="text-xs text-gray-500">Prices in {form.currency}</span>}>
+      <Section title="Goods">
         <div className="space-y-4">
+          {/* One currency for the whole contract, chosen where the prices are typed (Paweł, 25.11.2026). */}
+          <div className="sm:w-48">
+            <Select id="currency" label="Currency of the contract" value={form.currency} onChange={(e) => set('currency', e.target.value as ContractInput['currency'])} className="text-base sm:text-sm">
+              {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+            </Select>
+          </div>
           {errors.products && <p className="text-sm text-red-600">{errors.products}</p>}
           {form.products.map((line, i) => (
             <div key={i}>
