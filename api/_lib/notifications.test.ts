@@ -156,3 +156,28 @@ describe('contest notices', () => {
     expect(contestFinished(result, [anna], [])[0].body).toBe('Nobody had contracts in it.');
   });
 });
+
+describe('leave e-mails by type (25.11.2026)', () => {
+  const owner = { id: 'a', email: 'a@example.com', name: 'Anna' };
+  const boss = { id: 'b', email: 'b@example.com', name: 'Boss' };
+  const trip = { type: 'business_trip' as const, start: '2026-12-01', end: '2026-12-02', halfDay: false, days: 2 };
+  const vacation = { ...trip, type: 'vacation' as const };
+
+  it('a business trip is not called leave', () => {
+    const [submitted] = requestSubmitted(trip, owner, [boss]);
+    expect(submitted.email?.title).toBe('Anna prosi o delegację');
+    expect(submitted.email?.todo).not.toContain('saldo');
+    const [decided] = requestDecided(trip, 'approved', owner, boss, [], null);
+    expect(decided.email?.title).toBe('Twoja delegacja jest zatwierdzona');
+    expect(decided.email?.lead).toContain('Udanego wyjazdu!');
+    const [cancelled] = leaveCancelled(trip, true, owner, boss, null, null);
+    expect(cancelled.email?.lead).toContain('Twoją zatwierdzoną delegację');
+    expect(cancelled.email?.lead).not.toContain('salda');
+  });
+
+  it('annual leave keeps its words', () => {
+    expect(requestSubmitted(vacation, owner, [boss])[0].email?.title).toBe('Anna prosi o urlop');
+    expect(requestDecided(vacation, 'approved', owner, boss, [], null)[0].email?.lead).toContain('Udanego wypoczynku!');
+    expect(leaveCancelled(vacation, true, owner, boss, null, null)[0].email?.lead).toContain('Dni wróciły do salda.');
+  });
+});

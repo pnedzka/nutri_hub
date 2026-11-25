@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { approversOf, canDecide, seesType } from './leave';
+import { approversOf, canDecide, mailedApprovers, seesType } from './leave';
 
 const settings = { managerId: 'boss', annualDays: 26, startYear: 2026, carriedOver: 0 };
 const user = (id: string, isAdmin = false) => ({ id, email: `${id}@example.com`, name: id, isAdmin });
@@ -29,6 +29,24 @@ describe('business trip approvers', () => {
     expect(ids('business_trip')).toEqual(['boss', 'director', 'admin']);
     expect(ids('vacation')).toEqual(['boss', 'admin']);
     expect(ids('business_trip', 'director')).toEqual(['boss', 'admin']);
+  });
+});
+
+describe('mailedApprovers (25.11.2026)', () => {
+  const people = [user('anna'), user('boss'), user('director'), user('admin', true)];
+  const mailed = (type: string, ownerSettings: typeof settings | undefined) => {
+    const deciders = { type, tripApprovers: trips };
+    return mailedApprovers(approversOf('anna', ownerSettings, people, deciders), ownerSettings, deciders);
+  };
+
+  it('e-mails the manager (and the trip approvers for a trip), not the administrators', () => {
+    expect(mailed('vacation', settings)).toEqual(['boss']);
+    expect(mailed('business_trip', settings)).toEqual(['boss', 'director']);
+  });
+
+  it('e-mails the administrators when nobody else decides', () => {
+    expect(mailed('vacation', undefined)).toEqual(['admin']);
+    expect(mailed('business_trip', undefined)).toEqual(['director']);
   });
 });
 

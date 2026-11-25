@@ -14,7 +14,7 @@ import type { LeaveDecision, LeaveOverview, NewLeaveRequest } from '../../shared
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
 import { calendarLeave, syncToCalendar } from '../_lib/googleCalendar.js';
-import { allSettings, approversOf, balances, canDecide, REQUEST_COLUMNS, todayInPoland, toRequestView, tripApprovers } from '../_lib/leave.js';
+import { allSettings, approversOf, balances, canDecide, mailedApprovers, REQUEST_COLUMNS, todayInPoland, toRequestView, tripApprovers } from '../_lib/leave.js';
 import { appPeople, toPerson, type PersonRow } from '../_lib/people.js';
 import { leaveCancelled, leaveEntered, requestDecided, requestSubmitted, requestWithdrawn, type LeaveFacts } from '../_lib/leaveNotices.js';
 import { notify } from '../_lib/notifications.js';
@@ -136,7 +136,11 @@ export function POST(request: Request): Promise<Response> {
     const byId = new Map(people.map((p) => [p.id, p]));
     const notices = forSomeoneElse
       ? leaveEntered(facts, owner, byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email }, managerOf(userId, settings, byId))
-      : requestSubmitted(facts, owner, approversOf(userId, settings.get(userId), people, { type, tripApprovers: await tripApprovers() }));
+      : await (async () => {
+          const deciders = { type, tripApprovers: await tripApprovers() };
+          const approvers = approversOf(userId, settings.get(userId), people, deciders);
+          return requestSubmitted(facts, owner, approvers, mailedApprovers(approvers, settings.get(userId), deciders));
+        })();
     for (const notice of notices) await notify(appUrl(request), notice);
     // Entered by an administrator = approved: into the shared Google Calendar (api/_lib/googleCalendar.ts).
     if (row.status === 'approved') await syncToCalendar([calendarLeave(row, owner.name)], appUrl(request));
@@ -212,7 +216,7 @@ export function PATCH(request: Request): Promise<Response> {
       const notices =
         status === 'cancelled'
           ? ownerId === viewer.id
-            ? requestWithdrawn(facts, owner, approvers)
+            ? requestWithdrawn(facts, owner, approvers, mailedApprovers(approvers, settings.get(ownerId), deciders))
             : leaveCancelled(facts, row.status === 'approved', owner, actor, managerOf(ownerId, settings, byId), note)
           : requestDecided(facts, status, owner, actor, approvers.filter((p) => p.id !== viewer.id), note);
       for (const notice of notices) await notify(appUrl(request), notice);

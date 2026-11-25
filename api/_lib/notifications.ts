@@ -30,6 +30,8 @@ export interface Notice {
   link: string;
   /** An e-mail too (Polish, Nutri APEX); without it only the bell. `name` and the button's url are filled in. */
   email?: (Omit<ApexMail, 'name' | 'button'> & { button: string }) | null;
+  /** Only these people (ids) get the e-mail; the rest of `to` gets only the bell. Without it everyone gets both. */
+  emailTo?: readonly string[] | null;
 }
 
 /** The recipients without the actor and duplicates (by id). */
@@ -70,7 +72,7 @@ export async function notify(baseUrl: string, notice: Notice): Promise<void> {
     const { button, ...mail } = notice.email;
     const url = `${baseUrl}${notice.link}`;
     await sendEach(
-      to.filter((r) => r.email).map((r) => ({ to: r.email, ...renderApexMail({ ...mail, name: r.name, button: { label: button, url } }) })),
+      to.filter((r) => r.email && (!notice.emailTo || notice.emailTo.includes(r.id))).map((r) => ({ to: r.email, ...renderApexMail({ ...mail, name: r.name, button: { label: button, url } }) })),
       notice.module,
     );
   }
