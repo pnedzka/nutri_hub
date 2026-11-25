@@ -63,7 +63,7 @@ function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: 
   const [error, setError] = useState<string | null>(null);
 
   const forOther = Boolean(userId);
-  const types = LEAVE_TYPES.filter((t) => overview.isAdmin || !ADMIN_ONLY.includes(t));
+  const types = LEAVE_TYPES.filter((t) => overview.managesLeave || !ADMIN_ONLY.includes(t));
   const singleDay = Boolean(start) && start === (end || start);
   const lastDay = end || start;
   const dateIssue = start ? datesProblem({ start, end: lastDay, halfDay: halfDay && singleDay }) : null;
@@ -94,8 +94,8 @@ function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: 
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      {overview.isAdmin && (
-        <Select id="leave-person" label="For" value={userId} onChange={(e) => setUserId(e.target.value)} hint={forOther ? 'Entered by an administrator: saved as approved.' : undefined}>
+      {overview.managesLeave && (
+        <Select id="leave-person" label="For" value={userId} onChange={(e) => setUserId(e.target.value)} hint={forOther ? 'Entered for someone else: saved as approved.' : undefined}>
           <option value="">Me</option>
           {overview.people.map((p) => (
             <option key={p.id} value={p.id}>

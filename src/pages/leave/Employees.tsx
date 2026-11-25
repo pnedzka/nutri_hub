@@ -70,7 +70,7 @@ function EditForm({ row, year, onSaved, onCancel }: { row: EmployeeRow; year: nu
         />
         <Input id={`carried-${row.person.id}`} label={`Carried over into ${startYear || 'that year'}`} {...number} value={carriedOver} onChange={(e) => setCarriedOver(e.target.value)} />
       </div>
-      {!row.isAdmin && (
+      {!row.managesLeave && (
         <label className="flex min-h-11 items-start gap-3 text-sm text-gray-700 sm:min-h-0">
           <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#CC1F1F]" checked={approvesTrips} onChange={(e) => setApprovesTrips(e.target.checked)} />
           <span>
@@ -113,14 +113,16 @@ export function Employees({ onChange }: { onChange: () => void }) {
                 <div className="min-w-0">
                   <h3 className="truncate text-base font-semibold text-gray-900">
                     {row.person.name}
-                    {row.isAdmin && <span className="ml-2 align-middle rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600">Admin</span>}
+                    {row.managesLeave && (
+                      <span className="ml-2 align-middle rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600">{row.isAdmin ? 'Admin' : 'Leave admin'}</span>
+                    )}
                   </h3>
                   <p className="truncate text-sm text-gray-500">{row.person.email}</p>
                   <p className="mt-1 text-sm text-gray-600">
                     Manager: {row.manager?.name ?? '—'} · {formatDays(row.settings.annualDays)} a year
                     {!row.configured && <span className="ml-2 text-amber-700">Not set up</span>}
                   </p>
-                  {row.approvesTrips && !row.isAdmin && <p className="mt-1 text-sm text-gray-600">Approves business trips</p>}
+                  {row.approvesTrips && !row.managesLeave && <p className="mt-1 text-sm text-gray-600">Approves business trips</p>}
                 </div>
                 {editing !== row.person.id && (
                   <Button variant="secondary" size="sm" className="min-h-11 sm:min-h-0" onClick={() => setEditing(row.person.id)}>

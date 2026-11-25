@@ -14,7 +14,7 @@ import type { LeaveDecision, LeaveOverview, NewLeaveRequest } from '../../shared
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
 import { calendarLeave, syncToCalendar } from '../_lib/googleCalendar.js';
-import { allSettings, approversOf, balances, canDecide, mailedApprovers, REQUEST_COLUMNS, todayInPoland, toRequestView, tripApprovers } from '../_lib/leave.js';
+import { allSettings, approversOf, balances, canDecide, mailedApprovers, managesLeave, REQUEST_COLUMNS, todayInPoland, toRequestView, tripApprovers } from '../_lib/leave.js';
 import { appPeople, toPerson, type PersonRow } from '../_lib/people.js';
 import { leaveCancelled, leaveEntered, requestDecided, requestSubmitted, requestWithdrawn, type LeaveFacts } from '../_lib/leaveNotices.js';
 import { notify } from '../_lib/notifications.js';
@@ -62,9 +62,9 @@ export function GET(request: Request): Promise<Response> {
         request: toRequestView(row, byId),
         balance: others.get(String(row.start_date).slice(0, 4))!.get(String(row.user_id))!,
       })),
-      isApprover: viewer.isAdmin || trips.has(viewer.id) || [...settings.values()].some((s) => s.managerId === viewer.id),
-      isAdmin: viewer.isAdmin,
-      people: viewer.isAdmin ? people.map(toPerson) : [],
+      isApprover: managesLeave(viewer) || trips.has(viewer.id) || [...settings.values()].some((s) => s.managerId === viewer.id),
+      managesLeave: managesLeave(viewer),
+      people: managesLeave(viewer) ? people.map(toPerson) : [],
     };
     return json(overview);
   });
@@ -83,8 +83,8 @@ export function POST(request: Request): Promise<Response> {
 
     const userId = typeof body.userId === 'string' && body.userId ? body.userId : viewer.id;
     const forSomeoneElse = userId !== viewer.id;
-    if ((forSomeoneElse || ADMIN_ONLY.includes(type)) && !viewer.isAdmin) {
-      throw new HttpError(403, forSomeoneElse ? 'Only administrators can enter leave for someone else.' : `${LEAVE_TYPE_NAMES[type]} is entered by an administrator.`);
+    if ((forSomeoneElse || ADMIN_ONLY.includes(type)) && !managesLeave(viewer)) {
+      throw new HttpError(403, forSomeoneElse ? 'Only administrators and Leave administration can enter leave for someone else.' : `${LEAVE_TYPE_NAMES[type]} is entered by an administrator.`);
     }
 
     const problem = datesProblem({ start, end, halfDay });
@@ -176,7 +176,7 @@ export function PATCH(request: Request): Promise<Response> {
     let status: 'approved' | 'rejected' | 'cancelled';
     if (action === 'cancel') {
       const own = ownerId === viewer.id && row.status === 'pending';
-      const byAdmin = viewer.isAdmin && (row.status === 'pending' || row.status === 'approved');
+      const byAdmin = managesLeave(viewer) && (row.status === 'pending' || row.status === 'approved');
       if (!own && !byAdmin) {
         throw new HttpError(403, row.status === 'pending' ? 'You cannot cancel this request.' : 'Only pending requests can be cancelled. Ask an administrator.');
       }
@@ -202,7 +202,7 @@ export function PATCH(request: Request): Promise<Response> {
     const people = await appPeople('leave');
     const byId = new Map(people.map((p) => [p.id, p]));
     const owner = byId.get(ownerId);
-    const actor = byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email, isAdmin: viewer.isAdmin };
+    const actor = byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email, isAdmin: viewer.isAdmin, apps: viewer.apps };
     if (owner) {
       const facts: LeaveFacts = {
         type: row.type as LeaveType,
