@@ -62,7 +62,7 @@ export function GET(request: Request): Promise<Response> {
         request: toRequestView(row, byId),
         balance: others.get(String(row.start_date).slice(0, 4))!.get(String(row.user_id))!,
       })),
-      isApprover: managesLeave(viewer) || trips.has(viewer.id) || [...settings.values()].some((s) => s.managerId === viewer.id),
+      isApprover: viewer.isAdmin || trips.has(viewer.id) || [...settings.values()].some((s) => s.managerId === viewer.id),
       managesLeave: managesLeave(viewer),
       people: managesLeave(viewer) ? people.map(toPerson) : [],
     };
