@@ -14,7 +14,10 @@ export interface OrgTree {
   roots: string[];
   /** People without a manager and without reports: shown apart, so they do not crowd the top row. */
   unassigned: string[];
-  /** Direct reports by manager, sorted by name. */
+  /**
+   * Direct reports by manager: people without a team of their own first (the Board before other departments, then by
+   * name), then those leading a team, the largest team first. Single people stay at the top and teams below them.
+   */
   reports: Map<string, string[]>;
   /** The manager each person is drawn under (a manager outside the list, e.g. deactivated, counts as none). */
   parent: Map<string, string>;
@@ -50,7 +53,6 @@ export function buildOrgTree(list: OrgPerson[]): OrgTree {
 
   const reports = new Map<string, string[]>();
   for (const [child, manager] of parent) reports.set(manager, [...(reports.get(manager) ?? []), child]);
-  for (const ids of reports.values()) ids.sort(sort);
 
   const teamSize = new Map<string, number>();
   const size = (id: string): number => {
@@ -61,8 +63,13 @@ export function buildOrgTree(list: OrgPerson[]): OrgTree {
     return total;
   };
 
-  const tops = list.filter((p) => !parent.has(p.id)).map((p) => p.id);
+  const leads = (id: string) => reports.has(id);
   const isBoard = (id: string) => (people.get(id)!.department ?? '').trim().toLowerCase() === 'board';
+  for (const ids of reports.values()) {
+    ids.sort((a, b) => Number(leads(a)) - Number(leads(b)) || size(b) - size(a) || Number(isBoard(b)) - Number(isBoard(a)) || sort(a, b));
+  }
+
+  const tops = list.filter((p) => !parent.has(p.id)).map((p) => p.id);
   const roots = tops
     .filter((id) => reports.has(id) || isBoard(id))
     .sort((a, b) => Number(isBoard(b)) - Number(isBoard(a)) || size(b) - size(a) || sort(a, b));
