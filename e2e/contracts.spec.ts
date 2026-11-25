@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test';
 import { money } from '../shared/contractsApi.ts';
-import { ADMINISTRATION, BOARD, SIGNER, TRADER, startBackend, type Backend } from './backend';
+import { ADMINISTRATION, ASSISTANT, BOARD, SIGNER, TRADER, startBackend, type Backend } from './backend';
 
 // Contract generator: the screens people use, typed and clicked in a real browser (see e2e/backend.ts).
 
@@ -64,6 +64,22 @@ test.describe('new contract', () => {
     expect(sent.contract.products[0]).toMatchObject({ quantity: 1250.5, unitPrice: 4.25, notes: 'Big bags, 1 MT each' });
     await expect(page.getByText('Big bags, 1 MT each')).toBeVisible();
     await expect(page.getByText('Waiting for administration').first()).toBeVisible();
+  });
+
+  test('with "Create contracts for other traders" a contract is made for a trader and waits for administration as usual', async ({ page }) => {
+    await backend.as(ASSISTANT);
+    await page.goto('/contracts/new');
+    await page.getByLabel('Trader').selectOption(TRADER.email);
+    await fillNewContract(page);
+    await page.getByRole('button', { name: 'Generate and send to administration' }).click();
+
+    await expect(page).toHaveURL(/\/contracts\/14-S-TT-2026$/);
+    const sent = backend.posts.find((p) => p.action === 'create') as { contract: { ownerEmail: string } };
+    expect(sent.contract.ownerEmail).toBe(TRADER.email);
+    await expect(page.getByText('Waiting for administration').first()).toBeVisible();
+    // The creator cannot accept it: that stays with administration.
+    await expect(page.getByRole('button', { name: 'Accept the contract' })).toHaveCount(0);
+    await expect(page.getByLabel('Internal order number (enova)')).toHaveCount(0);
   });
 
   test('the delivery address has its own fields (labels do not point at the buyer)', async ({ page }) => {

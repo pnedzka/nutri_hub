@@ -55,6 +55,17 @@ describe('contract e-mails: who gets what', () => {
     expect(plan.get('trader@example.com')?.lead).toContain('w Twoim imieniu');
   });
 
+  it('a contract created for a trader (contracts-for-others): the creator hears like the trader and handles returns and the client scan', () => {
+    const k = { email: 'klaudia@example.com', name: 'Klaudia K' };
+    const made = (patch: Partial<Contract> = {}) => contract({ createdByEmail: k.email, ...patch });
+    expect(summary(planContractMails(made(), 'create', k, people))).toEqual({ 'admin@example.com': 'turn', 'trader@example.com': 'info' });
+    const accepted = made({ status: 'signature', acceptedBy: stamp('admin@example.com', 'Ada Admin') });
+    expect(summary(planContractMails(accepted, 'accept', admin, people))).toMatchObject({ 'signer@example.com': 'turn', 'trader@example.com': 'info', 'klaudia@example.com': 'info' });
+    expect(summary(planContractMails(made({ status: 'returned' }), 'return', admin, people))).toMatchObject({ 'trader@example.com': 'turn', 'klaudia@example.com': 'turn' });
+    const signed = made({ status: 'signed', signedBy: { ...stamp('signer@example.com', 'Sam Signer'), title: 'CEO' } });
+    expect(summary(planContractMails(signed, 'sign', { email: 'signer@example.com', name: 'Sam Signer' }, people))).toMatchObject({ 'trader@example.com': 'turn', 'klaudia@example.com': 'turn' });
+  });
+
   it('acceptance: the signer signs, the trader is told; above the threshold the signer approves', () => {
     const accepted = contract({ status: 'signature', acceptedBy: stamp('admin@example.com', 'Ada Admin') });
     expect(summary(planContractMails(accepted, 'accept', admin, people))).toEqual({ 'signer@example.com': 'turn', 'trader@example.com': 'info' });

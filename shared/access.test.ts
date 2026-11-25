@@ -31,6 +31,9 @@ describe('isAvailable', () => {
     // Purchase Manager is released (29.10.2026): available everywhere.
     expect(isAvailable('purchase', 'news,leave,calls')).toBe(true);
     expect(isAvailable('purchase', '')).toBe(true);
+    // The permissions of Contracts follow the module.
+    expect(isAvailable('contracts-for-others', 'contracts')).toBe(true);
+    expect(isAvailable('contracts-for-others', 'calls')).toBe(false);
   });
 });
 
@@ -38,6 +41,7 @@ describe('DEFAULT_APPS', () => {
   it('leaves Purchase Manager and creating accounts out of a new account', () => {
     expect(DEFAULT_APPS).not.toContain('purchase');
     expect(DEFAULT_APPS).not.toContain('create-users');
+    expect(DEFAULT_APPS).not.toContain('contracts-for-others');
     expect(DEFAULT_APPS).toContain('neutralizer');
   });
 });
