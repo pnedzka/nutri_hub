@@ -150,29 +150,29 @@ const approvesTrip = (id: string, { type, tripApprovers }: Deciders) => type ===
 
 /**
  * Manages everyone's leave: administrators and people with "Leave administration" (leave-admin, decision of
- * 25.11.2026). They decide on all requests, enter leave (also sick leave) for others and set the days of leave.
+ * 25.11.2026). They enter leave (also sick leave) for others, see the type of everyone's leave and set the days of
+ * leave. Deciding on requests stays with the managers and the administrators (canDecide; decision of 25.11.2026).
  */
 export function managesLeave(person: { isAdmin: boolean; apps: readonly string[] }): boolean {
   return person.isAdmin || person.apps.includes('leave-admin');
 }
 
 /**
- * Approves or rejects this person's requests: their manager, anyone who manages leave, and for a business trip also
- * the business trip approvers (decision of 24.11.2026).
+ * Approves or rejects this person's requests: their manager, any administrator, and for a business trip also the
+ * business trip approvers (decision of 24.11.2026). Not Leave administration (decision of 25.11.2026).
  */
 export function canDecide(viewer: AppUser, ownerSettings: LeaveSettings | undefined, deciders: Deciders = {}): boolean {
-  return managesLeave(viewer) || (ownerSettings?.managerId ?? null) === viewer.id || approvesTrip(viewer.id, deciders);
+  return viewer.isAdmin || (ownerSettings?.managerId ?? null) === viewer.id || approvesTrip(viewer.id, deciders);
 }
 
 /** Sees the type of this person's leave (the calendar shows others only as absent). */
 export function seesType(viewer: AppUser, ownerId: string, ownerSettings: LeaveSettings | undefined, deciders: Deciders = {}): boolean {
-  return viewer.id === ownerId || canDecide(viewer, ownerSettings, deciders);
+  return viewer.id === ownerId || managesLeave(viewer) || canDecide(viewer, ownerSettings, deciders);
 }
 
 /**
  * Who of the approvers gets the e-mail (decision of 25.11.2026): the manager and, for a business trip, the business
- * trip approvers. Administrators and Leave administration get only the bell, unless nobody else decides (the person
- * has no manager).
+ * trip approvers. Administrators get only the bell, unless nobody else decides (the person has no manager).
  */
 export function mailedApprovers(approvers: readonly PersonRow[], ownerSettings: LeaveSettings | undefined, deciders: Deciders = {}): string[] {
   const direct = approvers.filter((p) => p.id === ownerSettings?.managerId || approvesTrip(p.id, deciders));
@@ -181,5 +181,5 @@ export function mailedApprovers(approvers: readonly PersonRow[], ownerSettings: 
 
 /** The people who decide on this person's requests (as canDecide), without the person. */
 export function approversOf(ownerId: string, ownerSettings: LeaveSettings | undefined, people: PersonRow[], deciders: Deciders = {}): PersonRow[] {
-  return people.filter((p) => p.id !== ownerId && (managesLeave(p) || p.id === ownerSettings?.managerId || approvesTrip(p.id, deciders)));
+  return people.filter((p) => p.id !== ownerId && (p.isAdmin || p.id === ownerSettings?.managerId || approvesTrip(p.id, deciders)));
 }
