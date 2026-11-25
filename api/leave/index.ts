@@ -3,7 +3,9 @@
 //   PATCH /api/leave           body LeaveDecision → { request }
 //
 // A request of one's own waits for the manager or an administrator (pending); an administrator entering leave for
-// someone else saves it approved. The days are counted here, never taken from the browser.
+// someone else saves it approved. Leave administration (leave-admin) entering leave for someone else makes a request
+// that waits for the person's manager like their own (decision of 25.11.2026); only sick leave, a fact, is saved
+// approved. The days are counted here, never taken from the browser.
 //
 // Decisions (PATCH): approve / reject a pending request, by the person's manager or an administrator; cancel the
 // person's own pending request, or any pending or approved leave by an administrator. Every step notifies the people
@@ -112,6 +114,8 @@ export function POST(request: Request): Promise<Response> {
     const limit = limitProblem(type, days, balance);
     if (limit) throw new HttpError(400, limit);
 
+    // Saved approved: entered for someone else by an administrator, or sick leave entered by Leave administration.
+    const approvedNow = forSomeoneElse && (viewer.isAdmin || ADMIN_ONLY.includes(type));
     const now = new Date().toISOString();
     const { data: row, error } = await db()
       .from('leave_requests')
@@ -123,9 +127,9 @@ export function POST(request: Request): Promise<Response> {
         half_day: halfDay,
         days,
         note,
-        status: forSomeoneElse ? 'approved' : 'pending',
+        status: approvedNow ? 'approved' : 'pending',
         created_by: viewer.id,
-        ...(forSomeoneElse ? { decided_by: viewer.id, decided_at: now } : {}),
+        ...(approvedNow ? { decided_by: viewer.id, decided_at: now } : {}),
       })
       .select(REQUEST_COLUMNS)
       .single();
@@ -134,7 +138,7 @@ export function POST(request: Request): Promise<Response> {
     // Notifications: README "Powiadomienia" (L1, L2, L8).
     const facts: LeaveFacts = { type, start, end, halfDay, days, note };
     const byId = new Map(people.map((p) => [p.id, p]));
-    const notices = forSomeoneElse
+    const notices = approvedNow
       ? leaveEntered(facts, owner, byId.get(viewer.id) ?? { id: viewer.id, email: viewer.email, name: viewer.email }, managerOf(userId, settings, byId))
       : await (async () => {
           const deciders = { type, tripApprovers: await tripApprovers() };
@@ -142,7 +146,7 @@ export function POST(request: Request): Promise<Response> {
           return requestSubmitted(facts, owner, approvers, mailedApprovers(approvers, settings.get(userId), deciders));
         })();
     for (const notice of notices) await notify(appUrl(request), notice);
-    // Entered by an administrator = approved: into the shared Google Calendar (api/_lib/googleCalendar.ts).
+    // Approved right away: into the shared Google Calendar (api/_lib/googleCalendar.ts).
     if (row.status === 'approved') await syncToCalendar([calendarLeave(row, owner.name)], appUrl(request));
 
     return json({ request: toRequestView(row, new Map(people.map((p) => [p.id, p]))) }, 201);
