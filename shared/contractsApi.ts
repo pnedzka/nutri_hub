@@ -354,8 +354,11 @@ export interface Viewer {
 }
 
 /** The steps this person may take on the contract now. */
-export function allowedActions(contract: Pick<Contract, 'status' | 'ownerEmail' | 'boardRequired'>, viewer: Viewer): ContractAction[] {
-  const own = contract.ownerEmail.toLowerCase() === viewer.email.toLowerCase();
+export function allowedActions(contract: Pick<Contract, 'status' | 'ownerEmail' | 'boardRequired'> & { createdByEmail?: string }, viewer: Viewer): ContractAction[] {
+  // Whoever created the contract for a trader (contracts-for-others) handles it like the trader; accepting and signing
+  // stay with administration and the signers.
+  const me = viewer.email.toLowerCase();
+  const own = contract.ownerEmail.toLowerCase() === me || (contract.createdByEmail ?? '').toLowerCase() === me;
   const can: ContractAction[] = [];
   switch (contract.status) {
     case 'admin_review':

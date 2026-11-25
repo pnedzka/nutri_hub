@@ -119,6 +119,16 @@ describe('who may do what', () => {
     expect(allowedActions(c('cancelled'), board)).toEqual([]);
   });
 
+  it('whoever created the contract for a trader handles it like the trader, but does not accept it', () => {
+    const klaudia: Viewer = { email: 'k@np.co', isContractAdmin: false, canSign: false, isBoard: false };
+    const made = (status: string) => ({ status, ownerEmail: 'trader@np.co', createdByEmail: 'K@np.co', boardRequired: false }) as never;
+    expect(allowedActions(made('admin_review'), klaudia)).toEqual(['cancel']);
+    expect(allowedActions(made('returned'), klaudia)).toEqual(['edit', 'cancel']);
+    expect(allowedActions(made('signed'), klaudia)).toEqual(['client_scan']);
+    expect(allowedActions(made('signature'), klaudia)).toEqual(['cancel']);
+    expect(allowedActions(c('returned'), klaudia)).toEqual([]);
+  });
+
   it('lists what waits for each person', () => {
     expect(todoStatuses(trader)).toEqual([]);
     expect(todoStatuses(jadwiga)).toEqual(['admin_review']);
