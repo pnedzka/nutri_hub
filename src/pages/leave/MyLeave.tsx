@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader } from '../../components/Card';
 import { Select, Textarea } from '../../components/Field';
 import { Input } from '../../components/Input';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import {
   ADMIN_ONLY,
@@ -53,6 +54,7 @@ export function BalanceSummary({ balance }: { balance: Balance }) {
 
 function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: () => void }) {
   const toast = useToast();
+  const isAdmin = useAuth((s) => s.user?.role === 'admin');
   const [userId, setUserId] = useState('');
   const [type, setType] = useState<LeaveType>('vacation');
   const [start, setStart] = useState('');
@@ -79,7 +81,8 @@ function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: 
     try {
       const body: NewLeaveRequest = { type, start, end: lastDay, halfDay: halfDay && singleDay, note: note.trim() || undefined, userId: userId || undefined };
       await api('/api/leave', { method: 'POST', body });
-      toast.success(forOther ? 'Leave entered' : 'Request sent', forOther ? undefined : 'Your manager will get an e-mail.');
+      const approvedNow = forOther && (isAdmin || type === 'sick');
+      toast.success(approvedNow ? 'Leave entered' : 'Request sent', approvedNow ? undefined : forOther ? 'The manager will get an e-mail.' : 'Your manager will get an e-mail.');
       setStart('');
       setEnd('');
       setHalfDay(false);
@@ -95,7 +98,7 @@ function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: 
   return (
     <form onSubmit={submit} className="space-y-4">
       {overview.managesLeave && (
-        <Select id="leave-person" label="For" value={userId} onChange={(e) => setUserId(e.target.value)} hint={forOther ? 'Entered for someone else: saved as approved.' : undefined}>
+        <Select id="leave-person" label="For" value={userId} onChange={(e) => setUserId(e.target.value)} hint={forOther ? (isAdmin || type === 'sick' ? 'Entered for someone else: saved as approved.' : "Entered for someone else: goes to the person's manager for approval.") : undefined}>
           <option value="">Me</option>
           {overview.people.map((p) => (
             <option key={p.id} value={p.id}>
