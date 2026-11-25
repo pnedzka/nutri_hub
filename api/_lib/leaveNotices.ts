@@ -83,7 +83,8 @@ const steps = (state: 'pending' | 'approved', type: LeaveType): Steps => [
 ];
 
 /** L1 + L2: a person asked for leave. */
-export function requestSubmitted(r: LeaveFacts, owner: Recipient, approvers: Recipient[]): Notice[] {
+/** `emailTo`: who of the approvers gets the e-mail (mailedApprovers in leave.ts); the others get only the bell. */
+export function requestSubmitted(r: LeaveFacts, owner: Recipient, approvers: Recipient[], emailTo?: readonly string[]): Notice[] {
   return [
     {
       module: 'leave',
@@ -93,6 +94,7 @@ export function requestSubmitted(r: LeaveFacts, owner: Recipient, approvers: Rec
       title: `${owner.name} asked for leave: ${range(r)}`,
       body: `${cap(LEAVE_TYPE_PL[r.type])}, ${plDays(r.days)}. Approve or reject the request.`,
       link: '/leave/approvals',
+      emailTo,
       email: {
         module: 'Urlopy',
         title: `${owner.name} prosi ${wordsFor(r.type).askFor}`,
@@ -152,7 +154,7 @@ export function requestDecided(r: LeaveFacts, decision: 'approved' | 'rejected',
 }
 
 /** L6: the person withdrew a pending request. */
-export function requestWithdrawn(r: LeaveFacts, owner: Recipient, approvers: Recipient[]): Notice[] {
+export function requestWithdrawn(r: LeaveFacts, owner: Recipient, approvers: Recipient[], emailTo?: readonly string[]): Notice[] {
   return [
     {
       module: 'leave',
@@ -162,6 +164,7 @@ export function requestWithdrawn(r: LeaveFacts, owner: Recipient, approvers: Rec
       title: `${owner.name} withdrew a leave request: ${range(r)}`,
       body: 'Nothing to decide any more.',
       link: '/leave/approvals',
+      emailTo,
       email: {
         module: 'Urlopy',
         title: `${owner.name} wycofał(a) ${wordsFor(r.type).request}`,
@@ -262,7 +265,7 @@ export function settingsChanged(owner: Recipient, admin: Recipient, changes: str
 }
 
 /** L9: a request has waited for a decision for 2 working days. */
-export function requestWaiting(r: LeaveFacts, owner: Recipient, approvers: Recipient[]): Notice {
+export function requestWaiting(r: LeaveFacts, owner: Recipient, approvers: Recipient[], emailTo?: readonly string[]): Notice {
   return {
     module: 'leave',
     kind: 'leave.reminder',
@@ -270,6 +273,7 @@ export function requestWaiting(r: LeaveFacts, owner: Recipient, approvers: Recip
     title: `Still waiting: ${owner.name}'s leave request (${range(r)})`,
     body: 'Sent 2 working days ago. Approve or reject it.',
     link: '/leave/approvals',
+    emailTo,
     email: {
       module: 'Urlopy',
       title: `Wniosek ${owner.name} czeka na decyzję`,

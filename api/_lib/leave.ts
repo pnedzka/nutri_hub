@@ -161,6 +161,15 @@ export function seesType(viewer: AppUser, ownerId: string, ownerSettings: LeaveS
   return viewer.id === ownerId || canDecide(viewer, ownerSettings, deciders);
 }
 
+/**
+ * Who of the approvers gets the e-mail (decision of 25.11.2026): the manager and, for a business trip, the business
+ * trip approvers. Administrators get only the bell, unless nobody else decides (the person has no manager).
+ */
+export function mailedApprovers(approvers: readonly PersonRow[], ownerSettings: LeaveSettings | undefined, deciders: Deciders = {}): string[] {
+  const direct = approvers.filter((p) => p.id === ownerSettings?.managerId || approvesTrip(p.id, deciders));
+  return (direct.length ? direct : approvers).map((p) => p.id);
+}
+
 /** The people who decide on this person's requests (as canDecide), without the person. */
 export function approversOf(ownerId: string, ownerSettings: LeaveSettings | undefined, people: PersonRow[], deciders: Deciders = {}): PersonRow[] {
   return people.filter((p) => p.id !== ownerId && (p.isAdmin || p.id === ownerSettings?.managerId || approvesTrip(p.id, deciders)));

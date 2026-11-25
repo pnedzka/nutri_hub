@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, BriefcaseBusiness, CalendarDays, CheckCheck, FileSignature, Inbox, Newspaper, ShoppingCart, Trophy, UserRound, type LucideIcon } from 'lucide-react';
+import { Bell, BriefcaseBusiness, CalendarClock, CalendarDays, CheckCheck, FileSignature, Inbox, Newspaper, ShoppingCart, Trophy, UserRound, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { timeAgo, type NotificationItem, type NotificationModule } from '../../shared/notifications.ts';
 import { startNotificationPolling, useNotifications, useOpenNotification } from '../lib/notifications';
@@ -14,6 +14,7 @@ const MODULE_ICONS: Record<NotificationModule, LucideIcon> = {
   contests: Trophy,
   mailbox: Inbox,
   account: UserRound,
+  calendar: CalendarClock,
 };
 
 /** One notification: icon, title, short text, time; unread ones have a red dot. */
