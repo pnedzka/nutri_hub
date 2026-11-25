@@ -34,10 +34,11 @@ export interface LeaveOverview {
   requests: LeaveRequestView[];
   /** Pending requests the signed-in person may approve, with the requester's balance. */
   approvals: { request: LeaveRequestView; balance: Balance }[];
-  /** Has people to approve (a manager) or is an administrator. */
+  /** Has people to approve (a manager), approves business trips or manages leave. */
   isApprover: boolean;
-  isAdmin: boolean;
-  /** Administrators: everyone with access to Leave, to enter leave for them. */
+  /** An administrator or Leave administration (leave-admin): all requests, leave for others, Employees. */
+  managesLeave: boolean;
+  /** Those who manage leave: everyone with access to Leave, to enter leave for them. */
   people: Person[];
 }
 
@@ -82,6 +83,8 @@ export interface CalendarResponse {
 export interface EmployeeRow {
   person: Person;
   isAdmin: boolean;
+  /** An administrator or Leave administration: decides on everyone's requests. */
+  managesLeave: boolean;
   /** Settings saved by an administrator; false: the defaults are shown. */
   configured: boolean;
   settings: LeaveSettings;
