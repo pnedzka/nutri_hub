@@ -17,6 +17,8 @@ export const APP_IDS = [
   'contracts-admin',
   'contracts-sign',
   'contracts-for-others',
+  'complaints',
+  'complaints-admin',
   'intranet',
   'create-users',
   'edit-users',
@@ -36,6 +38,8 @@ export const APP_NAMES: Record<AppId, string> = {
   'contracts-admin': 'Contract administration (accepts contracts)',
   'contracts-sign': 'Contract signing',
   'contracts-for-others': 'Create contracts for other traders',
+  complaints: 'Complaints',
+  'complaints-admin': 'Complaint administration',
   intranet: 'Intranet',
   'create-users': 'Create user accounts',
   'edit-users': 'Edit user profiles',
@@ -46,9 +50,10 @@ export const APP_NAMES: Record<AppId, string> = {
  * (supplier offers and purchase prices), the permission to create accounts, Leave administration (decision of
  * 25.11.2026: chosen people manage everyone's leave without being administrators) and the permissions of the
  * Contract generator (accepting contracts: administration; signing: Marcin Niećko and the board; creating contracts
- * for other traders: chosen people of administration, e.g. Klaudia Adamek).
+ * for other traders: chosen people of administration, e.g. Klaudia Adamek). Complaints are ticked by hand (decision of
+ * 25.11.2026), their administration too (Jadwiga Woźny).
  */
-const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'edit-users', 'leave-admin', 'contracts-admin', 'contracts-sign', 'contracts-for-others'];
+const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'edit-users', 'leave-admin', 'contracts-admin', 'contracts-sign', 'contracts-for-others', 'complaints', 'complaints-admin'];
 export const DEFAULT_APPS: readonly AppId[] = APP_IDS.filter((id) => !NOT_DEFAULT.includes(id));
 
 export type Role = 'admin' | 'user';
@@ -68,7 +73,7 @@ export function toApps(value: unknown): AppId[] {
  * management are hidden and their API answers 404. Releasing a module: add it to VITE_HUB_MODULES in Production,
  * or remove it from this list.
  */
-export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls', 'contracts'];
+export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls', 'contracts', 'complaints'];
 
 /** An app, or a tool of the hub that is not an app in profiles.apps (Phone calls analyser, administrators only). */
 export type ModuleId = AppId | 'calls';
@@ -76,7 +81,7 @@ export type ModuleId = AppId | 'calls';
 /** Whether an app is switched on; `enabledModules` is the value of VITE_HUB_MODULES (module ids, comma-separated). */
 export function isAvailable(app: ModuleId, enabledModules: string | undefined): boolean {
   // The permissions of a module (Contract generator, Leave) are on wherever the module is.
-  const module: ModuleId = app.startsWith('contracts-') ? 'contracts' : app === 'leave-admin' ? 'leave' : app;
+  const module: ModuleId = app.startsWith('contracts-') ? 'contracts' : app === 'leave-admin' ? 'leave' : app === 'complaints-admin' ? 'complaints' : app;
   if (!DEV_MODULES.includes(module)) return true;
   return (enabledModules ?? '').split(',').map((id) => id.trim()).includes(module);
 }

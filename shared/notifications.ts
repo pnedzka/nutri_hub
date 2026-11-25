@@ -2,7 +2,7 @@
 // (api/_lib/notifications.ts); the browser reads its own rows straight from Supabase (RLS) and marks them as read.
 // The full plan of notifications per module: README, "Powiadomienia".
 
-export const NOTIFICATION_MODULES = ['leave', 'news', 'contracts', 'purchase', 'sales', 'contests', 'mailbox', 'account', 'calendar'] as const;
+export const NOTIFICATION_MODULES = ['leave', 'news', 'contracts', 'purchase', 'sales', 'contests', 'mailbox', 'account', 'calendar', 'complaints'] as const;
 export type NotificationModule = (typeof NOTIFICATION_MODULES)[number];
 
 export const MODULE_NAMES: Record<NotificationModule, string> = {
@@ -15,6 +15,7 @@ export const MODULE_NAMES: Record<NotificationModule, string> = {
   mailbox: 'Mailbox',
   account: 'Account',
   calendar: 'Calendar',
+  complaints: 'Complaints',
 };
 
 export const isNotificationModule = (value: unknown): value is NotificationModule =>

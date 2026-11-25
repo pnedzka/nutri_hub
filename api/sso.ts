@@ -13,7 +13,7 @@ import { checkCron, runDaily } from './_lib/daily.js';
 import { db } from './_lib/supabase.js';
 import { logError } from './_lib/monitoring.js';
 
-const HUB_OWN: AppId[] = ['intranet', 'news', 'leave', 'leave-admin', 'purchase', 'contracts', 'contracts-admin', 'contracts-sign', 'contracts-for-others', 'create-users', 'edit-users'];
+const HUB_OWN: AppId[] = ['intranet', 'news', 'leave', 'leave-admin', 'purchase', 'contracts', 'contracts-admin', 'contracts-sign', 'contracts-for-others', 'complaints', 'complaints-admin', 'create-users', 'edit-users'];
 
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
