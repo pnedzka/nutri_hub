@@ -6,7 +6,7 @@ import { APPS, available } from '../apps';
 // apps follow. The own permissions of the contract generator and of Leave sit under the module and need it.
 
 /** Permissions of an app, shown indented under it; unticking the app unticks them. */
-const SUB: Partial<Record<AppId, AppId[]>> = { leave: ['leave-admin'], contracts: ['contracts-admin', 'contracts-sign', 'contracts-for-others'] };
+const SUB: Partial<Record<AppId, AppId[]>> = { leave: ['leave-admin'], contracts: ['contracts-admin', 'contracts-sign', 'contracts-for-others'], complaints: ['complaints-admin'] };
 const PARENT: Partial<Record<AppId, AppId>> = Object.fromEntries(
   Object.entries(SUB).flatMap(([parent, subs]) => (subs ?? []).map((sub) => [sub, parent])),
 );
@@ -18,6 +18,7 @@ const DESCRIPTIONS: Partial<Record<AppId, string>> = {
   'contracts-admin': 'Accepts contracts after entering the order in enova; sees all contracts.',
   'contracts-sign': 'Signs contracts; board members sign those above 100 000 EUR.',
   'contracts-for-others': 'Creates contracts on behalf of other traders; they go through the usual approval.',
+  'complaints-admin': 'Sees and handles every complaint, assigns who handles it and cancels complaints.',
   'create-users': 'Invites new people, with apps they have themselves.',
   'edit-users': "Changes everyone's contact details, photo, name and manager in User management. Roles, apps and passwords stay with administrators.",
 };

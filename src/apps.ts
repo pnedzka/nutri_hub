@@ -1,4 +1,4 @@
-import { Building2, Calculator, CalendarDays, FileSignature, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, Trophy, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, Calculator, CalendarDays, FileSignature, FileText, Newspaper, PackageSearch, PenLine, PhoneCall, ShieldAlert, Trophy, UserPlus, UserSearch, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { canUse, isAppId, isAvailable, type AppId, type ModuleId } from '../shared/access.ts';
 import { usesContracts } from '../shared/contractsApi.ts';
 import type { AppUser } from './lib/user';
@@ -107,6 +107,14 @@ export const APPS: AppTile[] = [
     description: 'Sales and purchase contracts: generate, accept, sign and send them to the client.',
     url: '/contracts',
     icon: FileSignature,
+    audience: 'app',
+  },
+  {
+    id: 'complaints',
+    name: 'Complaints',
+    description: "Clients' complaints about delivered goods: register, handle with the supplier and settle them.",
+    url: '/complaints',
+    icon: ShieldAlert,
     audience: 'app',
   },
   {
