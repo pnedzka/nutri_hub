@@ -26,6 +26,21 @@ describe('buildOrgTree', () => {
     expect(tree.hasManagers).toBe(true);
   });
 
+  it('lists single people first (Board before others), then teams from the largest', () => {
+    const tree = buildOrgTree([
+      person('Kacper', null, 'Board'),
+      person('Jadwiga', 'Kacper', 'Administration'),
+      person('Klaudia', 'Jadwiga', 'Administration'),
+      person('Jakub', 'Kacper', 'Finances'),
+      person('Marcin', 'Kacper', 'Board'),
+      person('Anna', 'Marcin', 'Trade'),
+      person('Dorota', 'Marcin', 'Trade'),
+      person('Paweł', 'Kacper', 'Board'),
+    ]);
+    expect(tree.reports.get('Kacper')).toEqual(['Paweł', 'Jakub', 'Marcin', 'Jadwiga']);
+    expect(tree.reports.get('Marcin')).toEqual(['Anna', 'Dorota']);
+  });
+
   it('treats a manager who is not in Team (deactivated) as none', () => {
     const tree = buildOrgTree([person('Anna', 'gone'), person('Bartek', 'Anna')]);
     expect(tree.roots).toEqual(['Anna']);
