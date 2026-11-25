@@ -63,23 +63,23 @@ describe('settingsFor', () => {
 describe('Leave administration (leave-admin, 25.11.2026)', () => {
   const hr = user('hr', false, ['leave', 'leave-admin']);
 
-  it('manages leave like an administrator, without being one', () => {
+  it('manages leave without being an administrator', () => {
     expect(managesLeave(hr)).toBe(true);
     expect(managesLeave(user('admin', true, []))).toBe(true);
     expect(managesLeave(user('anna'))).toBe(false);
   });
 
-  it("decides on everyone's requests and sees their type", () => {
-    expect(canDecide(hr, settings, { type: 'vacation' })).toBe(true);
-    expect(canDecide(hr, undefined, { type: 'sick' })).toBe(true);
+  it("sees the type of everyone's leave, but does not decide on requests (only managers and admins)", () => {
     expect(seesType(hr, 'anna', settings, { type: 'sick' })).toBe(true);
+    expect(canDecide(hr, settings, { type: 'vacation' })).toBe(false);
+    expect(canDecide(hr, undefined, { type: 'vacation' })).toBe(false);
+    expect(canDecide(user('boss'), settings, { type: 'vacation' })).toBe(true);
   });
 
-  it('is among the approvers, but e-mailed only when nobody else decides', () => {
-    const people = [user('anna'), user('boss'), hr];
+  it('is not among the approvers and gets no request e-mails', () => {
+    const people = [user('anna'), user('boss'), hr, user('admin', true)];
     const deciders = { type: 'vacation', tripApprovers: trips };
-    expect(approversOf('anna', settings, people, deciders).map((p) => p.id)).toEqual(['boss', 'hr']);
-    expect(mailedApprovers(approversOf('anna', settings, people, deciders), settings, deciders)).toEqual(['boss']);
-    expect(mailedApprovers(approversOf('anna', undefined, people, deciders), undefined, deciders)).toEqual(['hr']);
+    expect(approversOf('anna', settings, people, deciders).map((p) => p.id)).toEqual(['boss', 'admin']);
+    expect(mailedApprovers(approversOf('anna', undefined, people, deciders), undefined, deciders)).toEqual(['admin']);
   });
 });

@@ -14,7 +14,7 @@ const PARENT: Partial<Record<AppId, AppId>> = Object.fromEntries(
 const DESCRIPTIONS: Partial<Record<AppId, string>> = {
   ...Object.fromEntries(APPS.map((a) => [a.id, a.description])),
   intranet: 'The old intranet: only its tile, it has its own sign-in.',
-  'leave-admin': "Manages everyone's leave like an administrator: approves all requests, enters leave and sick leave for others, sets days of leave.",
+  'leave-admin': "Manages everyone's leave: enters leave and sick leave for others, sets days of leave. Requests are still approved by the manager.",
   'contracts-admin': 'Accepts contracts after entering the order in enova; sees all contracts.',
   'contracts-sign': 'Signs contracts; board members sign those above 100 000 EUR.',
   'contracts-for-others': 'Creates contracts on behalf of other traders; they go through the usual approval.',
