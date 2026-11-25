@@ -21,9 +21,10 @@ export function accessChanges(before: Pick<Account, 'role' | 'apps'>, after: Pic
   const changes: string[] = [];
   if (before.role !== after.role) changes.push(after.role === 'admin' ? 'You are now an administrator (all apps)' : 'You are no longer an administrator');
   if (after.role !== 'admin') {
-    const added = after.apps.filter((a) => !before.apps.includes(a) && a !== 'create-users' && isAvailable(a, modules));
+    const added = after.apps.filter((a) => !before.apps.includes(a) && a !== 'create-users' && a !== 'edit-users' && isAvailable(a, modules));
     if (added.length) changes.push(`New: ${added.map((a) => APP_NAMES[a]).join(', ')}`);
     if (after.apps.includes('create-users') && !before.apps.includes('create-users')) changes.push('You can invite new people');
+    if (after.apps.includes('edit-users') && !before.apps.includes('edit-users')) changes.push('You can edit user profiles');
   }
   return changes;
 }

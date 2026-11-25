@@ -103,6 +103,8 @@ export interface Backend {
   drafts: Map<string, Draft>;
   /** Every POST body the app sent to the contracts API, in order. */
   posts: Record<string, unknown>[];
+  /** Every PATCH body sent to User management (/api/admin/users) and to profiles of others (/api/people), in order. */
+  accountChanges: { url: string; body: Record<string, unknown> }[];
   /** Signed links the contract screen gets (terms, signature, scan); served by http://files.test in the tests. */
   files: { terms: string | null; signature: string | null; scan: string | null };
   /** Signs in as this person (call before page.goto). */
@@ -151,6 +153,7 @@ export async function startBackend(page: Page): Promise<Backend> {
   const contracts = new Map<string, Contract>();
   const drafts = new Map<string, Draft>();
   const posts: Record<string, unknown>[] = [];
+  const accountChanges: Backend['accountChanges'] = [];
   let seq = 14;
   const backend = { people: teamOf() };
   const files: Backend['files'] = { terms: null, signature: null, scan: null };
@@ -193,6 +196,31 @@ export async function startBackend(page: Page): Promise<Backend> {
     if (url.pathname === '/api/news') return json(route, { posts: [] });
     if (url.pathname === '/api/people' && !url.searchParams.has('resource') && request.method() === 'GET') {
       return json(route, { people: backend.people, offices: [], me: userId(me) });
+    }
+    // User management: everyone in Team as accounts; an administrator (Pia, Bo) is shown as one.
+    if (url.pathname === '/api/admin/users' && !url.searchParams.has('resource')) {
+      if (request.method() === 'GET') {
+        if (url.searchParams.has('history')) return json(route, { events: [] });
+        const admins = [BOARD, PARTNER].map((p) => p.email);
+        return json(route, {
+          users: backend.people.map((p) => ({
+            id: p.id, email: p.email, full_name: p.name, role: admins.includes(p.email) ? 'admin' : 'user', apps: [], created_at: now(),
+            documents: 0, status: 'active', last_sign_in_at: null, profile: p, manager_id: p.managerId,
+          })),
+        });
+      }
+      const body = request.postDataJSON() as Record<string, unknown>;
+      accountChanges.push({ url: url.pathname, body });
+      const person = backend.people.find((p) => p.id === body.id);
+      if (person && 'managerId' in body) person.managerId = (body.managerId as string | null) ?? null;
+      return json(route, { user: { id: body.id } });
+    }
+    if (url.pathname === '/api/people' && request.method() === 'PATCH') {
+      const body = request.postDataJSON() as Record<string, unknown>;
+      accountChanges.push({ url: url.pathname, body });
+      const person = backend.people.find((p) => p.id === body.id);
+      if (person) Object.assign(person, { jobTitle: body.jobTitle ?? person.jobTitle, mobile: body.mobile ?? person.mobile });
+      return json(route, { person });
     }
     if (url.searchParams.get('resource') !== 'contracts') return json(route, request.method() === 'GET' ? {} : { ok: true });
 
@@ -303,6 +331,7 @@ export async function startBackend(page: Page): Promise<Backend> {
     contracts,
     drafts,
     posts,
+    accountChanges,
     files,
     async as(person) {
       me = person;

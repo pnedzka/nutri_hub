@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Ban, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
-import { APP_NAMES, type AppId, type Role } from '../../shared/access.ts';
+import { APP_NAMES, canEditProfiles, canUse, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
 import { available } from '../apps';
 import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
@@ -73,20 +73,22 @@ function UserApps({ user }: { user: UserRow }) {
 
 export function UsersPage() {
   const me = useAuth((s) => s.user);
-  // Not an administrator: "Create user accounts" only, so the page is just the form for a new account.
   const isAdmin = me?.role === 'admin';
+  // "Edit user profiles": the list and Edit (contact details, name, manager), without roles, apps and passwords.
+  const canList = Boolean(me && canEditProfiles(me));
+  const canAdd = Boolean(me && canUse(me, 'create-users'));
   const toast = useToast();
   const [users, setUsers] = useState<UserRow[] | null>(null);
   const [query, setQuery] = useState('');
   const load = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!canList) return;
     try {
       setUsers((await api<{ users: UserRow[] }>('/api/admin/users')).users);
     } catch (e) {
       toast.error('Could not load users', (e as Error).message);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
+  }, [canList]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set when the request resolves
@@ -152,7 +154,9 @@ export function UsersPage() {
     </span>
   );
 
-  const roleSelect = (u: UserRow) => (
+  const roleSelect = (u: UserRow) => !isAdmin ? (
+    <span className="text-sm text-gray-700">{u.role === 'admin' ? 'administrator' : 'user'}</span>
+  ) : (
     <select
       value={u.role}
       disabled={u.id === me?.id}
@@ -168,7 +172,8 @@ export function UsersPage() {
   const deactivated = (u: UserRow) => u.status === 'deactivated';
 
   const actions = (u: UserRow) => {
-    const items: MenuAction[] = [{ label: 'Edit profile, apps and history', icon: <SquarePen size={15} />, to: `/users/${u.id}` }];
+    const items: MenuAction[] = [{ label: isAdmin ? 'Edit profile, apps and history' : 'Edit profile and history', icon: <SquarePen size={15} />, to: `/users/${u.id}` }];
+    if (!isAdmin) return <ActionsMenu label={`Actions for ${u.email}`} actions={items} />;
     if (!deactivated(u)) {
       items.push(
         { label: u.status === 'invited' ? 'Resend invitation' : 'Reset password (e-mail link)', icon: <Mail size={15} />, onSelect: () => void sendLink(u) },
@@ -198,8 +203,8 @@ export function UsersPage() {
     return words.every((w) => text.includes(w));
   });
 
-  // Not an administrator ("Create user accounts" only): the page is the form for a new account.
-  if (!isAdmin) return <Navigate to="/users/new" replace />;
+  // "Create user accounts" only: the page is the form for a new account.
+  if (!canList) return <Navigate to="/users/new" replace />;
 
   return (
     <div className="space-y-6">
@@ -210,18 +215,22 @@ export function UsersPage() {
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Accounts of the Nutri Partners apps. Contact details, photo and apps are under Edit ("⋯"); everyone can also change their own details in My profile.
+            {isAdmin
+              ? 'Accounts of the Nutri Partners apps. Contact details, photo and apps are under Edit ("⋯"); everyone can also change their own details in My profile.'
+              : 'Accounts of the Nutri Partners apps. Contact details, photo and manager are under Edit ("⋯"); roles, apps and passwords are changed by administrators.'}
           </p>
         </div>
+        {canAdd && (
         <Link
           to="/users/new"
           className="inline-flex shrink-0 items-center justify-center gap-2 min-h-11 sm:min-h-10 rounded-lg bg-[#CC1F1F] px-4 py-2 text-sm font-medium text-white hover:bg-[#A01818] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2"
         >
           <UserPlus size={16} /> Add user
         </Link>
+        )}
       </div>
       <div className="grid grid-cols-1 gap-6 items-start">
-        {isAdmin && (
+        {canList && (
           <Card>
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900">
