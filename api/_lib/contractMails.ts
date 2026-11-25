@@ -48,6 +48,8 @@ interface Message {
 export function planContractMails(contract: Contract, step: ContractStep, actor: { email: string; name: string }, people: FlowPeople): Map<string, Message> {
   const id = contract.id;
   const owner = contract.ownerEmail.toLowerCase();
+  // The trader and whoever created the contract for them (contracts-for-others) handle it together.
+  const traders = [owner, (contract.createdByEmail ?? '').toLowerCase()];
   const who = actor.name;
   const sale = contract.type === 'S';
   const kind = sale ? 'sprzedaży' : 'zakupu';
@@ -87,7 +89,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
           ? `Kontrakt przekracza ${threshold} netto: zatwierdź go, a podpisze członek zarządu. Możesz też zwrócić go do poprawki.`
           : 'Sprawdź kontrakt i podpisz go w module. Możesz też zwrócić go do poprawki.',
       });
-      info([owner], {
+      info(traders, {
         title: `Administracja zaakceptowała kontrakt ${id}`,
         lead: `${who} zaakceptował(a) Twój kontrakt ${id} dla ${contract.companyName}. Teraz czeka na ${contract.boardRequired ? 'zatwierdzenie i podpis zarządu' : 'podpis'}.`,
       });
@@ -102,13 +104,13 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
         lead: `${who} zatwierdził(a) kontrakt ${id} dla ${contract.companyName}. Kontrakt przekracza ${threshold} netto.`,
         todo: 'Podpisz kontrakt w module jako członek zarządu albo zwróć go do poprawki.',
       });
-      info([owner, ...stamps, ...circle], {
+      info([...traders, ...stamps, ...circle], {
         title: `Kontrakt ${id} czeka na podpis zarządu`,
         lead: `${who} zatwierdził(a) kontrakt ${id}. Teraz podpisuje go członek zarządu.`,
       });
       break;
     case 'sign':
-      turn([owner], {
+      turn(traders, {
         title: `Kontrakt ${id} jest podpisany: wyślij go klientowi`,
         lead: `${who} podpisał(a) Twój kontrakt ${id} dla ${contract.companyName}.`,
         todo: `Pobierz w module oba PDF-y (kontrakt i ${terms}), wyślij je klientowi, a skan podpisany przez klienta wgraj do kontraktu.`,
@@ -119,7 +121,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
       });
       break;
     case 'return':
-      turn([owner], {
+      turn(traders, {
         title: `Kontrakt ${id} wrócił do poprawki`,
         lead: `${who} zwrócił(a) Twój kontrakt ${id} dla ${contract.companyName}.`,
         todo: 'Popraw kontrakt według komentarza i wyślij go ponownie. Wróci do administracji.',
@@ -141,7 +143,7 @@ export function planContractMails(contract: Contract, step: ContractStep, actor:
         lead: `${who} wgrał(a) skan kontraktu ${id} podpisanego przez ${contract.companyName}.`,
         todo: 'Skan jest w module. Na jego podstawie można wystawić fakturę w enova.',
       });
-      info([owner, ...stamps, contract.signedBy?.email ?? '', ...circle], {
+      info([...traders, ...stamps, contract.signedBy?.email ?? '', ...circle], {
         title: `Klient podpisał kontrakt ${id}`,
         lead: `${contract.companyName} podpisał(a) kontrakt ${id}. Obieg w module jest zakończony.`,
       });

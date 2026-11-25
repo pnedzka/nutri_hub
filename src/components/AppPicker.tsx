@@ -6,7 +6,7 @@ import { APPS, available } from '../apps';
 // apps follow. The contract generator's own permissions sit under it and need it.
 
 /** Permissions of an app, shown indented under it; unticking the app unticks them. */
-const SUB: Partial<Record<AppId, AppId[]>> = { contracts: ['contracts-admin', 'contracts-sign'] };
+const SUB: Partial<Record<AppId, AppId[]>> = { contracts: ['contracts-admin', 'contracts-sign', 'contracts-for-others'] };
 const PARENT: Partial<Record<AppId, AppId>> = Object.fromEntries(
   Object.entries(SUB).flatMap(([parent, subs]) => (subs ?? []).map((sub) => [sub, parent])),
 );
@@ -16,6 +16,7 @@ const DESCRIPTIONS: Partial<Record<AppId, string>> = {
   intranet: 'The old intranet: only its tile, it has its own sign-in.',
   'contracts-admin': 'Accepts contracts after entering the order in enova; sees all contracts.',
   'contracts-sign': 'Signs contracts; board members sign those above 100 000 EUR.',
+  'contracts-for-others': 'Creates contracts on behalf of other traders; they go through the usual approval.',
   'create-users': 'Invites new people, with apps they have themselves.',
 };
 

@@ -8,6 +8,8 @@
 //   contracts-admin  administration (Jadwiga) and the hub's administrators: accept, see all, upload terms and signatures;
 //   contracts-sign   Marcin Niećko and the board: sign; above 100 000 EUR net only the board: administrators of the
 //                    Board department (decision of 24.11.2026; Marcin is in Board but is not an administrator).
+//   contracts-for-others  chosen people of administration (Klaudia Adamek): create contracts for any trader and handle
+//                    them like the trader (edit when returned, cancel, client scan); the approval flow stays the same.
 
 import { randomUUID } from 'node:crypto';
 import { canUse, isAvailable, toApps, type AppId } from '../../shared/access.js';
@@ -107,9 +109,9 @@ async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 }
 
 /** Whether this person may see the contract: its owner, administration and the people who sign. */
-function maySee(contract: Pick<Contract, 'ownerEmail'>, me: Member): boolean {
+function maySee(contract: Pick<Contract, 'ownerEmail'> & { createdByEmail?: string }, me: Member): boolean {
   const v = viewerOf(me);
-  return contract.ownerEmail === me.email || v.isContractAdmin || v.canSign;
+  return contract.ownerEmail === me.email || (contract.createdByEmail ?? '').toLowerCase() === me.email || v.isContractAdmin || v.canSign;
 }
 
 async function getContract(id: string): Promise<Contract> {
@@ -131,10 +133,12 @@ const safeName = (name: string) =>
     .replace(/_+/g, '_')
     .slice(-80) || 'scan.pdf';
 
-/** The owners a contract may get: the person themselves, or (contract administrators) anyone with the app. */
+/** Contract administrators and people with contracts-for-others create contracts for other traders. */
+const forOthers = (m: Member) => viewerOf(m).isContractAdmin || uses(m, 'contracts-for-others');
+
+/** The owners a contract may get: the person themselves, or (forOthers) anyone with the app. */
 function owners(me: Member, people: Member[]): OwnerOption[] {
-  const v = viewerOf(me);
-  const list = v.isContractAdmin ? people.filter((p) => uses(p, 'contracts')) : [me];
+  const list = forOthers(me) ? people.filter((p) => uses(p, 'contracts')) : [me];
   return list
     .map((p) => ({ email: p.email, name: p.name, initials: initialsOf(p.name) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
@@ -191,6 +195,8 @@ export function contractsGet(request: Request): Promise<Response> {
         return json(
           await call('list', {
             p_owner: scope === 'mine' || !all ? me.email : null,
+            // Also the contracts this person created for other traders (db/central/contracts_for_others.sql).
+            ...(!all && uses(me, 'contracts-for-others') ? { p_created_by: me.email } : {}),
             p_statuses: statuses,
             p_q: params.get('q') || null,
             p_limit: 100,
@@ -277,12 +283,13 @@ export function contractsGet(request: Request): Promise<Response> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A draft of this person (contract administrators may also open the drafts they saved for someone else). */
+/** A draft of this person or saved by them for someone else (contract administrators may open any). */
 async function getDraft(id: string, me: Member): Promise<Draft> {
   if (!UUID.test(id)) throw new HttpError(404, 'This draft does not exist.');
   const draft = await call<(Draft & { createdByEmail?: string }) | null>('draft_get', { p_id: id });
   if (!draft) throw new HttpError(404, 'This draft does not exist.');
-  if (draft.ownerEmail !== me.email && !viewerOf(me).isContractAdmin) throw new HttpError(403, 'This draft belongs to another trader.');
+  const mine = draft.ownerEmail === me.email || (draft.createdByEmail ?? '').toLowerCase() === me.email;
+  if (!mine && !viewerOf(me).isContractAdmin) throw new HttpError(403, 'This draft belongs to another trader.');
   return draft;
 }
 

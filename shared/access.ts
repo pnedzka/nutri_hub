@@ -15,6 +15,7 @@ export const APP_IDS = [
   'contracts',
   'contracts-admin',
   'contracts-sign',
+  'contracts-for-others',
   'intranet',
   'create-users',
 ] as const;
@@ -31,6 +32,7 @@ export const APP_NAMES: Record<AppId, string> = {
   contracts: 'Contracts',
   'contracts-admin': 'Contract administration (accepts contracts)',
   'contracts-sign': 'Contract signing',
+  'contracts-for-others': 'Create contracts for other traders',
   intranet: 'Intranet',
   'create-users': 'Create user accounts',
 };
@@ -38,9 +40,10 @@ export const APP_NAMES: Record<AppId, string> = {
 /**
  * The apps a new account gets ticked by default: all except Purchase Manager, which only the purchase team uses
  * (supplier offers and purchase prices), the permission to create accounts and the two permissions of the Contract
- * generator (accepting contracts: administration; signing: Marcin Niećko and the board).
+ * generator (accepting contracts: administration; signing: Marcin Niećko and the board; creating contracts for other
+ * traders: chosen people of administration, e.g. Klaudia Adamek).
  */
-const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'contracts-admin', 'contracts-sign'];
+const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'contracts-admin', 'contracts-sign', 'contracts-for-others'];
 export const DEFAULT_APPS: readonly AppId[] = APP_IDS.filter((id) => !NOT_DEFAULT.includes(id));
 
 export type Role = 'admin' | 'user';
@@ -68,7 +71,7 @@ export type ModuleId = AppId | 'calls';
 /** Whether an app is switched on; `enabledModules` is the value of VITE_HUB_MODULES (module ids, comma-separated). */
 export function isAvailable(app: ModuleId, enabledModules: string | undefined): boolean {
   // The permissions of the Contract generator are on wherever the module is.
-  const module: ModuleId = app === 'contracts-admin' || app === 'contracts-sign' ? 'contracts' : app;
+  const module: ModuleId = app.startsWith('contracts-') ? 'contracts' : app;
   if (!DEV_MODULES.includes(module)) return true;
   return (enabledModules ?? '').split(',').map((id) => id.trim()).includes(module);
 }
