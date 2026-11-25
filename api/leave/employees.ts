@@ -1,4 +1,4 @@
-//   GET /api/leave/employees → EmployeesResponse   (administrators)
+//   GET /api/leave/employees → EmployeesResponse   (administrators and Leave administration, leave-admin)
 //   PUT /api/leave/employees  body EmployeeSettingsUpdate → { ok: true }
 //
 // Each person's yearly leave, first year tracked and the days carried over into it, plus the days granted
@@ -8,7 +8,7 @@
 import type { EmployeeRow, EmployeeSettingsUpdate, EmployeesResponse } from '../../shared/leaveApi.js';
 import { requireApp } from '../_lib/auth.js';
 import { appUrl, handle, HttpError, json, readJson } from '../_lib/http.js';
-import { allSettings, balances, isSaved, settingsFor, todayInPoland, tripApprovers } from '../_lib/leave.js';
+import { allSettings, balances, isSaved, managesLeave, settingsFor, todayInPoland, tripApprovers } from '../_lib/leave.js';
 import { settingsChanged } from '../_lib/leaveNotices.js';
 import { notify } from '../_lib/notifications.js';
 import { appPeople, toPerson } from '../_lib/people.js';
@@ -16,7 +16,7 @@ import { db } from '../_lib/supabase.js';
 
 async function requireAdmin(request: Request) {
   const viewer = await requireApp(request, 'leave');
-  if (!viewer.isAdmin) throw new HttpError(403, 'Only administrators can manage leave settings.');
+  if (!managesLeave(viewer)) throw new HttpError(403, 'Only administrators and Leave administration can manage leave settings.');
   return viewer;
 }
 
@@ -43,6 +43,7 @@ export function GET(request: Request): Promise<Response> {
       return {
         person: toPerson(p),
         isAdmin: p.isAdmin,
+        managesLeave: managesLeave(p),
         configured: isSaved(settings.get(p.id)),
         settings: s,
         manager: manager ? toPerson(manager) : null,
