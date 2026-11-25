@@ -14,7 +14,7 @@ export function LeavePage() {
     { to: '/leave', label: 'My leave', show: true },
     { to: '/leave/approvals', label: 'Approvals', show: Boolean(data?.isApprover), count: data?.approvals.length },
     { to: '/leave/calendar', label: 'Calendar', show: true },
-    { to: '/leave/employees', label: 'Employees', show: Boolean(data?.isAdmin) },
+    { to: '/leave/employees', label: 'Employees', show: Boolean(data?.managesLeave) },
   ].filter((t) => t.show);
 
   return (

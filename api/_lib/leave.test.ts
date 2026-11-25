@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { approversOf, canDecide, mailedApprovers, seesType } from './leave';
+import type { AppId } from '../../shared/access';
+import { approversOf, canDecide, mailedApprovers, managesLeave, seesType } from './leave';
 
 const settings = { managerId: 'boss', annualDays: 26, startYear: 2026, carriedOver: 0 };
-const user = (id: string, isAdmin = false) => ({ id, email: `${id}@example.com`, name: id, isAdmin });
+const user = (id: string, isAdmin = false, apps: AppId[] = ['leave']) => ({ id, email: `${id}@example.com`, name: id, isAdmin, apps });
 const trips = new Set(['director']);
 
 describe('business trip approvers', () => {
@@ -56,5 +57,29 @@ describe('settingsFor', () => {
     const saved = { managerId: 'boss', annualDays: 20, startYear: 2024, carriedOver: 3 };
     expect(settingsFor(saved, 2026)).toBe(saved);
     expect(settingsFor(undefined, 2025)).toEqual({ managerId: null, annualDays: 26, startYear: 2025, carriedOver: 0 });
+  });
+});
+
+describe('Leave administration (leave-admin, 25.11.2026)', () => {
+  const hr = user('hr', false, ['leave', 'leave-admin']);
+
+  it('manages leave like an administrator, without being one', () => {
+    expect(managesLeave(hr)).toBe(true);
+    expect(managesLeave(user('admin', true, []))).toBe(true);
+    expect(managesLeave(user('anna'))).toBe(false);
+  });
+
+  it("decides on everyone's requests and sees their type", () => {
+    expect(canDecide(hr, settings, { type: 'vacation' })).toBe(true);
+    expect(canDecide(hr, undefined, { type: 'sick' })).toBe(true);
+    expect(seesType(hr, 'anna', settings, { type: 'sick' })).toBe(true);
+  });
+
+  it('is among the approvers, but e-mailed only when nobody else decides', () => {
+    const people = [user('anna'), user('boss'), hr];
+    const deciders = { type: 'vacation', tripApprovers: trips };
+    expect(approversOf('anna', settings, people, deciders).map((p) => p.id)).toEqual(['boss', 'hr']);
+    expect(mailedApprovers(approversOf('anna', settings, people, deciders), settings, deciders)).toEqual(['boss']);
+    expect(mailedApprovers(approversOf('anna', undefined, people, deciders), undefined, deciders)).toEqual(['hr']);
   });
 });

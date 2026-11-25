@@ -11,7 +11,7 @@
 // central database (dashboard_api.intranet_contracts, db/central/dashboard_api.sql). Only sums and counts leave the
 // server: no clients, no single contracts.
 
-import { canUse, isAvailable } from '../../shared/access.js';
+import { canUse, isAvailable, toApps, type AppId } from '../../shared/access.js';
 import {
   CALENDAR_DAYS,
   canSeeWidget,
@@ -73,7 +73,7 @@ async function departmentOf(id: string): Promise<string | null> {
 const leaveOn = () => isAvailable('leave', process.env.VITE_HUB_MODULES);
 
 /** Approved leave in the days, as the widget shows it: the type only to those who see it in Leave, else "Absent". */
-async function absences(viewer: { id: string; isAdmin: boolean }, from: string, to: string): Promise<CalendarItem[]> {
+async function absences(viewer: { id: string; isAdmin: boolean; apps: AppId[] }, from: string, to: string): Promise<CalendarItem[]> {
   const [{ data, error }, settings, trips] = await Promise.all([
     db().from('leave_requests').select('id, user_id, type, start_date, end_date, half_day').eq('status', 'approved').lte('start_date', to).gte('end_date', from),
     allSettings(),
@@ -88,7 +88,7 @@ async function absences(viewer: { id: string; isAdmin: boolean }, from: string, 
   const names = new Map((people ?? []).map((p) => [String(p.id), (p.full_name as string | null)?.trim() || String(p.email ?? 'Former user')]));
   return rows.map((r) => {
     const owner = String(r.user_id);
-    const detailed = seesType({ id: viewer.id, email: '', name: null, isAdmin: viewer.isAdmin }, owner, settings.get(owner), { type: String(r.type), tripApprovers: trips });
+    const detailed = seesType({ id: viewer.id, email: '', name: null, isAdmin: viewer.isAdmin, apps: viewer.apps }, owner, settings.get(owner), { type: String(r.type), tripApprovers: trips });
     const what = detailed ? LEAVE_TYPE_NAMES[r.type as LeaveType] ?? 'Absent' : 'Absent';
     return {
       id: `leave-${r.id}`,
@@ -112,7 +112,7 @@ async function calendarWeek(viewer: Viewer & { id: string }, from: string): Prom
   });
   const seesLeave = leaveOn() && canUse(viewer, 'leave');
   const [away, google] = await Promise.all([
-    seesLeave ? absences({ id: viewer.id, isAdmin: viewer.role === 'admin' }, from, to) : Promise.resolve([]),
+    seesLeave ? absences({ id: viewer.id, isAdmin: viewer.role === 'admin', apps: toApps(viewer.apps) }, from, to) : Promise.resolve([]),
     seesCompanyCalendar(viewer)
       ? listEvents(dayStart(from), dayStart(shiftDay(to, 1))).then(
           (rows) => ({ state: rows ? ('on' as const) : ('off' as const), rows: rows ?? [] }),

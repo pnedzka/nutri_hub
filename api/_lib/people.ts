@@ -6,6 +6,7 @@ import { db } from './supabase.js';
 
 export interface PersonRow extends Person {
   isAdmin: boolean;
+  apps: AppId[];
 }
 
 /**
@@ -16,12 +17,14 @@ export async function appPeople(app: AppId): Promise<PersonRow[]> {
   const { data, error } = await db().from('profiles').select('id, email, full_name, role, apps').is('deactivated_at', null);
   if (error) throw error;
   return (data ?? [])
-    .filter((row) => canUse({ role: row.role === 'admin' ? 'admin' : 'user', apps: toApps(row.apps) }, app))
-    .map((row) => ({
+    .map((row) => ({ row, apps: toApps(row.apps) }))
+    .filter(({ row, apps }) => canUse({ role: row.role === 'admin' ? 'admin' : 'user', apps }, app))
+    .map(({ row, apps }) => ({
       id: String(row.id),
       email: String(row.email ?? ''),
       name: (row.full_name as string | null)?.trim() || String(row.email ?? ''),
       isAdmin: row.role === 'admin',
+      apps,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
 }

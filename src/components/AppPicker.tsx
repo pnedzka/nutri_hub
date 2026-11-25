@@ -3,10 +3,10 @@ import { APPS, available } from '../apps';
 
 // The checkboxes of the apps a person may use: in the form for a new account (User management → Add user) and on
 // the account's Edit page. Apps come first, each with the description of its tile; the permissions that are not
-// apps follow. The contract generator's own permissions sit under it and need it.
+// apps follow. The own permissions of the contract generator and of Leave sit under the module and need it.
 
 /** Permissions of an app, shown indented under it; unticking the app unticks them. */
-const SUB: Partial<Record<AppId, AppId[]>> = { contracts: ['contracts-admin', 'contracts-sign', 'contracts-for-others'] };
+const SUB: Partial<Record<AppId, AppId[]>> = { leave: ['leave-admin'], contracts: ['contracts-admin', 'contracts-sign', 'contracts-for-others'] };
 const PARENT: Partial<Record<AppId, AppId>> = Object.fromEntries(
   Object.entries(SUB).flatMap(([parent, subs]) => (subs ?? []).map((sub) => [sub, parent])),
 );
@@ -14,6 +14,7 @@ const PARENT: Partial<Record<AppId, AppId>> = Object.fromEntries(
 const DESCRIPTIONS: Partial<Record<AppId, string>> = {
   ...Object.fromEntries(APPS.map((a) => [a.id, a.description])),
   intranet: 'The old intranet: only its tile, it has its own sign-in.',
+  'leave-admin': "Manages everyone's leave like an administrator: approves all requests, enters leave and sick leave for others, sets days of leave.",
   'contracts-admin': 'Accepts contracts after entering the order in enova; sees all contracts.',
   'contracts-sign': 'Signs contracts; board members sign those above 100 000 EUR.',
   'contracts-for-others': 'Creates contracts on behalf of other traders; they go through the usual approval.',
