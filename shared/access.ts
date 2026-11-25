@@ -21,6 +21,7 @@ export const APP_IDS = [
   'complaints-admin',
   'intranet',
   'create-users',
+  'edit-users',
 ] as const;
 export type AppId = (typeof APP_IDS)[number];
 
@@ -41,6 +42,7 @@ export const APP_NAMES: Record<AppId, string> = {
   'complaints-admin': 'Complaint administration',
   intranet: 'Intranet',
   'create-users': 'Create user accounts',
+  'edit-users': 'Edit user profiles',
 };
 
 /**
@@ -51,7 +53,7 @@ export const APP_NAMES: Record<AppId, string> = {
  * for other traders: chosen people of administration, e.g. Klaudia Adamek). Complaints are ticked by hand (decision of
  * 25.11.2026), their administration too (Jadwiga Woźny).
  */
-const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'leave-admin', 'contracts-admin', 'contracts-sign', 'contracts-for-others', 'complaints', 'complaints-admin'];
+const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'edit-users', 'leave-admin', 'contracts-admin', 'contracts-sign', 'contracts-for-others', 'complaints', 'complaints-admin'];
 export const DEFAULT_APPS: readonly AppId[] = APP_IDS.filter((id) => !NOT_DEFAULT.includes(id));
 
 export type Role = 'admin' | 'user';
@@ -88,9 +90,21 @@ export function canUse(person: { role: Role; apps: readonly string[] }, app: App
   return person.role === 'admin' || person.apps.includes(app);
 }
 
-/** The apps a person may give a new account: administrators any, others only the ones they have themselves. */
+/**
+ * The apps a person may give a new account: administrators any, others only the ones they have themselves, except
+ * "Edit user profiles", which only administrators give.
+ */
 export function grantableApps(person: { role: Role; apps: readonly string[] }): AppId[] {
-  return APP_IDS.filter((id) => canUse(person, id));
+  return APP_IDS.filter((id) => canUse(person, id) && (id !== 'edit-users' || person.role === 'admin'));
+}
+
+/**
+ * "Edit user profiles" (decision of 25.11.2026, Klaudia Adamek of administration): its holder opens User management
+ * and changes everyone's contact details, photo, name and manager, without being an administrator. Roles, apps,
+ * passwords, e-mail links, deactivation and deletion stay with administrators.
+ */
+export function canEditProfiles(person: { role: Role; apps: readonly string[] }): boolean {
+  return canUse(person, 'edit-users');
 }
 
 /**
@@ -106,7 +120,7 @@ export function newAccountProblem(
   if (!creator.apps.includes('create-users')) return 'Only administrators and people allowed to create user accounts can do this.';
   if (account.role === 'admin') return 'Only administrators can create administrator accounts.';
   if (!account.invite) return 'New accounts get an e-mail invitation; only administrators can set a start password.';
-  const extra = account.apps.filter((id) => !creator.apps.includes(id));
+  const extra = account.apps.filter((id) => !grantableApps(creator).includes(id));
   if (extra.length) return `You can only give apps you have yourself (not: ${extra.map((id) => APP_NAMES[id]).join(', ')}).`;
   return null;
 }

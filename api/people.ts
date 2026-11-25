@@ -16,6 +16,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { avatarPath, cleanOffice, isUuid, ProfileError, type Office, type ProfileInput } from '../shared/profile.js';
+import { canEditProfiles } from '../shared/access.js';
 import { requireAdmin, requireUser, type Profile } from './_lib/auth.js';
 import { dashboardGet, isDashboardRequest } from './_lib/dashboard.js';
 import { complaintsGet, complaintsPost, isComplaintsRequest } from './_lib/complaints.js';
@@ -32,11 +33,11 @@ async function offices(): Promise<Office[]> {
   return (data ?? []).map((o) => ({ id: String(o.id), name: String(o.name), address: String(o.address ?? '') }));
 }
 
-/** The account whose profile is changed: the person themselves, or anyone when an administrator asks. */
+/** The account whose profile is changed: the person themselves, or anyone when an administrator (or someone with "Edit user profiles") asks. */
 function target(viewer: Profile, id: unknown): string {
   if (id === undefined || id === viewer.id) return viewer.id;
   if (!isUuid(id)) throw new HttpError(400, 'User ID is invalid.');
-  if (viewer.role !== 'admin') throw new HttpError(403, 'You can change only your own profile.');
+  if (!canEditProfiles(viewer)) throw new HttpError(403, 'You can change only your own profile.');
   return id;
 }
 

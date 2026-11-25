@@ -11,6 +11,7 @@ import { ManagerSelect } from '../components/ManagerSelect';
 import { ProfileForm } from '../components/ProfileForm';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
+import { useAuth } from '../lib/auth';
 import { usePeople } from '../lib/people';
 import { useToast } from '../lib/toast';
 import { Empty, ErrorNote, Loading } from './leave/ui';
@@ -116,9 +117,13 @@ function ManagerCard({ user, people, onSaved }: { user: UserRow; people: UserRow
   );
 }
 
-/** User management → Edit: an administrator changes a person's contact details and photo, and sees the history. */
+/**
+ * User management → Edit: an administrator (or someone with "Edit user profiles": without apps and the mailbox)
+ * changes a person's contact details and photo, and sees the history.
+ */
 export function UserEditPage() {
   const { id } = useParams();
+  const isAdmin = useAuth((s) => s.user?.role === 'admin');
   const toast = useToast();
   const { offices, load: loadPeople } = usePeople();
   const [user, setUser] = useState<UserRow | null | undefined>(undefined);
@@ -182,7 +187,7 @@ export function UserEditPage() {
           </CardBody>
         </Card>
       )}
-      {user && (
+      {user && isAdmin && (
         <AccessCard
           key={`access-${user.id}-${user.role}`}
           user={user}
@@ -203,7 +208,7 @@ export function UserEditPage() {
           }}
         />
       )}
-      {user && user.status !== 'deactivated' && <MailboxCard key={`mailbox-${user.id}`} userId={user.id} owner={user.full_name || user.email} />}
+      {user && isAdmin && user.status !== 'deactivated' && <MailboxCard key={`mailbox-${user.id}`} userId={user.id} owner={user.full_name || user.email} />}
       {user && (
         <Card>
           <CardHeader className="flex items-center gap-2">

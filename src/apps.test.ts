@@ -14,6 +14,9 @@ describe('sectionsFor', () => {
   it('shows the New user accounts tile to people allowed to create accounts, not to administrators', () => {
     expect(ids({ role: 'user', apps: ['signatures', 'create-users'] })).toEqual([['Your apps', ['signatures', 'team', 'create-users']]]);
     expect(ids({ role: 'admin', apps: ['create-users'] })[0][1]).not.toContain('create-users');
+    // "Edit user profiles" opens User management, where "Add user" is too.
+    expect(ids({ role: 'user', apps: ['create-users', 'edit-users'] })).toEqual([['Your apps', ['team', 'edit-users']]]);
+    expect(ids({ role: 'admin', apps: ['edit-users'] })[0][1]).not.toContain('edit-users');
   });
 
   it('shows only Team to a user without apps', () => {

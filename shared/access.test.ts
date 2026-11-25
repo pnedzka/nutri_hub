@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_APPS, canUse, grantableApps, isAvailable, newAccountProblem, toApps } from './access';
+import { DEFAULT_APPS, canEditProfiles, canUse, grantableApps, isAvailable, newAccountProblem, toApps } from './access';
 
 describe('toApps', () => {
   it('keeps known apps once, in a fixed order', () => {
@@ -65,5 +65,21 @@ describe('creating accounts', () => {
     expect(newAccountProblem(creator, invite([], 'admin'))).toMatch(/administrator accounts/);
     expect(newAccountProblem(creator, { role: 'user', apps: [], invite: false })).toMatch(/start password/);
     expect(newAccountProblem(creator, invite(['signatures', 'purchase']))).toMatch(/not: Purchase Manager/);
+  });
+});
+
+describe('edit-users', () => {
+  it('is not ticked by default and only administrators give it', () => {
+    expect(DEFAULT_APPS).not.toContain('edit-users');
+    const creator = { role: 'user' as const, apps: ['create-users', 'edit-users', 'signatures'] };
+    expect(grantableApps(creator)).toEqual(['signatures', 'create-users']);
+    expect(newAccountProblem(creator, { role: 'user', apps: ['edit-users'], invite: true })).toMatch(/Edit user profiles/);
+    expect(grantableApps({ role: 'admin', apps: [] })).toContain('edit-users');
+  });
+
+  it('lets its holder and administrators edit profiles', () => {
+    expect(canEditProfiles({ role: 'user', apps: ['edit-users'] })).toBe(true);
+    expect(canEditProfiles({ role: 'admin', apps: [] })).toBe(true);
+    expect(canEditProfiles({ role: 'user', apps: ['create-users'] })).toBe(false);
   });
 });

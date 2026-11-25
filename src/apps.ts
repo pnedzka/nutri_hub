@@ -145,6 +145,15 @@ export const APPS: AppTile[] = [
     audience: 'app',
   },
   {
+    // The "Edit user profiles" permission: User management with contact details, photo, name and manager of everyone.
+    id: 'edit-users',
+    name: 'User profiles',
+    description: "Change colleagues' contact details, photo and manager.",
+    url: '/users',
+    icon: Users,
+    audience: 'app',
+  },
+  {
     id: 'users',
     name: 'User management',
     description: 'Invite people, choose their apps, reset passwords and assign roles.',
@@ -188,7 +197,10 @@ export function sectionsFor(
         (a) =>
           a.audience === 'everyone' ||
           // Administrators create accounts in User management (Administration).
-          (a.audience === 'app' && isAppId(a.id) && available(a.id, enabledModules) && (a.id === 'contracts' ? usesContracts(user) : canUse(user, a.id)) && !(a.id === 'create-users' && user.role === 'admin')),
+          (a.audience === 'app' && isAppId(a.id) && available(a.id, enabledModules) && (a.id === 'contracts' ? usesContracts(user) : canUse(user, a.id)) && !(a.id === 'create-users' && user.role === 'admin') &&
+            !(a.id === 'edit-users' && user.role === 'admin') &&
+            // With "Edit user profiles", "Add user" is on the User profiles page.
+            !(a.id === 'create-users' && user.apps.includes('edit-users'))),
       ),
     },
   ];
@@ -216,7 +228,7 @@ export function navSectionsFor(
   enabledModules: string | undefined = env.VITE_HUB_MODULES,
 ): AppSection[] {
   const visible = sectionsFor(user, apps, enabledModules).flatMap((s) => s.apps);
-  const isAdminTool = (a: AppTile) => a.audience === 'admin' || a.id === 'create-users';
+  const isAdminTool = (a: AppTile) => a.audience === 'admin' || a.id === 'create-users' || a.id === 'edit-users';
   const sections: AppSection[] = [
     { title: 'Work', apps: visible.filter((a) => !isAdminTool(a) && a.url.startsWith('/')) },
     { title: 'Tools', apps: visible.filter((a) => !isAdminTool(a) && !a.url.startsWith('/')) },
