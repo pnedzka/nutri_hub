@@ -1,4 +1,5 @@
-// User accounts (administrator only). There is no public sign-up: an administrator creates every account, or someone
+// User accounts (administrator only; GET and PATCH of the name and manager also for "Edit user profiles",
+// canEditProfiles in shared/access.ts). There is no public sign-up: an administrator creates every account, or someone
 // with the "Create user accounts" permission (POST only: invitations to users with apps they have themselves,
 // newAccountProblem in shared/access.ts).
 //
@@ -27,7 +28,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { newAccountProblem, toApps } from '../../shared/access.js';
-import { PROFILE_COLUMNS, requireAdmin, requireUser, toProfile, type Profile } from '../_lib/auth.js';
+import { PROFILE_COLUMNS, requireAdmin, requireProfileEditor, requireUser, toProfile, type Profile } from '../_lib/auth.js';
 import { HttpError, appUrl, handle, json, readJson } from '../_lib/http.js';
 import { createInvitedUser, issueAccountLink } from '../_lib/accountLinks.js';
 import { notifyAccessChanged } from '../_lib/accountNotices.js';
@@ -90,7 +91,7 @@ export function GET(request: Request): Promise<Response> {
   if (isPurchaseRequest(request)) return purchaseGet(request);
   if (isContestsRequest(request)) return contestsGet(request);
   return handle(async () => {
-    await requireAdmin(request);
+    await requireProfileEditor(request);
     const historyOf = new URL(request.url).searchParams.get('history');
     if (historyOf !== null) {
       if (!isUuid(historyOf)) throw new HttpError(400, 'User ID is invalid.');
@@ -202,9 +203,13 @@ export function POST(request: Request): Promise<Response> {
 
 export function PATCH(request: Request): Promise<Response> {
   return handle(async () => {
-    const admin = await requireAdmin(request);
+    const admin = await requireProfileEditor(request);
     const body = await readJson<{ id?: unknown; role?: unknown; fullName?: unknown; apps?: unknown; password?: unknown; sendLink?: unknown; active?: unknown; managerId?: unknown }>(request);
     if (typeof body.id !== 'string') throw new HttpError(400, 'User ID is missing.');
+    // "Edit user profiles": only the name and the manager; access and the account itself stay with administrators.
+    if (admin.role !== 'admin' && (body.role !== undefined || body.apps !== undefined || body.password !== undefined || body.sendLink !== undefined || body.active !== undefined)) {
+      throw new HttpError(403, 'Only administrators can change roles, apps, passwords and account status.');
+    }
     if (body.id === admin.id && body.role !== undefined && role(body.role) !== 'admin') {
       throw new HttpError(400, 'You cannot remove administrator rights from yourself.');
     }

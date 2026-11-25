@@ -19,10 +19,11 @@ const DESCRIPTIONS: Partial<Record<AppId, string>> = {
   'contracts-sign': 'Signs contracts; board members sign those above 100 000 EUR.',
   'contracts-for-others': 'Creates contracts on behalf of other traders; they go through the usual approval.',
   'create-users': 'Invites new people, with apps they have themselves.',
+  'edit-users': "Changes everyone's contact details, photo, name and manager in User management. Roles, apps and passwords stay with administrators.",
 };
 
 /** Not apps: what a person may do in the hub. */
-const PERMISSIONS: AppId[] = ['create-users'];
+const PERMISSIONS: AppId[] = ['create-users', 'edit-users'];
 
 function Row({ id, checked, disabled, onToggle, nested }: { id: AppId; checked: boolean; disabled: boolean; onToggle: (on: boolean) => void; nested?: boolean }) {
   return (

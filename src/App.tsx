@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Toasts } from './components/Toasts';
-import { canUse, type AppId } from '../shared/access.ts';
+import { canEditProfiles, canUse, type AppId } from '../shared/access.ts';
 import { usesContracts } from '../shared/contractsApi.ts';
 import { available } from './apps';
 import { useAuth } from './lib/auth';
@@ -38,10 +38,23 @@ function AdminOnly({ children }: { children: ReactNode }) {
   return role === 'admin' ? <>{children}</> : <Navigate to="/" replace />;
 }
 
-/** User management: administrators, and people with "Create user accounts" (only the form for a new account). */
+/**
+ * User management: administrators, people with "Create user accounts" (only the form for a new account) and people
+ * with "Edit user profiles" (the list and Edit, without roles, apps and passwords).
+ */
 function AccountCreatorsOnly({ children }: { children: ReactNode }) {
   const user = useAuth((s) => s.user);
+  return user && (canUse(user, 'create-users') || canEditProfiles(user)) ? <>{children}</> : <Navigate to="/" replace />;
+}
+
+function CreatorsOnly({ children }: { children: ReactNode }) {
+  const user = useAuth((s) => s.user);
   return user && canUse(user, 'create-users') ? <>{children}</> : <Navigate to="/" replace />;
+}
+
+function ProfileEditorsOnly({ children }: { children: ReactNode }) {
+  const user = useAuth((s) => s.user);
+  return user && canEditProfiles(user) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 /** A module of the hub (News, Leave, Purchase Manager) for the people who may use it; the API checks access again. */
@@ -74,8 +87,8 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/users" element={<AccountCreatorsOnly><UsersPage /></AccountCreatorsOnly>} />
-          <Route path="/users/new" element={<AccountCreatorsOnly><NewUserPage /></AccountCreatorsOnly>} />
-          <Route path="/users/:id" element={<AdminOnly><UserEditPage /></AdminOnly>} />
+          <Route path="/users/new" element={<CreatorsOnly><NewUserPage /></CreatorsOnly>} />
+          <Route path="/users/:id" element={<ProfileEditorsOnly><UserEditPage /></ProfileEditorsOnly>} />
           <Route path="/contests" element={<AdminOnly><ContestsPage /></AdminOnly>} />
           {available('calls') && <Route path="/calls" element={<AdminOnly><CallsPage /></AdminOnly>} />}
           <Route path="/sso" element={<SsoPage />} />
