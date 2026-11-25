@@ -8,6 +8,7 @@ import { available } from './apps';
 import { useAuth } from './lib/auth';
 import { CallsPage } from './pages/calls/CallsPage';
 import { ContestsPage } from './pages/ContestsPage';
+import { ComplaintsPage } from './pages/complaints/ComplaintsPage';
 import { ContractsPage } from './pages/contracts/ContractsPage';
 import { HomePage } from './pages/HomePage';
 import { LeavePage } from './pages/leave/LeavePage';
@@ -69,6 +70,7 @@ export default function App() {
           {available('news') && <Route path="/news/*" element={<AppOnly app="news"><NewsPage /></AppOnly>} />}
           {available('leave') && <Route path="/leave/*" element={<AppOnly app="leave"><LeavePage /></AppOnly>} />}
           {available('contracts') && <Route path="/contracts/*" element={<AppOnly app="contracts"><ContractsPage /></AppOnly>} />}
+          {available('complaints') && <Route path="/complaints/*" element={<AppOnly app="complaints"><ComplaintsPage /></AppOnly>} />}
           {available('purchase') && <Route path="/purchase/*" element={<AppOnly app="purchase"><PurchasePage /></AppOnly>} />}
           <Route path="/team" element={<TeamPage />} />
           <Route path="/profile" element={<ProfilePage />} />

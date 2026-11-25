@@ -7,6 +7,7 @@
 //   DELETE /api/people   body { id } → { offices: Office[] }   remove an office; its people get none (admins)
 //
 // `?resource=contracts` is the Contract generator (api/_lib/contracts.ts, shared/contractsApi.ts).
+// `?resource=complaints` is Complaints (api/_lib/complaints.ts, shared/complaintsApi.ts).
 // `?resource=mailbox` is "Mailbox in the knowledge base" on My profile (api/_lib/mailbox.ts, shared/mailboxApi.ts).
 // `?resource=dashboard` is the data of the home page's sales widgets (api/_lib/dashboard.ts, shared/dashboard.ts).
 // `?resource=quotes` is the quotes of the home page's welcome card (api/_lib/quotes.ts; public, cached by Vercel).
@@ -17,6 +18,7 @@ import { randomUUID } from 'node:crypto';
 import { avatarPath, cleanOffice, isUuid, ProfileError, type Office, type ProfileInput } from '../shared/profile.js';
 import { requireAdmin, requireUser, type Profile } from './_lib/auth.js';
 import { dashboardGet, isDashboardRequest } from './_lib/dashboard.js';
+import { complaintsGet, complaintsPost, isComplaintsRequest } from './_lib/complaints.js';
 import { contractsGet, contractsPost, isContractsRequest } from './_lib/contracts.js';
 import { handle, HttpError, json, readJson } from './_lib/http.js';
 import { isQuotesRequest, quotesGet } from './_lib/quotes.js';
@@ -40,6 +42,7 @@ function target(viewer: Profile, id: unknown): string {
 
 export function GET(request: Request): Promise<Response> {
   if (isContractsRequest(request)) return contractsGet(request);
+  if (isComplaintsRequest(request)) return complaintsGet(request);
   if (isMailboxRequest(request)) return mailboxGet(request);
   if (isDashboardRequest(request)) return dashboardGet(request);
   if (isQuotesRequest(request)) return quotesGet();
@@ -70,6 +73,7 @@ export function PATCH(request: Request): Promise<Response> {
 
 export function POST(request: Request): Promise<Response> {
   if (isContractsRequest(request)) return contractsPost(request);
+  if (isComplaintsRequest(request)) return complaintsPost(request);
   if (isMailboxRequest(request)) return mailboxPost(request);
   return handle(async () => {
     const viewer = await requireUser(request);

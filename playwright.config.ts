@@ -28,7 +28,7 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: 'http://supabase.test',
       VITE_SUPABASE_ANON_KEY: 'e2e-anon-key',
-      VITE_HUB_MODULES: 'news,leave,calls,purchase,contracts',
+      VITE_HUB_MODULES: 'news,leave,calls,purchase,contracts,complaints',
       VITE_SENTRY_DSN: '',
     },
   },
