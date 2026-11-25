@@ -2,7 +2,7 @@
 // plan who gets what (tested in leaveNotices.test.ts); api/leave/* passes the result to notify().
 // The bell is in English like the hub; the e-mails are in Polish like every Nutri APEX e-mail.
 
-import { formatRange, type LeaveType } from '../../shared/leave.js';
+import { DEDUCTED, formatRange, type LeaveType } from '../../shared/leave.js';
 import type { Notice, Recipient } from './notifications.js';
 
 export const LEAVE_TYPE_PL: Record<LeaveType, string> = {
@@ -52,11 +52,34 @@ const details = (r: LeaveFacts, owner?: Recipient): [string, string][] => [
 
 const range = (r: LeaveFacts) => formatRange(r.start, r.end, r.halfDay);
 
+/**
+ * Words that depend on the type (25.11.2026): a business trip or sick leave is not "urlop", and only annual leave
+ * comes back to the balance when cancelled.
+ */
+export function wordsFor(type: LeaveType) {
+  const trip = type === 'business_trip';
+  const sick = type === 'sick';
+  return {
+    /** "o urlop", "o delegację" */
+    askFor: trip ? 'o delegację' : 'o urlop',
+    /** subject of an approved one */
+    approved: trip ? 'Twoja delegacja jest zatwierdzona' : sick ? 'Twoje zwolnienie jest zatwierdzone' : 'Twój urlop jest zatwierdzony',
+    request: trip ? 'wniosek o delegację' : 'wniosek urlopowy',
+    approvedThing: trip ? 'Twoją zatwierdzoną delegację' : sick ? 'Twoje zatwierdzone zwolnienie' : 'Twój zatwierdzony urlop',
+    cancelledTitle: trip ? 'Twoja delegacja została anulowana' : sick ? 'Twoje zwolnienie zostało anulowane' : 'Twój urlop został anulowany',
+    wish: trip ? ' Udanego wyjazdu!' : type === 'vacation' || type === 'on_demand' || type === 'occasional' ? ' Udanego wypoczynku!' : '',
+    backToBalance: DEDUCTED.includes(type) ? ' Dni wróciły do salda.' : '',
+    decider: trip ? 'Decyzja przełożonego lub zatwierdzającego delegacje' : 'Decyzja przełożonego',
+    done: trip ? 'Delegacja zatwierdzona' : 'Urlop zatwierdzony',
+    balanceNote: DEDUCTED.includes(type) ? ' Wniosek widzi też saldo urlopu pracownika.' : '',
+  };
+}
+
 type Steps = NonNullable<NonNullable<Notice['email']>['steps']>;
-const steps = (state: 'pending' | 'approved'): Steps => [
+const steps = (state: 'pending' | 'approved', type: LeaveType): Steps => [
   { label: 'Wniosek złożony', state: 'done' },
-  { label: 'Decyzja przełożonego', state: state === 'pending' ? 'now' : 'done' },
-  { label: 'Urlop zatwierdzony', state: state === 'pending' ? 'next' : 'done' },
+  { label: wordsFor(type).decider, state: state === 'pending' ? 'now' : 'done' },
+  { label: wordsFor(type).done, state: state === 'pending' ? 'next' : 'done' },
 ];
 
 /** L1 + L2: a person asked for leave. */
@@ -72,11 +95,11 @@ export function requestSubmitted(r: LeaveFacts, owner: Recipient, approvers: Rec
       link: '/leave/approvals',
       email: {
         module: 'Urlopy',
-        title: `${owner.name} prosi o urlop`,
+        title: `${owner.name} prosi ${wordsFor(r.type).askFor}`,
         lead: `${owner.name} złożył(a) wniosek: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}.`,
-        todo: 'Zatwierdź albo odrzuć wniosek w module Leave (możesz dopisać komentarz). Wniosek widzi też saldo urlopu pracownika.',
+        todo: `Zatwierdź albo odrzuć wniosek w module Leave (możesz dopisać komentarz).${wordsFor(r.type).balanceNote}`,
         details: details(r, owner),
-        steps: steps('pending'),
+        steps: steps('pending', r.type),
         button: 'Rozpatrz wniosek',
       },
     },
@@ -105,14 +128,14 @@ export function requestDecided(r: LeaveFacts, decision: 'approved' | 'rejected',
       link: '/leave',
       email: {
         module: 'Urlopy',
-        title: ok ? 'Twój urlop jest zatwierdzony' : 'Twój wniosek urlopowy został odrzucony',
+        title: ok ? wordsFor(r.type).approved : `Twój ${wordsFor(r.type).request} został odrzucony`,
         lead: ok
-          ? `${decider.name} zatwierdził(a) Twój wniosek: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}. Udanego wypoczynku!`
+          ? `${decider.name} zatwierdził(a) Twój wniosek: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}.${wordsFor(r.type).wish}`
           : `${decider.name} odrzucił(a) Twój wniosek: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}.`,
         todo: ok ? null : 'Jeśli chcesz, złóż nowy wniosek z innym terminem albo porozmawiaj z przełożonym.',
         comment,
         details: details(r),
-        steps: ok ? steps('approved') : null,
+        steps: ok ? steps('approved', r.type) : null,
         button: 'Otwórz moje urlopy',
       },
     },
@@ -141,7 +164,7 @@ export function requestWithdrawn(r: LeaveFacts, owner: Recipient, approvers: Rec
       link: '/leave/approvals',
       email: {
         module: 'Urlopy',
-        title: `${owner.name} wycofał(a) wniosek urlopowy`,
+        title: `${owner.name} wycofał(a) ${wordsFor(r.type).request}`,
         lead: `${owner.name} wycofał(a) wniosek: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}. Nie trzeba już nic robić.`,
         details: details(r, owner),
         button: 'Otwórz wnioski',
@@ -152,7 +175,8 @@ export function requestWithdrawn(r: LeaveFacts, owner: Recipient, approvers: Rec
 
 /** L7: an administrator cancelled a pending request or approved leave. */
 export function leaveCancelled(r: LeaveFacts, wasApproved: boolean, owner: Recipient, admin: Recipient, manager: Recipient | null, comment: string | null): Notice[] {
-  const what = wasApproved ? 'zatwierdzony urlop' : 'wniosek urlopowy';
+  const words = wordsFor(r.type);
+  const what = wasApproved ? words.approvedThing : `Twój ${words.request}`;
   return [
     {
       module: 'leave',
@@ -164,8 +188,8 @@ export function leaveCancelled(r: LeaveFacts, wasApproved: boolean, owner: Recip
       link: '/leave',
       email: {
         module: 'Urlopy',
-        title: wasApproved ? 'Twój urlop został anulowany' : 'Twój wniosek urlopowy został anulowany',
-        lead: `${admin.name} anulował(a) Twój ${what}: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}. Dni wróciły do salda.`,
+        title: wasApproved ? words.cancelledTitle : `Twój ${words.request} został anulowany`,
+        lead: `${admin.name} anulował(a) ${what}: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}.${words.backToBalance}`,
         comment,
         details: details(r),
         button: 'Otwórz moje urlopy',
@@ -199,8 +223,8 @@ export function leaveEntered(r: LeaveFacts, owner: Recipient, admin: Recipient, 
       link: '/leave',
       email: {
         module: 'Urlopy',
-        title: r.type === 'sick' ? 'Wpisano Twoje zwolnienie lekarskie' : 'Wpisano Twój urlop',
-        lead: `${admin.name} wpisał(a) za Ciebie: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}. Jest już zatwierdzony${r.type === 'sick' ? ' i nie zmniejsza salda urlopu' : ''}.`,
+        title: r.type === 'sick' ? 'Wpisano Twoje zwolnienie lekarskie' : r.type === 'business_trip' ? 'Wpisano Twoją delegację' : 'Wpisano Twój urlop',
+        lead: `${admin.name} wpisał(a) za Ciebie: ${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}. Wpis jest już zatwierdzony${DEDUCTED.includes(r.type) ? '' : ' i nie zmniejsza salda urlopu'}.`,
         details: details(r),
         button: 'Otwórz moje urlopy',
       },
@@ -252,7 +276,7 @@ export function requestWaiting(r: LeaveFacts, owner: Recipient, approvers: Recip
       lead: `Wniosek ${owner.name} (${LEAVE_TYPE_PL[r.type]}, ${plRange(r.start, r.end, r.halfDay)}) czeka na decyzję od 2 dni roboczych.`,
       todo: 'Zatwierdź albo odrzuć wniosek w module Leave, żeby pracownik mógł zaplanować wolne.',
       details: details(r, owner),
-      steps: steps('pending'),
+      steps: steps('pending', r.type),
       button: 'Rozpatrz wniosek',
     },
   };
