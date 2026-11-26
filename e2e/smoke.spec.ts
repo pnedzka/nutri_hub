@@ -121,3 +121,32 @@ test('@phone the leave calendar starts at today, also when the month does not fi
   expect(cell!.x).toBeGreaterThanOrEqual(box!.x);
   expect(cell!.x + cell!.width).toBeLessThanOrEqual(box!.x + box!.width);
 });
+
+test('@phone the menu and the bell keep the keyboard inside and give the focus back when they close', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const backend = await startBackend(page);
+  await moduleStubs(page);
+  await backend.as(EVERYTHING);
+  await page.goto('/team');
+
+  const menuButton = page.getByRole('button', { name: 'Menu' });
+  await menuButton.click();
+  const drawer = page.getByRole('dialog', { name: 'Apps' });
+  await expect(page.getByRole('button', { name: 'Close menu' })).toBeFocused();
+  for (let i = 0; i < 40; i++) await page.keyboard.press('Tab');
+  expect(await drawer.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  expect(await drawer.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(menuButton).toBeFocused();
+
+  const bell = page.getByRole('button', { name: /^Notifications/ });
+  await bell.click();
+  const panel = page.getByRole('dialog', { name: 'Notifications' });
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
+  expect(await panel.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(bell).toBeFocused();
+});

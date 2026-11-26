@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { timeAgo, type NotificationItem, type NotificationModule } from '../../shared/notifications.ts';
 import { startNotificationPolling, useNotifications, useOpenNotification } from '../lib/notifications';
 import { useToastStore } from '../lib/toast';
+import { useFocusTrap } from '../lib/focusTrap';
 
 const MODULE_ICONS: Record<NotificationModule, LucideIcon> = {
   leave: CalendarDays,
@@ -55,16 +56,13 @@ export function NotificationBell() {
   }, [fresh, addToast]);
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !box.current?.contains(e.target as Node)) setOpen(false);
-    };
+    const close = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
     document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', close);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', close);
-    };
+    return () => document.removeEventListener('mousedown', close);
   }, [open]);
+  // The panel: the focus moves in and comes back to the bell; Tab stays inside on phones, where it covers the page.
+  const panel = useRef<HTMLDivElement>(null);
+  useFocusTrap(panel, open, { onEscape: () => setOpen(false), trap: () => !window.matchMedia('(min-width: 640px)').matches });
 
   const label = unread ? `Notifications (${unread} unread)` : 'Notifications';
   return (
@@ -85,7 +83,7 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div className="fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-0 top-[calc(4rem+env(safe-area-inset-top))] sm:top-full sm:mt-2 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-40">
+        <div ref={panel} role="dialog" aria-label="Notifications" className="fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-0 top-[calc(4rem+env(safe-area-inset-top))] sm:top-full sm:mt-2 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-40">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <p className="font-semibold text-gray-900">Notifications</p>
             {unread > 0 && (

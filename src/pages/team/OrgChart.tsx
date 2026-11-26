@@ -8,6 +8,7 @@ import type { Office, TeamMember } from '../../../shared/profile.ts';
 import { Avatar } from '../../components/Avatar';
 import { Card } from '../../components/Card';
 import { ContactLinks } from './contacts';
+import { useFocusTrap } from '../../lib/focusTrap';
 
 // Team → Org chart: who reports to whom, from the managers administrators set in User management.
 // Wide screens: a chart to drag and zoom, with curved lines from each manager to their team. Phones: the same tree as
@@ -77,12 +78,6 @@ export function OrgChart({ people, offices, me, isAdmin, matches }: Props) {
   const allOpen = shownCollapsed.size === 0;
   const toggleAll = () => setCollapsed(allOpen ? new Set(managers.filter((m) => !tree.roots.includes(m))) : new Set());
 
-  useEffect(() => {
-    if (!selected) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSelected(null);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selected]);
 
   if (!tree.hasManagers) {
     return (
@@ -585,10 +580,15 @@ function PersonPanel({ person, office, tree, byId, me, onSelect, onClose }: Pane
   const chain = chainOf(tree, person.id).map((id) => byId.get(id)!);
   const reports = (tree.reports.get(person.id) ?? []).map((id) => byId.get(id)!);
   const team = tree.teamSize.get(person.id) ?? 0;
+  // The focus moves into the panel and comes back to the person's card; on phones the sheet covers the chart, so
+  // Tab stays inside it.
+  const panel = useRef<HTMLElement>(null);
+  useFocusTrap(panel, true, { onEscape: onClose, trap: () => !window.matchMedia('(min-width: 768px)').matches });
   return (
     <>
       <div className="org-fade fixed inset-0 z-40 bg-black/30 md:hidden" onClick={onClose} aria-hidden="true" />
       <aside
+        ref={panel}
         aria-label={`About ${label(person)}`}
         className="org-panel fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl safe-bottom md:absolute md:inset-x-auto md:bottom-auto md:right-3 md:top-3 md:z-10 md:max-h-[calc(100%-1.5rem)] md:w-80 md:rounded-xl md:border md:border-gray-100 md:shadow-xl"
       >
