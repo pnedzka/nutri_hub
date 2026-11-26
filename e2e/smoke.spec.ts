@@ -92,8 +92,9 @@ async function opens(page: Page, who: TestPerson, path: string, title: string) {
   await expect(page.locator('main')).not.toBeEmpty();
   await page.waitForLoadState('networkidle');
   await expect(page.getByRole('alert').filter({ hasText: 'Something went wrong' })).toHaveCount(0);
-  // Apple-style version in the footer: release and build, e.g. "Version 26.1 (a667ecf)".
-  await expect(page.locator('footer')).toContainText(/Version \d+\.\d+(\.\d+)? \((local|[0-9a-f]{7})\)/);
+  // Apple-style version in the footer, without the build: "Version 26.1".
+  await expect(page.locator('footer')).toContainText(/Version \d+\.\d+/);
+  await expect(page.locator('footer')).not.toContainText(/Version [\d.]+ \(/);
   const [width, viewport] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(width, 'no sideways scrolling').toBeLessThanOrEqual(viewport);
   expect(errors).toEqual([]);
