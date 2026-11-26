@@ -237,3 +237,12 @@ test('the person who registered an open complaint cancels it with a reason, othe
   await expect(page.getByText('Registered twice.')).toBeVisible();
   expect(stub.complaints.get(c.id)?.status).toBe('cancelled');
 });
+
+test('the handler starts on the open complaints, their own are one tab further', async ({ page }) => {
+  await signInAs(HANDLER);
+  await page.goto('/complaints');
+  await expect(page.getByRole('link', { name: 'Open', exact: true })).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('link', { name: 'My complaints' }).click();
+  await expect(page).toHaveURL(/\/complaints\/mine$/);
+  await expect(page.getByRole('link', { name: 'My complaints' })).toHaveAttribute('aria-current', 'page');
+});

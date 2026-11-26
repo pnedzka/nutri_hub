@@ -31,9 +31,11 @@ export function ContractsPage() {
 
   const reviewer = Boolean(setup && (setup.me.isContractAdmin || setup.me.canSign));
   const trader = Boolean(setup && setup.owners.length > 0);
+  // People who accept or sign contracts start on what waits for them (S10 of the UI audit, 26.11.2026); their own
+  // contracts are one tab further. Everyone else starts on their own contracts.
   const tabs = [
-    ...(reviewer ? [{ to: '/contracts/todo', label: 'To do' }] : []),
-    { to: '/contracts', label: 'My contracts' },
+    ...(reviewer ? [{ to: '/contracts', label: 'To do' }] : []),
+    { to: reviewer ? '/contracts/mine' : '/contracts', label: 'My contracts' },
     ...(reviewer ? [{ to: '/contracts/all', label: 'All contracts' }] : []),
     { to: '/contracts/archive', label: 'Archive (intranet)' },
     ...(reviewer ? [{ to: '/contracts/settings', label: 'Settings' }] : []),
@@ -61,8 +63,9 @@ export function ContractsPage() {
         <SetupContext.Provider value={setup}>
           <ModuleTabs label="Contracts" tabs={tabs} />
           <Routes>
-            <Route index element={<ContractList scope="mine" />} />
-            {reviewer && <Route path="todo" element={<ContractList scope="todo" />} />}
+            <Route index element={<ContractList key="index" scope={reviewer ? 'todo' : 'mine'} />} />
+            <Route path="mine" element={<ContractList key="mine" scope="mine" />} />
+            {reviewer && <Route path="todo" element={<ContractList key="todo" scope="todo" />} />}
             {reviewer && <Route path="all" element={<ContractList scope="all" />} />}
             {reviewer && <Route path="settings" element={<ContractSettings />} />}
             <Route path="archive" element={<ArchiveList />} />
