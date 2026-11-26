@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// The release number shown in the footer ("Version 26.1 (a667ecf)"); raise it in package.json with each release.
+// The release number shown in the footer ("Version 26.1"); raise it in package.json with each release.
 const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
 
 export default defineConfig({
