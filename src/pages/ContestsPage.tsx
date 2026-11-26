@@ -11,6 +11,7 @@ import { useToast } from '../lib/toast';
 import { Empty, ErrorNote, Loading } from './leave/ui';
 import { useApi } from './leave/useApi';
 import { formatEur } from './home/format';
+import { askConfirm } from '../lib/confirm';
 
 // Sales contests (administrators): who takes part, for which days, what counts how much and the prize. The running
 // contest shows on the home page of its participants (ContestWidget); here administrators see every ranking.
@@ -153,7 +154,7 @@ export function ContestsPage() {
   const [open, setOpen] = useState<string | null>(null);
 
   async function remove(contest: Contest) {
-    if (!confirm(`Delete the contest “${contest.name}”?\n\nIts ranking disappears from the home page. Contracts stay as they are.`)) return;
+    if (!(await askConfirm(`Delete the contest “${contest.name}”?\n\nIts ranking disappears from the home page. Contracts stay as they are.`))) return;
     try {
       await api(CONTESTS_API, { method: 'DELETE', body: { id: contest.id } });
       toast.success('Contest deleted');

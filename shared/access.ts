@@ -8,15 +8,19 @@ export const APP_IDS = [
   'neutralizer',
   'signatures',
   'owner-lookup',
-  'commission',
   'news',
   'leave',
+  'leave-admin',
   'purchase',
   'contracts',
   'contracts-admin',
   'contracts-sign',
+  'contracts-for-others',
+  'complaints',
+  'complaints-admin',
   'intranet',
   'create-users',
+  'edit-users',
 ] as const;
 export type AppId = (typeof APP_IDS)[number];
 
@@ -24,23 +28,30 @@ export const APP_NAMES: Record<AppId, string> = {
   neutralizer: 'Document neutralizer',
   signatures: 'E-mail signature generator',
   'owner-lookup': 'HubSpot owner lookup',
-  commission: 'Commission calculator',
   news: 'News',
   leave: 'Leave',
+  'leave-admin': 'Leave administration',
   purchase: 'Purchase Manager',
-  contracts: 'Contract generator',
+  contracts: 'Contracts',
   'contracts-admin': 'Contract administration (accepts contracts)',
   'contracts-sign': 'Contract signing',
+  'contracts-for-others': 'Create contracts for other traders',
+  complaints: 'Complaints',
+  'complaints-admin': 'Complaint administration',
   intranet: 'Intranet',
   'create-users': 'Create user accounts',
+  'edit-users': 'Edit user profiles',
 };
 
 /**
  * The apps a new account gets ticked by default: all except Purchase Manager, which only the purchase team uses
- * (supplier offers and purchase prices), the permission to create accounts and the two permissions of the Contract
- * generator (accepting contracts: administration; signing: Marcin Niećko and the board).
+ * (supplier offers and purchase prices), the permission to create accounts, Leave administration (decision of
+ * 25.11.2026: chosen people manage everyone's leave without being administrators) and the permissions of the
+ * Contract generator (accepting contracts: administration; signing: Marcin Niećko and the board; creating contracts
+ * for other traders: chosen people of administration, e.g. Klaudia Adamek). Complaints are ticked by hand (decision of
+ * 25.11.2026), their administration too (Jadwiga Woźny).
  */
-const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'contracts-admin', 'contracts-sign'];
+const NOT_DEFAULT: readonly string[] = ['purchase', 'create-users', 'edit-users', 'leave-admin', 'contracts-admin', 'contracts-sign', 'contracts-for-others', 'complaints', 'complaints-admin'];
 export const DEFAULT_APPS: readonly AppId[] = APP_IDS.filter((id) => !NOT_DEFAULT.includes(id));
 
 export type Role = 'admin' | 'user';
@@ -60,15 +71,15 @@ export function toApps(value: unknown): AppId[] {
  * management are hidden and their API answers 404. Releasing a module: add it to VITE_HUB_MODULES in Production,
  * or remove it from this list.
  */
-export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls', 'contracts'];
+export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls', 'contracts', 'complaints'];
 
 /** An app, or a tool of the hub that is not an app in profiles.apps (Phone calls analyser, administrators only). */
 export type ModuleId = AppId | 'calls';
 
 /** Whether an app is switched on; `enabledModules` is the value of VITE_HUB_MODULES (module ids, comma-separated). */
 export function isAvailable(app: ModuleId, enabledModules: string | undefined): boolean {
-  // The permissions of the Contract generator are on wherever the module is.
-  const module: ModuleId = app === 'contracts-admin' || app === 'contracts-sign' ? 'contracts' : app;
+  // The permissions of a module (Contract generator, Leave) are on wherever the module is.
+  const module: ModuleId = app.startsWith('contracts-') ? 'contracts' : app === 'leave-admin' ? 'leave' : app === 'complaints-admin' ? 'complaints' : app;
   if (!DEV_MODULES.includes(module)) return true;
   return (enabledModules ?? '').split(',').map((id) => id.trim()).includes(module);
 }
@@ -77,9 +88,21 @@ export function canUse(person: { role: Role; apps: readonly string[] }, app: App
   return person.role === 'admin' || person.apps.includes(app);
 }
 
-/** The apps a person may give a new account: administrators any, others only the ones they have themselves. */
+/**
+ * The apps a person may give a new account: administrators any, others only the ones they have themselves, except
+ * "Edit user profiles", which only administrators give.
+ */
 export function grantableApps(person: { role: Role; apps: readonly string[] }): AppId[] {
-  return APP_IDS.filter((id) => canUse(person, id));
+  return APP_IDS.filter((id) => canUse(person, id) && (id !== 'edit-users' || person.role === 'admin'));
+}
+
+/**
+ * "Edit user profiles" (decision of 25.11.2026, Klaudia Adamek of administration): its holder opens User management
+ * and changes everyone's contact details, photo, name and manager, without being an administrator. Roles, apps,
+ * passwords, e-mail links, deactivation and deletion stay with administrators.
+ */
+export function canEditProfiles(person: { role: Role; apps: readonly string[] }): boolean {
+  return canUse(person, 'edit-users');
 }
 
 /**
@@ -95,7 +118,7 @@ export function newAccountProblem(
   if (!creator.apps.includes('create-users')) return 'Only administrators and people allowed to create user accounts can do this.';
   if (account.role === 'admin') return 'Only administrators can create administrator accounts.';
   if (!account.invite) return 'New accounts get an e-mail invitation; only administrators can set a start password.';
-  const extra = account.apps.filter((id) => !creator.apps.includes(id));
+  const extra = account.apps.filter((id) => !grantableApps(creator).includes(id));
   if (extra.length) return `You can only give apps you have yourself (not: ${extra.map((id) => APP_NAMES[id]).join(', ')}).`;
   return null;
 }

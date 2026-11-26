@@ -1,7 +1,7 @@
 // Leave rules shared by the server (which decides) and the browser (which previews): leave types, working days
 // without Polish public holidays, balances and the checks on a request.
 
-export const LEAVE_TYPES = ['vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick'] as const;
+export const LEAVE_TYPES = ['vacation', 'on_demand', 'occasional', 'childcare', 'unpaid', 'sick', 'business_trip'] as const;
 export type LeaveType = (typeof LEAVE_TYPES)[number];
 
 export const LEAVE_STATUSES = ['pending', 'approved', 'rejected', 'cancelled'] as const;
@@ -14,6 +14,8 @@ export const LEAVE_TYPE_NAMES: Record<LeaveType, string> = {
   childcare: 'Childcare leave',
   unpaid: 'Unpaid leave',
   sick: 'Sick leave',
+  // Not leave, but an absence the team should see (decision of 24.11.2026): approved like leave, no balance used.
+  business_trip: 'Business trip',
 };
 
 export const LEAVE_STATUS_NAMES: Record<LeaveStatus, string> = {
@@ -87,6 +89,25 @@ export function polishHolidays(year: number): Set<string> {
   ]);
   holidayCache.set(year, days);
   return days;
+}
+
+/** The name of a Polish public holiday on this day, or null. */
+export function holidayName(iso: string): string | null {
+  const year = Number(iso.slice(0, 4));
+  if (!polishHolidays(year).has(iso)) return null;
+  const easter = easterSunday(year);
+  const movable: Record<string, string> = {
+    [toIso(easter)]: 'Easter Sunday',
+    [toIso(addDays(easter, 1))]: 'Easter Monday',
+    [toIso(addDays(easter, 49))]: 'Pentecost',
+    [toIso(addDays(easter, 60))]: 'Corpus Christi',
+  };
+  const fixed: Record<string, string> = {
+    '01-01': "New Year's Day", '01-06': 'Epiphany', '05-01': 'Labour Day', '05-03': 'Constitution Day',
+    '08-15': 'Assumption Day', '11-01': "All Saints' Day", '11-11': 'Independence Day', '12-24': 'Christmas Eve',
+    '12-25': 'Christmas Day', '12-26': 'Second Day of Christmas',
+  };
+  return movable[iso] ?? fixed[iso.slice(5)] ?? 'Public holiday';
 }
 
 export function isWorkingDay(date: Date): boolean {

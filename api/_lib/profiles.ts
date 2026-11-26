@@ -12,7 +12,7 @@ const AVATAR_LINK_SECONDS = 24 * 60 * 60;
 /** Contact columns of profiles (besides id, email and full_name). */
 export const CONTACT_COLUMNS = 'job_title, department, phone, mobile, linkedin_url, office_id, avatar_path';
 /** Columns of profiles behind a TeamMember. */
-export const MEMBER_COLUMNS = `id, email, full_name, ${CONTACT_COLUMNS}` as const;
+export const MEMBER_COLUMNS = `id, email, full_name, manager_id, ${CONTACT_COLUMNS}` as const;
 
 /** Signed links to photos (one day), by path; photos that cannot be signed are left out. */
 export async function signAvatars(paths: (string | null | undefined)[]): Promise<Map<string, string>> {
@@ -41,6 +41,7 @@ export function toTeamMember(row: Record<string, unknown>, avatars: Map<string, 
     mobile: str(row.mobile),
     linkedin: str(row.linkedin_url),
     officeId: str(row.office_id),
+    managerId: str(row.manager_id),
     avatarUrl: path ? (avatars.get(path) ?? null) : null,
   };
 }

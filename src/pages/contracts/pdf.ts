@@ -207,8 +207,8 @@ async function asDataUrl(url: string): Promise<string | undefined> {
   }
 }
 
-/** Builds the PDF and saves it as "<number>.pdf". */
-export async function downloadContractPdf(contract: Contract, signatureUrl: string | null): Promise<void> {
+/** Builds the contract PDF (named "<number>.pdf" when saved). */
+export async function contractPdfBlob(contract: Contract, signatureUrl: string | null): Promise<Blob> {
   const [pdfModule, vfsModule, logo, signature] = await Promise.all([
     import('pdfmake/build/pdfmake'),
     import('pdfmake/build/vfs_fonts'),
@@ -219,19 +219,45 @@ export async function downloadContractPdf(contract: Contract, signatureUrl: stri
   const pdfMake = ((pdfModule as { default?: unknown }).default ?? pdfModule) as typeof import('pdfmake');
   const vfs = ((vfsModule as { default?: unknown }).default ?? vfsModule) as Parameters<typeof pdfMake.addVirtualFileSystem>[0];
   pdfMake.addVirtualFileSystem(vfs);
-  await pdfMake.createPdf(contractDocument(contract, { logo, signature })).download(`${contract.id}.pdf`);
+  return pdfMake.createPdf(contractDocument(contract, { logo, signature })).getBlob();
 }
 
-/** Saves a file from a signed link under the given name (the terms, the client's scan). */
-export async function downloadFile(url: string, fileName: string): Promise<void> {
+/** Builds the PDF and saves it as "<number>.pdf". */
+export async function downloadContractPdf(contract: Contract, signatureUrl: string | null): Promise<void> {
+  saveBlob(await contractPdfBlob(contract, signatureUrl), `${contract.id}.pdf`);
+}
+
+/** A file from a signed link (the terms, the client's scan). */
+export async function fetchFile(url: string): Promise<Blob> {
   const res = await fetch(url);
   if (!res.ok) throw new Error('The file could not be downloaded. Try again.');
-  const href = URL.createObjectURL(await res.blob());
+  return res.blob();
+}
+
+/** Saves a file from a signed link under the given name. */
+export async function downloadFile(url: string, fileName: string): Promise<void> {
+  saveBlob(await fetchFile(url), fileName);
+}
+
+/** Hands the browser a file to save. */
+export function saveBlob(blob: Blob, fileName: string): void {
+  const href = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = href;
   a.download = fileName;
   document.body.append(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 10_000);
+  setTimeout(() => URL.revokeObjectURL(href), 60_000);
+}
+
+/**
+ * Saves several files one after another. Browsers drop a download that starts while the previous one is still being
+ * handed over (Safari keeps only the last one), so both files are ready first and saved a moment apart.
+ */
+export async function saveBlobs(files: { blob: Blob; fileName: string }[], gapMs = 1200): Promise<void> {
+  for (const [i, file] of files.entries()) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, gapMs));
+    saveBlob(file.blob, file.fileName);
+  }
 }

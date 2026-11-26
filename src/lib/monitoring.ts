@@ -38,3 +38,8 @@ export const onUncaughtError = dsn ? Sentry.reactErrorHandler() : undefined;
 export function setMonitoringUser(user: { id: string; email: string } | null) {
   if (dsn) Sentry.setUser(user ? { id: user.id, email: user.email } : null);
 }
+
+/** For error boundaries: a crash React caught, with where it happened (tag `where`). */
+export function reportRenderError(error: unknown, where: string) {
+  if (dsn) Sentry.captureException(error, { tags: { where } });
+}

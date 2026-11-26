@@ -100,6 +100,31 @@ function fromDraft(d: Draft, owner: string): ContractInput {
 const FROM_LABEL: Record<Payment['from'], string> = { delivery: 'after delivery', collection: 'after collection', invoice: 'from the invoice date' };
 const numberValue = (n: number) => (Number.isFinite(n) ? String(n) : '');
 const toNumber = (s: string) => (s.trim() === '' ? NaN : Number(s.replace(',', '.').replace(/\s+/g, '')));
+const sameNumber = (a: number, b: number) => a === b || (Number.isNaN(a) && Number.isNaN(b));
+
+/**
+ * A number field that keeps what the person types ("12," or "0,5") while the form holds the parsed number, so a
+ * decimal comma or point is not lost halfway through typing. A new value from outside (a draft, a reset) replaces the text.
+ */
+function NumberInput({ value, onValue, ...props }: Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'> & { value: number; onValue: (n: number) => void }) {
+  const [field, setField] = useState({ text: numberValue(value), value });
+  let text = field.text;
+  if (!sameNumber(field.value, value)) {
+    text = numberValue(value);
+    setField({ text, value });
+  }
+  return (
+    <Input
+      {...props}
+      value={text}
+      onChange={(e) => {
+        const next = toNumber(e.target.value);
+        setField({ text: e.target.value, value: next });
+        onValue(next);
+      }}
+    />
+  );
+}
 
 /** Debounced search in the module's lists (companies, products, CN codes). */
 function useSearch<T>(view: 'companies' | 'products' | 'cn', q: string, key: 'companies' | 'products' | 'codes'): T[] {
@@ -280,8 +305,8 @@ function ProductRow({
         <CnInput value={line.cnCode} productName={line.name} error={err('cnCode')} showLabel={index === 0} onChange={(cnCode) => onChange({ ...line, cnCode })} />
       </div>
       <div className="sm:col-span-2">
-        <Input label={index === 0 ? 'Quantity' : undefined} aria-label="Quantity" inputMode="decimal" value={numberValue(line.quantity)} error={err('quantity')}
-          onChange={(e) => onChange({ ...line, quantity: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+        <NumberInput label={index === 0 ? 'Quantity' : undefined} aria-label="Quantity" inputMode="decimal" value={line.quantity} error={err('quantity')}
+          onValue={(n) => onChange({ ...line, quantity: n })} className="text-base sm:text-sm" />
       </div>
       <div className="sm:col-span-1">
         <Select label={index === 0 ? 'Unit' : undefined} aria-label="Unit" value={line.unit}
@@ -294,8 +319,8 @@ function ProductRow({
         </Select>
       </div>
       <div className="sm:col-span-2">
-        <Input label={index === 0 ? `Price (${currency})` : undefined} aria-label="Unit price" inputMode="decimal" value={numberValue(line.unitPrice)} error={err('unitPrice')}
-          onChange={(e) => onChange({ ...line, unitPrice: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+        <NumberInput label={index === 0 ? `Price (${currency})` : undefined} aria-label="Unit price" inputMode="decimal" value={line.unitPrice} error={err('unitPrice')}
+          onValue={(n) => onChange({ ...line, unitPrice: n })} className="text-base sm:text-sm" />
       </div>
       <div className="sm:col-span-1">
         <Select label={index === 0 ? 'Per' : undefined} aria-label="Price per" value={line.priceUnit}
@@ -451,7 +476,7 @@ export function ContractForm() {
       )}
 
       <Section title={id ? `Correct contract ${id}` : 'New contract'} aside={!id && numberPreview ? <span className="text-xs text-gray-500">Number: {numberPreview} (final when saved)</span> : undefined}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</span>
             <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50" role="radiogroup" aria-label="Contract type">
@@ -473,9 +498,6 @@ export function ContractForm() {
           ) : (
             <Input label="Trader" value={setup.owners.find((o) => o.email === form.ownerEmail)?.name ?? form.ownerEmail} disabled />
           )}
-          <Select id="currency" label="Currency" value={form.currency} onChange={(e) => set('currency', e.target.value as ContractInput['currency'])} className="text-base sm:text-sm">
-            {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
-          </Select>
         </div>
       </Section>
 
@@ -487,24 +509,30 @@ export function ContractForm() {
               onChange={(e) => setParty({ companyName: e.target.value })} className="text-base sm:text-sm" />
             <Input label={vatNeeded ? 'VAT ID' : 'VAT ID (optional outside the EU)'} value={p.vatId} error={errors['party.vatId']}
               onChange={(e) => setParty({ vatId: e.target.value })} className="text-base sm:text-sm" />
-            <Input label="Street" value={p.street} error={errors['party.street']} onChange={(e) => setParty({ street: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="party-street" label="Street" value={p.street} error={errors['party.street']} onChange={(e) => setParty({ street: e.target.value })} className="text-base sm:text-sm" />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Postal code" value={p.postalCode} error={errors['party.postalCode']} onChange={(e) => setParty({ postalCode: e.target.value })} className="text-base sm:text-sm" />
-              <Input label="City" value={p.city} error={errors['party.city']} onChange={(e) => setParty({ city: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="party-postal-code" label="Postal code" value={p.postalCode} error={errors['party.postalCode']} onChange={(e) => setParty({ postalCode: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="party-city" label="City" value={p.city} error={errors['party.city']} onChange={(e) => setParty({ city: e.target.value })} className="text-base sm:text-sm" />
             </div>
             <CountrySelect id="party-country" label="Country" value={p.country} error={errors['party.country']} onChange={(country) => setParty({ country })} />
             <div />
             <Input label="Contact first name" value={p.contactFirstName} error={errors['party.contactFirstName']} onChange={(e) => setParty({ contactFirstName: e.target.value })} className="text-base sm:text-sm" />
             <Input label="Contact last name" value={p.contactLastName} error={errors['party.contactLastName']} onChange={(e) => setParty({ contactLastName: e.target.value })} className="text-base sm:text-sm" />
             <Input label="Position (optional)" value={p.contactPosition} onChange={(e) => setParty({ contactPosition: e.target.value })} className="text-base sm:text-sm" />
-            <Input label="E-mail" type="email" value={p.email} error={errors['party.email']} onChange={(e) => setParty({ email: e.target.value })} className="text-base sm:text-sm" />
-            <Input label="Phone" type="tel" value={p.phone} error={errors['party.phone']} onChange={(e) => setParty({ phone: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="party-email" label="E-mail" type="email" value={p.email} error={errors['party.email']} onChange={(e) => setParty({ email: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="party-phone" label="Phone" type="tel" value={p.phone} error={errors['party.phone']} onChange={(e) => setParty({ phone: e.target.value })} className="text-base sm:text-sm" />
           </div>
         </div>
       </Section>
 
-      <Section title="Goods" aside={<span className="text-xs text-gray-500">Prices in {form.currency}</span>}>
+      <Section title="Goods">
         <div className="space-y-4">
+          {/* One currency for the whole contract, chosen where the prices are typed (Paweł, 25.11.2026). */}
+          <div className="sm:w-48">
+            <Select id="currency" label="Currency of the contract" value={form.currency} onChange={(e) => set('currency', e.target.value as ContractInput['currency'])} className="text-base sm:text-sm">
+              {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+            </Select>
+          </div>
           {errors.products && <p className="text-sm text-red-600">{errors.products}</p>}
           {form.products.map((line, i) => (
             <div key={i}>
@@ -555,10 +583,10 @@ export function ContractForm() {
             </button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Street" value={d.street} error={errors['delivery.street']} onChange={(e) => setDelivery({ street: e.target.value })} className="text-base sm:text-sm" />
+            <Input id="delivery-street" label="Street" value={d.street} error={errors['delivery.street']} onChange={(e) => setDelivery({ street: e.target.value })} className="text-base sm:text-sm" />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Postal code" value={d.postalCode} error={errors['delivery.postalCode']} onChange={(e) => setDelivery({ postalCode: e.target.value })} className="text-base sm:text-sm" />
-              <Input label="City" value={d.city} error={errors['delivery.city']} onChange={(e) => setDelivery({ city: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="delivery-postal-code" label="Postal code" value={d.postalCode} error={errors['delivery.postalCode']} onChange={(e) => setDelivery({ postalCode: e.target.value })} className="text-base sm:text-sm" />
+              <Input id="delivery-city" label="City" value={d.city} error={errors['delivery.city']} onChange={(e) => setDelivery({ city: e.target.value })} className="text-base sm:text-sm" />
             </div>
             <CountrySelect id="delivery-country" label="Country" value={d.country} error={errors['delivery.country']} onChange={(country) => setDelivery({ country })} />
             <div className="grid grid-cols-2 gap-3">
@@ -580,12 +608,12 @@ export function ContractForm() {
       <Section title="Payment">
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Input label="Prepayment before shipment (%)" inputMode="numeric" value={numberValue(pay.prepaymentPercent)} error={errors['payment.prepaymentPercent']}
-              onChange={(e) => setPayment({ prepaymentPercent: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+            <NumberInput label="Prepayment before shipment (%)" inputMode="numeric" value={pay.prepaymentPercent} error={errors['payment.prepaymentPercent']}
+              onValue={(n) => setPayment({ prepaymentPercent: n })} className="text-base sm:text-sm" />
             {pay.prepaymentPercent < 100 && (
               <>
-                <Input label={`The rest (${100 - (pay.prepaymentPercent || 0)}%) within days`} inputMode="numeric" value={numberValue(pay.days)} error={errors['payment.days']}
-                  onChange={(e) => setPayment({ days: toNumber(e.target.value) })} className="text-base sm:text-sm" />
+                <NumberInput label={`The rest (${100 - (pay.prepaymentPercent || 0)}%) within days`} inputMode="numeric" value={pay.days} error={errors['payment.days']}
+                  onValue={(n) => setPayment({ days: n })} className="text-base sm:text-sm" />
                 <Select id="payment-from" label="Counted" value={pay.from} onChange={(e) => setPayment({ from: e.target.value as Payment['from'] })} className="text-base sm:text-sm">
                   {PAYMENT_FROM.map((f) => <option key={f} value={f}>{FROM_LABEL[f]}</option>)}
                 </Select>

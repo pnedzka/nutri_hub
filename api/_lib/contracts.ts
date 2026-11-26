@@ -8,6 +8,8 @@
 //   contracts-admin  administration (Jadwiga) and the hub's administrators: accept, see all, upload terms and signatures;
 //   contracts-sign   Marcin Niećko and the board: sign; above 100 000 EUR net only the board: administrators of the
 //                    Board department (decision of 24.11.2026; Marcin is in Board but is not an administrator).
+//   contracts-for-others  chosen people of administration (Klaudia Adamek): create contracts for any trader and handle
+//                    them like the trader (edit when returned, cancel, client scan); the approval flow stays the same.
 
 import { randomUUID } from 'node:crypto';
 import { canUse, isAvailable, toApps, type AppId } from '../../shared/access.js';
@@ -37,6 +39,7 @@ import { centralDb } from './central.js';
 import { appUrl, handle, HttpError, json, readJson } from './http.js';
 import { logError } from './monitoring.js';
 import { contractMails, planContractMails, type ContractStep, type FlowPeople } from './contractMails.js';
+import { archiveViewerName, type ArchiveContract } from '../../shared/contractsArchive.js';
 import { notify as notifyBell } from './notifications.js';
 import { sendPrepared } from './notify.js';
 import { db } from './supabase.js';
@@ -82,12 +85,12 @@ function viewerOf(m: Member): Viewer {
 
 /** The signed-in person, if they may use the Contract generator at all. */
 async function requireContracts(request: Request): Promise<{ me: Member; people: Member[] }> {
-  if (!isAvailable('contracts', process.env.VITE_HUB_MODULES)) throw new HttpError(404, 'Contract generator is not available yet.');
+  if (!isAvailable('contracts', process.env.VITE_HUB_MODULES)) throw new HttpError(404, 'Contracts are not available yet.');
   const profile = await requireUser(request);
   const people = await members();
   const me = people.find((p) => p.id === profile.id);
   if (!me || !(uses(me, 'contracts') || uses(me, 'contracts-admin') || uses(me, 'contracts-sign'))) {
-    throw new HttpError(403, "You don't have access to Contract generator. Ask your administrator.");
+    throw new HttpError(403, "You don't have access to Contracts. Ask your administrator.");
   }
   return { me, people };
 }
@@ -100,15 +103,15 @@ async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   throw new HttpError(
     error.code?.startsWith('PGRST') ? 503 : 500,
     error.code?.startsWith('PGRST')
-      ? 'The central database is not ready for Contract generator yet (contracts_api). Tell your administrator.'
+      ? 'The central database is not ready for Contracts yet (contracts_api). Tell your administrator.'
       : 'The central database did not answer. Try again in a moment.',
   );
 }
 
 /** Whether this person may see the contract: its owner, administration and the people who sign. */
-function maySee(contract: Pick<Contract, 'ownerEmail'>, me: Member): boolean {
+function maySee(contract: Pick<Contract, 'ownerEmail'> & { createdByEmail?: string }, me: Member): boolean {
   const v = viewerOf(me);
-  return contract.ownerEmail === me.email || v.isContractAdmin || v.canSign;
+  return contract.ownerEmail === me.email || (contract.createdByEmail ?? '').toLowerCase() === me.email || v.isContractAdmin || v.canSign;
 }
 
 async function getContract(id: string): Promise<Contract> {
@@ -130,10 +133,12 @@ const safeName = (name: string) =>
     .replace(/_+/g, '_')
     .slice(-80) || 'scan.pdf';
 
-/** The owners a contract may get: the person themselves, or (contract administrators) anyone with the app. */
+/** Contract administrators and people with contracts-for-others create contracts for other traders. */
+const forOthers = (m: Member) => viewerOf(m).isContractAdmin || uses(m, 'contracts-for-others');
+
+/** The owners a contract may get: the person themselves, or (forOthers) anyone with the app. */
 function owners(me: Member, people: Member[]): OwnerOption[] {
-  const v = viewerOf(me);
-  const list = v.isContractAdmin ? people.filter((p) => uses(p, 'contracts')) : [me];
+  const list = forOthers(me) ? people.filter((p) => uses(p, 'contracts')) : [me];
   return list
     .map((p) => ({ email: p.email, name: p.name, initials: initialsOf(p.name) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
@@ -190,6 +195,8 @@ export function contractsGet(request: Request): Promise<Response> {
         return json(
           await call('list', {
             p_owner: scope === 'mine' || !all ? me.email : null,
+            // Also the contracts this person created for other traders (db/central/contracts_for_others.sql).
+            ...(!all && uses(me, 'contracts-for-others') ? { p_created_by: me.email } : {}),
             p_statuses: statuses,
             p_q: params.get('q') || null,
             p_limit: 100,
@@ -208,6 +215,30 @@ export function contractsGet(request: Request): Promise<Response> {
           contract.clientScan ? signedUrl(contract.clientScan.path) : Promise.resolve(null),
         ]);
         return json({ contract, can, files: { terms, signature, scan } });
+      }
+      case 'archive': {
+        // Old contracts from the intranet, read only (db/central/contracts_archive.sql).
+        const year = Number(params.get('year'));
+        const type = params.get('type');
+        return json(
+          await call('archive_list', {
+            p_viewer_name: archiveViewerName({ name: me.name, ...viewer }),
+            p_q: params.get('q') || null,
+            p_type: type === 'S' || type === 'P' ? type : null,
+            p_owner: params.get('owner') || null,
+            p_year: Number.isInteger(year) && year > 2000 ? year : null,
+            p_limit: 100,
+            p_offset: Math.max(0, Number(params.get('offset')) || 0),
+          }),
+        );
+      }
+      case 'archiveOne': {
+        const contract = await call<ArchiveContract | null>('archive_get', {
+          p_id: params.get('id') ?? '',
+          p_viewer_name: archiveViewerName({ name: me.name, ...viewer }),
+        });
+        if (!contract) throw new HttpError(404, 'There is no such contract in the intranet archive, or it belongs to another trader.');
+        return json({ contract });
       }
       case 'companies':
         return json({ companies: await call('company_search', { p_q: params.get('q') ?? '', p_limit: 10 }) });
@@ -252,12 +283,13 @@ export function contractsGet(request: Request): Promise<Response> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** A draft of this person (contract administrators may also open the drafts they saved for someone else). */
+/** A draft of this person or saved by them for someone else (contract administrators may open any). */
 async function getDraft(id: string, me: Member): Promise<Draft> {
   if (!UUID.test(id)) throw new HttpError(404, 'This draft does not exist.');
   const draft = await call<(Draft & { createdByEmail?: string }) | null>('draft_get', { p_id: id });
   if (!draft) throw new HttpError(404, 'This draft does not exist.');
-  if (draft.ownerEmail !== me.email && !viewerOf(me).isContractAdmin) throw new HttpError(403, 'This draft belongs to another trader.');
+  const mine = draft.ownerEmail === me.email || (draft.createdByEmail ?? '').toLowerCase() === me.email;
+  if (!mine && !viewerOf(me).isContractAdmin) throw new HttpError(403, 'This draft belongs to another trader.');
   return draft;
 }
 
@@ -300,7 +332,7 @@ export function contractsPost(request: Request): Promise<Response> {
     const actor = { email: me.email, name: me.name };
 
     if (body.action === 'create') {
-      if (!uses(me, 'contracts')) throw new HttpError(403, 'Only traders with Contract generator can create contracts.');
+      if (!uses(me, 'contracts')) throw new HttpError(403, 'Only traders with access to Contracts can create contracts.');
       const input = validInput(body.contract);
       const owner = owners(me, people).find((o) => o.email === (input.ownerEmail || me.email));
       if (!owner) throw new HttpError(400, 'Choose the trader who owns the contract.');
@@ -314,7 +346,7 @@ export function contractsPost(request: Request): Promise<Response> {
     }
 
     if (body.action === 'saveDraft') {
-      if (!uses(me, 'contracts')) throw new HttpError(403, 'Only traders with Contract generator can create contracts.');
+      if (!uses(me, 'contracts')) throw new HttpError(403, 'Only traders with access to Contracts can create contracts.');
       // A draft is saved as it is (problems are shown when it is sent), only cleaned of anything unexpected.
       const { contract: input } = cleanContract(body.contract);
       const owner = owners(me, people).find((o) => o.email === (input.ownerEmail || me.email)) ?? owners(me, people).find((o) => o.email === me.email);

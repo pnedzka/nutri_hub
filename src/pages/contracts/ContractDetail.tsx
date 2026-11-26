@@ -21,7 +21,7 @@ import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import { CONTRACTS_API, dateTime, shortDate, uploadTo, useSetup } from './common';
 import { Section, StatusPill } from './ui';
-import { downloadContractPdf, downloadFile } from './pdf';
+import { contractPdfBlob, downloadContractPdf, downloadFile, fetchFile, saveBlobs } from './pdf';
 
 interface Detail {
   contract: Contract;
@@ -213,9 +213,15 @@ function Documents({ detail, onDone }: { detail: Detail; onDone: () => void }) {
   };
 
   const contractPdf = () => downloadContractPdf(contract, files.signature);
-  const terms = async () => {
+  const termsUrl = () => {
     if (!files.terms) throw new Error(`The ${TERMS_TITLE[contract.type]} are not uploaded yet. Administration adds them in Settings.`);
-    await downloadFile(files.terms, `${contract.id} - ${short}.pdf`);
+    return files.terms;
+  };
+  const terms = () => downloadFile(termsUrl(), `${contract.id} - ${short}.pdf`);
+  // Both files are built first and then saved a moment apart, so the browser keeps both downloads.
+  const both = async () => {
+    const [pdf, termsFile] = await Promise.all([contractPdfBlob(contract, files.signature), fetchFile(termsUrl())]);
+    await saveBlobs([{ blob: pdf, fileName: `${contract.id}.pdf` }, { blob: termsFile, fileName: `${contract.id} - ${short}.pdf` }]);
   };
 
   const uploadScan = (file: File) =>
@@ -240,7 +246,7 @@ function Documents({ detail, onDone }: { detail: Detail; onDone: () => void }) {
             </p>
             <div className="flex flex-wrap gap-2">
               <Button className="min-h-11 inline-flex items-center gap-1.5" isLoading={busy === 'both'}
-                onClick={() => wrap('both', async () => { await contractPdf(); await terms(); })}>
+                onClick={() => wrap('both', both)}>
                 <Download size={16} /> Download both PDFs
               </Button>
               <Button variant="secondary" className="min-h-11 sm:min-h-0 inline-flex items-center gap-1.5" isLoading={busy === 'pdf'} onClick={() => wrap('pdf', contractPdf)}>

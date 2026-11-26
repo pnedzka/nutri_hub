@@ -1,4 +1,5 @@
-// User accounts (administrator only). There is no public sign-up: an administrator creates every account, or someone
+// User accounts (administrator only; GET and PATCH of the name and manager also for "Edit user profiles",
+// canEditProfiles in shared/access.ts). There is no public sign-up: an administrator creates every account, or someone
 // with the "Create user accounts" permission (POST only: invitations to users with apps they have themselves,
 // newAccountProblem in shared/access.ts).
 //
@@ -12,8 +13,11 @@
 //
 //   GET   /api/admin/users              → { users: (Profile & { created_at, documents, status, last_sign_in_at, profile })[] }
 //   GET   /api/admin/users?history=<id> → { events: ProfileEvent[] }
-//   POST  /api/admin/users   body { email, fullName?, role?, apps?, invite?, password? } → { user, invited }
-//   PATCH /api/admin/users   body { id, role?, fullName?, apps?, password?, sendLink?, active? } → { user, sent? }
+//   POST  /api/admin/users   body { email, fullName?, role?, apps?, invite?, password?, managerId? } → { user, invited }
+//   PATCH /api/admin/users   body { id, role?, fullName?, apps?, password?, sendLink?, active?, managerId? } → { user, sent? }
+//
+// `managerId` is the person's manager (profiles.manager_id, set only by administrators; null = none): approves their
+// leave (api/_lib/leave.ts).
 //   DELETE /api/admin/users  body { id } → { deleted: email }
 //
 // `active: false` deactivates an account (someone who left): it is banned in Supabase Auth, cannot sign in and is
@@ -24,7 +28,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { newAccountProblem, toApps } from '../../shared/access.js';
-import { PROFILE_COLUMNS, requireAdmin, requireUser, toProfile, type Profile } from '../_lib/auth.js';
+import { PROFILE_COLUMNS, requireAdmin, requireProfileEditor, requireUser, toProfile, type Profile } from '../_lib/auth.js';
 import { HttpError, appUrl, handle, json, readJson } from '../_lib/http.js';
 import { createInvitedUser, issueAccountLink } from '../_lib/accountLinks.js';
 import { notifyAccessChanged } from '../_lib/accountNotices.js';
@@ -87,13 +91,13 @@ export function GET(request: Request): Promise<Response> {
   if (isPurchaseRequest(request)) return purchaseGet(request);
   if (isContestsRequest(request)) return contestsGet(request);
   return handle(async () => {
-    await requireAdmin(request);
+    await requireProfileEditor(request);
     const historyOf = new URL(request.url).searchParams.get('history');
     if (historyOf !== null) {
       if (!isUuid(historyOf)) throw new HttpError(400, 'User ID is invalid.');
       return json({ events: await history(historyOf) });
     }
-    const { data, error } = await db().from('profiles').select(`${PROFILE_COLUMNS}, ${CONTACT_COLUMNS}, created_at, deactivated_at`).order('email');
+    const { data, error } = await db().from('profiles').select(`${PROFILE_COLUMNS}, ${CONTACT_COLUMNS}, created_at, deactivated_at, manager_id`).order('email');
     if (error) throw error;
     const { data: docs, error: docsError } = await db().from('documents').select('owner_id');
     if (docsError) throw docsError;
@@ -109,6 +113,7 @@ export function GET(request: Request): Promise<Response> {
           documents: counts.get(u.id) ?? 0,
           status: accountStatus(account, Boolean(u.deactivated_at)),
           last_sign_in_at: account?.last_sign_in_at ?? null,
+          manager_id: (u.manager_id as string | null) ?? null,
           profile: toTeamMember(u, avatars),
         };
       }),
@@ -118,13 +123,32 @@ export function GET(request: Request): Promise<Response> {
 
 const role = (value: unknown): Profile['role'] => (value === 'admin' ? 'admin' : 'user');
 
+/** A manager from the request: undefined = not given, null = none; otherwise an active account other than the person. */
+async function managerFrom(value: unknown, personId: string | null): Promise<string | null | undefined> {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string' || !isUuid(value)) throw new HttpError(400, 'Choose the manager from the list.');
+  if (value === personId) throw new HttpError(400, 'A person cannot be their own manager.');
+  const { data, error } = await db().from('profiles').select('id, deactivated_at').eq('id', value).maybeSingle();
+  if (error) throw error;
+  if (!data || data.deactivated_at) throw new HttpError(400, 'The manager must have an active account.');
+  return value;
+}
+
+/** The name of a manager for the history, or null for none. */
+async function managerName(id: string | null): Promise<string | null> {
+  if (!id) return null;
+  const { data } = await db().from('profiles').select('full_name, email').eq('id', id).maybeSingle();
+  return data ? String(data.full_name || data.email) : null;
+}
+
 export function POST(request: Request): Promise<Response> {
   if (isCallsRequest(request)) return callsPost(request);
   if (isPurchaseRequest(request)) return purchasePost(request);
   if (isContestsRequest(request)) return contestsPost(request);
   return handle(async () => {
     const creator = await requireUser(request);
-    const body = await readJson<{ email?: unknown; fullName?: unknown; password?: unknown; role?: unknown; apps?: unknown; invite?: unknown }>(request);
+    const body = await readJson<{ email?: unknown; fullName?: unknown; password?: unknown; role?: unknown; apps?: unknown; invite?: unknown; managerId?: unknown }>(request);
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const fullName = typeof body.fullName === 'string' && body.fullName.trim() ? body.fullName.trim().slice(0, 200) : null;
     const invite = body.invite !== false;
@@ -133,6 +157,8 @@ export function POST(request: Request): Promise<Response> {
     if (problem) throw new HttpError(403, problem);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'Invalid e-mail address.');
     if (!invite && password.length < MIN_PASSWORD) throw new HttpError(400, `The password must be at least ${MIN_PASSWORD} characters long.`);
+    if (body.managerId && creator.role !== 'admin') throw new HttpError(403, 'Only administrators set the manager.');
+    const managerId = (await managerFrom(body.managerId, null)) ?? null;
     // Supabase reuses an account that was invited but never signed in, so without this the profile below would
     // overwrite its role and apps.
     const { data: existing, error: existingError } = await db().from('profiles').select('id').eq('email', email).maybeSingle();
@@ -149,9 +175,10 @@ export function POST(request: Request): Promise<Response> {
       throw new HttpError(400, 'Could not create the account.');
     }
     const profile: Profile = { id: created.user.id, email, full_name: fullName, role: role(body.role), apps: toApps(body.apps) };
-    const { error: profileError } = await db().from('profiles').upsert(profile);
+    const { error: profileError } = await db().from('profiles').upsert({ ...profile, manager_id: managerId });
     if (profileError) throw profileError;
     await logProfileEvent(profile.id, creator.id, 'created', { role: profile.role, apps: profile.apps });
+    if (managerId) await logProfileEvent(profile.id, creator.id, 'manager', { to: await managerName(managerId) });
     if (invite) {
       try {
         const url = await issueAccountLink('invite', created.user.id, appUrl(request));
@@ -176,20 +203,26 @@ export function POST(request: Request): Promise<Response> {
 
 export function PATCH(request: Request): Promise<Response> {
   return handle(async () => {
-    const admin = await requireAdmin(request);
-    const body = await readJson<{ id?: unknown; role?: unknown; fullName?: unknown; apps?: unknown; password?: unknown; sendLink?: unknown; active?: unknown }>(request);
+    const admin = await requireProfileEditor(request);
+    const body = await readJson<{ id?: unknown; role?: unknown; fullName?: unknown; apps?: unknown; password?: unknown; sendLink?: unknown; active?: unknown; managerId?: unknown }>(request);
     if (typeof body.id !== 'string') throw new HttpError(400, 'User ID is missing.');
+    // "Edit user profiles": only the name and the manager; access and the account itself stay with administrators.
+    if (admin.role !== 'admin' && (body.role !== undefined || body.apps !== undefined || body.password !== undefined || body.sendLink !== undefined || body.active !== undefined)) {
+      throw new HttpError(403, 'Only administrators can change roles, apps, passwords and account status.');
+    }
     if (body.id === admin.id && body.role !== undefined && role(body.role) !== 'admin') {
       throw new HttpError(400, 'You cannot remove administrator rights from yourself.');
     }
     if (body.id === admin.id && body.active === false) throw new HttpError(400, 'You cannot deactivate your own account.');
-    const { data: current, error: currentError } = await db().from('profiles').select(`${PROFILE_COLUMNS}, deactivated_at`).eq('id', body.id).maybeSingle();
+    const { data: current, error: currentError } = await db().from('profiles').select(`${PROFILE_COLUMNS}, deactivated_at, manager_id`).eq('id', body.id).maybeSingle();
     if (currentError) throw currentError;
     if (!current) throw new HttpError(404, 'User not found.');
     if (current.deactivated_at && body.sendLink === true) {
       throw new HttpError(400, 'This account is deactivated. Reactivate it before sending an e-mail link.');
     }
-    const changes: Partial<Profile> & { deactivated_at?: string | null } = {};
+    const changes: Partial<Profile> & { deactivated_at?: string | null; manager_id?: string | null } = {};
+    const managerId = await managerFrom(body.managerId, body.id);
+    if (managerId !== undefined && managerId !== ((current.manager_id as string | null) ?? null)) changes.manager_id = managerId;
     if (body.role !== undefined) changes.role = role(body.role);
     if (typeof body.fullName === 'string') changes.full_name = body.fullName.trim().slice(0, 200) || null;
     if (body.apps !== undefined) {
@@ -245,6 +278,7 @@ export function PATCH(request: Request): Promise<Response> {
     if (after.apps.join() !== before.apps.join()) await logProfileEvent(body.id, admin.id, 'apps', { from: before.apps, to: after.apps });
     if (after.full_name !== before.full_name) await logProfileEvent(body.id, admin.id, 'profile', { fields: ['name'] });
     if ('deactivated_at' in changes) await logProfileEvent(body.id, admin.id, changes.deactivated_at ? 'deactivated' : 'reactivated');
+    if ('manager_id' in changes) await logProfileEvent(body.id, admin.id, 'manager', { to: await managerName(changes.manager_id ?? null) });
     const deactivated = 'deactivated_at' in changes ? Boolean(changes.deactivated_at) : Boolean(current.deactivated_at);
     if (!deactivated) await notifyAccessChanged(appUrl(request), admin.id, before, after);
     return json({ user: after, sent });

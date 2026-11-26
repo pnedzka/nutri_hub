@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   datesProblem,
   easterSunday,
+  holidayName,
   formatDays,
   formatRange,
   leaveBalance,
@@ -126,5 +127,15 @@ describe('formatRange', () => {
   it('writes single days and ranges', () => {
     expect(formatRange('2026-10-20', '2026-10-20', true)).toBe('20 Oct 2026 (half day)');
     expect(formatRange('2026-10-20', '2026-10-23')).toBe('20 Oct 2026 – 23 Oct 2026');
+  });
+});
+
+describe('holidayName', () => {
+  it('names the Polish public holidays and nothing else', () => {
+    expect(holidayName('2026-12-24')).toBe('Christmas Eve');
+    expect(holidayName('2026-11-11')).toBe('Independence Day');
+    expect(holidayName('2026-04-06')).toBe('Easter Monday');
+    expect(holidayName('2026-06-04')).toBe('Corpus Christi');
+    expect(holidayName('2026-11-24')).toBeNull();
   });
 });

@@ -5,9 +5,11 @@ import { LatestNews } from '../components/LatestNews';
 import { useAuth } from '../lib/auth';
 import { useMyProfile } from '../lib/people';
 import { firstName } from '../lib/user';
+import { CalendarWidget } from './home/CalendarWidget';
 import { ContestWidget } from './home/ContestWidget';
 import { ContractsWidget } from './home/ContractsWidget';
 import { LeaderboardWidget } from './home/LeaderboardWidget';
+import { WelcomeCard } from './home/WelcomeCard';
 
 /**
  * The home page: a dashboard of widgets (decision of 23.11.2026; the apps are in the side menu). Each person sees the
@@ -23,32 +25,39 @@ export function HomePage() {
   const contracts = canSeeWidget(viewer, 'contracts');
   const leaderboard = canSeeWidget(viewer, 'leaderboard');
   const news = canSeeWidget(viewer, 'news', available('news'));
-  const anyWidget = contracts || leaderboard || news;
+  const calendar = canSeeWidget(viewer, 'calendar', available('leave'));
+  const anyWidget = contracts || leaderboard || news || calendar;
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{name ? `Hello, ${name}` : 'Hello'}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {anyWidget ? 'Here is what is going on. Your apps are in the menu.' : 'Choose an app to get started.'}
-        </p>
-      </div>
+      <WelcomeCard name={name} email={user.email} avatarUrl={profile?.avatarUrl ?? null} />
       <ContestWidget />
-      {/* Wide screens (xl): Contracts with Latest news under it, the Sales leaderboard beside both. Every card keeps
-          its own height (items-start; the second row takes the rest), so a short Contracts card is not stretched to
-          the leaderboard's height. Narrower screens (an iPad upright, phones): one column, Contracts, leaderboard,
-          news. */}
+      {/* Wide screens (xl), in three columns:
+          - Contracts and leaderboard: Contracts (two columns) with Latest news under it, the leaderboard beside both;
+          - leaderboard without Contracts: Latest news (two columns) beside the leaderboard, or the leaderboard alone
+            across the width;
+          - Contracts without the leaderboard: Contracts, then Latest news, both across the width.
+          Every card keeps its own height (items-start), so a short card is not stretched to its neighbour's height.
+          Narrower screens (an iPad upright, phones): one column, Contracts, leaderboard, news. */}
       {(contracts || leaderboard) && (
-        <div className="grid items-start gap-4 sm:gap-6 xl:grid-cols-3 xl:grid-rows-[auto_1fr]">
+        <div
+          className={`grid items-start gap-4 sm:gap-6 xl:grid-cols-3 ${contracts && leaderboard && news ? 'xl:grid-rows-[auto_1fr]' : ''}`}
+        >
           {contracts && <ContractsWidget className={leaderboard ? 'xl:col-span-2' : 'xl:col-span-3'} />}
-          {leaderboard && <LeaderboardWidget className={contracts ? 'xl:row-span-2' : 'xl:col-span-2'} />}
+          {leaderboard && (
+            <LeaderboardWidget
+              className={contracts ? (news ? 'xl:row-span-2' : '') : news ? 'xl:order-last' : 'xl:col-span-3'}
+            />
+          )}
           {news && (
-            <div className={contracts && leaderboard ? 'xl:col-span-2' : 'xl:col-span-3'}>
+            <div className={contracts && !leaderboard ? 'xl:col-span-3' : 'xl:col-span-2'}>
               <LatestNews />
             </div>
           )}
         </div>
       )}
       {news && !contracts && !leaderboard && <LatestNews />}
+      {/* The week across the whole width (seven columns on wide screens, the days with entries on phones). */}
+      {calendar && <CalendarWidget />}
       {!anyWidget && <AppTiles />}
     </div>
   );

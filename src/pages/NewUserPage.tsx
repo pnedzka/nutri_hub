@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowLeft, CheckCircle2, KeyRound, Mail, ShieldCheck, UserPlus, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DEFAULT_APPS, grantableApps, type AppId, type Role } from '../../shared/access.ts';
@@ -6,10 +6,12 @@ import { AppPicker } from '../components/AppPicker';
 import { Button } from '../components/Button';
 import { Card, CardBody, CardHeader } from '../components/Card';
 import { Input } from '../components/Input';
+import { ManagerSelect } from '../components/ManagerSelect';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { randomPassword } from '../lib/password';
 import { useToast } from '../lib/toast';
+import type { UserRow } from './UsersPage';
 
 /** A choice shown as a card with a title and a line of explanation (a radio button). */
 function Choice({ name, checked, onSelect, title, children }: { name: string; checked: boolean; onSelect: () => void; title: string; children: ReactNode }) {
@@ -57,16 +59,26 @@ export function NewUserPage() {
     role: 'user' as Role,
     apps: DEFAULT_APPS.filter((id) => grantable.includes(id)) as AppId[],
     invite: true,
+    managerId: '',
   });
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null);
+  const [people, setPeople] = useState<UserRow[]>([]);
+
+  // The manager is chosen from the existing accounts (administrators only; others cannot list accounts).
+  useEffect(() => {
+    if (!isAdmin) return;
+    void api<{ users: UserRow[] }>('/api/admin/users')
+      .then(({ users }) => setPeople(users))
+      .catch(() => setPeople([]));
+  }, [isAdmin]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const body = form.invite ? { ...form, password: undefined } : form;
+      const body = { ...form, password: form.invite ? undefined : form.password, managerId: isAdmin ? form.managerId || null : undefined };
       await api('/api/admin/users', { method: 'POST', body });
       toast.success(form.invite ? 'Invitation sent' : 'Account created');
       setCreated({ email: form.email.trim().toLowerCase(), password: form.invite ? null : form.password });
@@ -78,7 +90,7 @@ export function NewUserPage() {
     }
   };
 
-  const back = isAdmin ? { to: '/users', label: 'Users' } : { to: '/', label: 'All apps' };
+  const back = isAdmin ? { to: '/users', label: 'Users' } : { to: '/', label: 'Home' };
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -135,6 +147,7 @@ export function NewUserPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Input label="E-mail" type="email" required autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               <Input label="Full name" autoComplete="off" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+              {isAdmin && <ManagerSelect id="new-manager" value={form.managerId} onChange={(managerId) => setForm({ ...form, managerId })} people={people} />}
             </div>
           </Section>
 

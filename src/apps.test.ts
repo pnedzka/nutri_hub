@@ -14,6 +14,9 @@ describe('sectionsFor', () => {
   it('shows the New user accounts tile to people allowed to create accounts, not to administrators', () => {
     expect(ids({ role: 'user', apps: ['signatures', 'create-users'] })).toEqual([['Your apps', ['signatures', 'team', 'create-users']]]);
     expect(ids({ role: 'admin', apps: ['create-users'] })[0][1]).not.toContain('create-users');
+    // "Edit user profiles" opens User management, where "Add user" is too.
+    expect(ids({ role: 'user', apps: ['create-users', 'edit-users'] })).toEqual([['Your apps', ['team', 'edit-users']]]);
+    expect(ids({ role: 'admin', apps: ['edit-users'] })[0][1]).not.toContain('edit-users');
   });
 
   it('shows only Team to a user without apps', () => {
@@ -28,7 +31,7 @@ describe('sectionsFor', () => {
 
   it('hides News, Leave and Phone calls analyser where VITE_HUB_MODULES does not list them (production)', () => {
     expect(ids({ role: 'admin', apps: [] }, '')).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'purchase', 'team', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'purchase', 'team', 'intranet']],
       ['Administration', ['users', 'contests']],
     ]);
     expect(ids({ role: 'user', apps: ['news', 'leave', 'purchase', 'neutralizer'] }, 'news')).toEqual([['Your apps', ['neutralizer', 'news', 'purchase', 'team']]]);
@@ -36,7 +39,7 @@ describe('sectionsFor', () => {
 
   it('shows an admin every app and the Administration section', () => {
     expect(ids({ role: 'admin', apps: [] })).toEqual([
-      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'commission', 'news', 'leave', 'purchase', 'team', 'intranet']],
+      ['Your apps', ['neutralizer', 'signatures', 'owner-lookup', 'news', 'leave', 'purchase', 'team', 'intranet']],
       ['Administration', ['users', 'calls', 'contests']],
     ]);
   });
@@ -44,8 +47,8 @@ describe('sectionsFor', () => {
 
 describe('APPS', () => {
   it('has a tile for every app id', () => {
-    // The two extra permissions of the Contract generator share its tile.
-    const withTiles = APP_IDS.filter((id) => id !== 'contracts-admin' && id !== 'contracts-sign');
+    // The extra permissions of the Contract generator, Leave and Complaints share their module's tile.
+    const withTiles = APP_IDS.filter((id) => !id.startsWith('contracts-') && id !== 'leave-admin' && id !== 'complaints-admin');
     expect(APPS.filter((a) => a.audience === 'app').map((a) => a.id)).toEqual(withTiles);
     expect(APPS.find((a) => a.id === 'create-users')?.url).toBe('/users/new');
   });

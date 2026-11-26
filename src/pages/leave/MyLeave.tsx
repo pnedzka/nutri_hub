@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader } from '../../components/Card';
 import { Select, Textarea } from '../../components/Field';
 import { Input } from '../../components/Input';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { useToast } from '../../lib/toast';
 import {
   ADMIN_ONLY,
@@ -21,6 +22,7 @@ import {
 } from '../../../shared/leave';
 import type { LeaveOverview, LeaveRequestView, NewLeaveRequest } from '../../../shared/leaveApi';
 import { Empty, StatusBadge } from './ui';
+import { askConfirm } from '../../lib/confirm';
 
 export function BalanceSummary({ balance }: { balance: Balance }) {
   const rows: [string, number][] = [
@@ -53,6 +55,7 @@ export function BalanceSummary({ balance }: { balance: Balance }) {
 
 function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: () => void }) {
   const toast = useToast();
+  const isAdmin = useAuth((s) => s.user?.role === 'admin');
   const [userId, setUserId] = useState('');
   const [type, setType] = useState<LeaveType>('vacation');
   const [start, setStart] = useState('');
@@ -63,7 +66,7 @@ function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: 
   const [error, setError] = useState<string | null>(null);
 
   const forOther = Boolean(userId);
-  const types = LEAVE_TYPES.filter((t) => overview.isAdmin || !ADMIN_ONLY.includes(t));
+  const types = LEAVE_TYPES.filter((t) => overview.managesLeave || !ADMIN_ONLY.includes(t));
   const singleDay = Boolean(start) && start === (end || start);
   const lastDay = end || start;
   const dateIssue = start ? datesProblem({ start, end: lastDay, halfDay: halfDay && singleDay }) : null;
@@ -79,7 +82,8 @@ function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: 
     try {
       const body: NewLeaveRequest = { type, start, end: lastDay, halfDay: halfDay && singleDay, note: note.trim() || undefined, userId: userId || undefined };
       await api('/api/leave', { method: 'POST', body });
-      toast.success(forOther ? 'Leave entered' : 'Request sent', forOther ? undefined : 'Your manager will get an e-mail.');
+      const approvedNow = forOther && (isAdmin || type === 'sick');
+      toast.success(approvedNow ? 'Leave entered' : 'Request sent', approvedNow ? undefined : forOther ? 'The manager will get an e-mail.' : 'Your manager will get an e-mail.');
       setStart('');
       setEnd('');
       setHalfDay(false);
@@ -94,8 +98,8 @@ function RequestForm({ overview, onSaved }: { overview: LeaveOverview; onSaved: 
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      {overview.isAdmin && (
-        <Select id="leave-person" label="For" value={userId} onChange={(e) => setUserId(e.target.value)} hint={forOther ? 'Entered by an administrator: saved as approved.' : undefined}>
+      {overview.managesLeave && (
+        <Select id="leave-person" label="For" value={userId} onChange={(e) => setUserId(e.target.value)} hint={forOther ? (isAdmin || type === 'sick' ? 'Entered for someone else: saved as approved.' : "Entered for someone else: goes to the person's manager for approval.") : undefined}>
           <option value="">Me</option>
           {overview.people.map((p) => (
             <option key={p.id} value={p.id}>
@@ -149,7 +153,7 @@ function RequestItem({ request, onChange }: { request: LeaveRequestView; onChang
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const cancel = async () => {
-    if (!window.confirm('Cancel this request?')) return;
+    if (!(await askConfirm('Cancel this request?', { confirmLabel: 'Cancel request', cancelLabel: 'Keep it', danger: true }))) return;
     setBusy(true);
     try {
       await api('/api/leave', { method: 'PATCH', body: { id: request.id, action: 'cancel' } });

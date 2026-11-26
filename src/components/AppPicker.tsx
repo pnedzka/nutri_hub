@@ -3,10 +3,10 @@ import { APPS, available } from '../apps';
 
 // The checkboxes of the apps a person may use: in the form for a new account (User management → Add user) and on
 // the account's Edit page. Apps come first, each with the description of its tile; the permissions that are not
-// apps follow. The contract generator's own permissions sit under it and need it.
+// apps follow. The own permissions of the contract generator and of Leave sit under the module and need it.
 
 /** Permissions of an app, shown indented under it; unticking the app unticks them. */
-const SUB: Partial<Record<AppId, AppId[]>> = { contracts: ['contracts-admin', 'contracts-sign'] };
+const SUB: Partial<Record<AppId, AppId[]>> = { leave: ['leave-admin'], contracts: ['contracts-admin', 'contracts-sign', 'contracts-for-others'], complaints: ['complaints-admin'] };
 const PARENT: Partial<Record<AppId, AppId>> = Object.fromEntries(
   Object.entries(SUB).flatMap(([parent, subs]) => (subs ?? []).map((sub) => [sub, parent])),
 );
@@ -14,13 +14,17 @@ const PARENT: Partial<Record<AppId, AppId>> = Object.fromEntries(
 const DESCRIPTIONS: Partial<Record<AppId, string>> = {
   ...Object.fromEntries(APPS.map((a) => [a.id, a.description])),
   intranet: 'The old intranet: only its tile, it has its own sign-in.',
+  'leave-admin': "Manages everyone's leave: enters leave and sick leave for others, sets days of leave. Requests are still approved by the manager.",
   'contracts-admin': 'Accepts contracts after entering the order in enova; sees all contracts.',
   'contracts-sign': 'Signs contracts; board members sign those above 100 000 EUR.',
+  'contracts-for-others': 'Creates contracts on behalf of other traders; they go through the usual approval.',
+  'complaints-admin': 'Sees and handles every complaint, assigns who handles it and cancels complaints.',
   'create-users': 'Invites new people, with apps they have themselves.',
+  'edit-users': "Changes everyone's contact details, photo, name and manager in User management. Roles, apps and passwords stay with administrators.",
 };
 
 /** Not apps: what a person may do in the hub. */
-const PERMISSIONS: AppId[] = ['create-users'];
+const PERMISSIONS: AppId[] = ['create-users', 'edit-users'];
 
 function Row({ id, checked, disabled, onToggle, nested }: { id: AppId; checked: boolean; disabled: boolean; onToggle: (on: boolean) => void; nested?: boolean }) {
   return (

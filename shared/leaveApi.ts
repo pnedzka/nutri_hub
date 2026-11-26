@@ -34,10 +34,11 @@ export interface LeaveOverview {
   requests: LeaveRequestView[];
   /** Pending requests the signed-in person may approve, with the requester's balance. */
   approvals: { request: LeaveRequestView; balance: Balance }[];
-  /** Has people to approve (a manager) or is an administrator. */
+  /** Has people to approve (a manager), approves business trips or is an administrator. */
   isApprover: boolean;
-  isAdmin: boolean;
-  /** Administrators: everyone with access to Leave, to enter leave for them. */
+  /** An administrator or Leave administration (leave-admin): leave for others, sick leave, Employees. */
+  managesLeave: boolean;
+  /** Those who manage leave: everyone with access to Leave, to enter leave for them. */
   people: Person[];
 }
 
@@ -82,11 +83,15 @@ export interface CalendarResponse {
 export interface EmployeeRow {
   person: Person;
   isAdmin: boolean;
+  /** An administrator or Leave administration: enters leave for others and sets the days. */
+  managesLeave: boolean;
   /** Settings saved by an administrator; false: the defaults are shown. */
   configured: boolean;
   settings: LeaveSettings;
   manager: Person | null;
   balance: Balance;
+  /** Approves everyone's business trips (table leave_trip_approvers); administrators always can. */
+  approvesTrips: boolean;
 }
 
 export interface EmployeesResponse {
@@ -95,8 +100,11 @@ export interface EmployeesResponse {
 }
 
 /** PUT /api/leave/employees (administrators) */
-export interface EmployeeSettingsUpdate extends LeaveSettings {
+/** The manager is not here: it is set in User management (PATCH /api/admin/users). */
+export interface EmployeeSettingsUpdate extends Omit<LeaveSettings, 'managerId'> {
   userId: string;
   /** Days granted for the current year. */
   allowance: number;
+  /** Approves everyone's business trips; left out = unchanged. */
+  approvesTrips?: boolean;
 }

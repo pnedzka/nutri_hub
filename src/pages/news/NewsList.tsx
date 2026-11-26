@@ -96,7 +96,7 @@ export function NewsList() {
   return (
     <div className="space-y-6">
       <PageHeader
-        back={{ to: '/', label: 'All apps' }}
+        back={{ to: '/', label: 'Home' }}
         title="News"
         actions={
           <>
