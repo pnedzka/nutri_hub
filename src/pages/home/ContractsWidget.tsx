@@ -42,7 +42,7 @@ export function ContractsWidget({ className }: { className?: string }) {
             {data.pending > 0 ? (
               <span className="font-medium text-[#CC1F1F]">{data.pending} waiting for approval. </span>
             ) : null}
-            Contracts made in the intranet this month, without cancelled ones; values in EUR at the rate of the contract's day.
+            Contracts made in the intranet in the chosen month, without cancelled ones; values in EUR at the rate of the contract's day.
             {data.withoutEur > 0 && ` ${data.withoutEur} without an EUR rate left out of the sums.`}
           </p>
         </>

@@ -7,6 +7,7 @@ import { useToast } from '../lib/toast';
 import { Button } from './Button';
 import { Card, CardBody, CardHeader } from './Card';
 import { Input } from './Input';
+import { askConfirm } from '../lib/confirm';
 
 type Draft = { id?: string; name: string; address: string };
 
@@ -34,7 +35,7 @@ export function OfficesCard() {
   };
 
   const remove = async (office: Office) => {
-    if (!confirm(`Remove the office ${office.name}?\n\nPeople of this office will have no office in their profile.`)) return;
+    if (!(await askConfirm(`Remove the office ${office.name}?\n\nPeople of this office will have no office in their profile.`))) return;
     try {
       setOffices((await api<{ offices: Office[] }>('/api/people', { method: 'DELETE', body: { id: office.id } })).offices);
       void load(true);

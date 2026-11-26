@@ -656,7 +656,7 @@ export function CallsPage() {
       <div>
         <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm text-gray-500 hover:text-gray-800">
           <ArrowLeft size={16} />
-          All apps
+          Home
         </Link>
         <div className="mt-1 flex items-start justify-between gap-3">
           <div className="min-w-0">

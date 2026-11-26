@@ -9,7 +9,7 @@ import { COMPLAINTS_API } from './common';
 import { StatusPill } from './StatusPill';
 
 const EMPTY: Record<ListScope, string> = {
-  mine: 'No complaints concern you. Register one with "New complaint".',
+  mine: 'No complaints concern you. Register one with “New complaint”.',
   open: 'No open complaints.',
   all: 'No complaints yet.',
 };

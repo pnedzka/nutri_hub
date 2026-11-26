@@ -15,6 +15,7 @@ import { useApi } from '../leave/useApi';
 import { Gallery } from './Gallery';
 import { formatWhen } from './format';
 import { DraftBadge, FormattedText, PageHeader, RichText } from './ui';
+import { askConfirm } from '../../lib/confirm';
 
 const interact = (body: NewsInteraction) => api('/api/news/post', { method: 'POST', body });
 
@@ -101,7 +102,7 @@ function Comment({ comment, reload }: { comment: NewsComment; reload: () => void
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const remove = async () => {
-    if (!window.confirm('Delete this comment?')) return;
+    if (!(await askConfirm('Delete this comment?'))) return;
     try {
       await interact({ action: 'delete-comment', id: comment.id });
       reload();
@@ -164,7 +165,7 @@ export function PostView({ id }: { id: string }) {
   const [deleting, setDeleting] = useState(false);
 
   const remove = async () => {
-    if (!post || !window.confirm('Delete this post with its photos, comments and likes?')) return;
+    if (!post || !(await askConfirm('Delete this post with its photos, comments and likes?'))) return;
     setDeleting(true);
     try {
       await api(`/api/news/post?id=${encodeURIComponent(post.id)}`, { method: 'DELETE' });

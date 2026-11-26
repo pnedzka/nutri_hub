@@ -9,7 +9,7 @@ import { CONTRACTS_API, dateTime, shortDate } from './common';
 import { StatusPill } from './ui';
 
 const EMPTY: Record<ListScope, string> = {
-  mine: 'You have no contracts yet. Generate the first one with "New contract".',
+  mine: 'You have no contracts yet. Generate the first one with “New contract”.',
   todo: 'Nothing is waiting for you.',
   all: 'No contracts yet.',
 };

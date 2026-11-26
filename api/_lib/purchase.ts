@@ -25,6 +25,7 @@ import { requireApp } from './auth.js';
 import { centralDb } from './central.js';
 import { HttpError, handle, json, readJson } from './http.js';
 import { logError } from './monitoring.js';
+import { purchaseMessage } from '../../shared/purchaseMessages.js';
 
 export const isPurchaseRequest = (request: Request) => new URL(request.url).searchParams.get('resource') === 'purchase';
 
@@ -35,7 +36,7 @@ export const isPurchaseRequest = (request: Request) => new URL(request.url).sear
 async function call<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await centralDb().schema('purchase_api').rpc(fn, args);
   if (!error) return data as T;
-  if (error.code === 'P0001') throw new HttpError(409, error.message);
+  if (error.code === 'P0001') throw new HttpError(409, purchaseMessage(error.message));
   // PGRST106/PGRST202: the schema is not exposed in the Data API, or the SQL has not been run yet.
   logError(`purchase.${fn}`, new Error(`purchase_api.${fn} failed (${error.code ?? 'unknown'})`), { code: error.code });
   throw new HttpError(

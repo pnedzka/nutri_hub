@@ -31,16 +31,25 @@ export function HomePage() {
     <div className="space-y-6 sm:space-y-8">
       <WelcomeCard name={name} email={user.email} avatarUrl={profile?.avatarUrl ?? null} />
       <ContestWidget />
-      {/* Wide screens (xl): Contracts with Latest news under it, the Sales leaderboard beside both. Every card keeps
-          its own height (items-start; the second row takes the rest), so a short Contracts card is not stretched to
-          the leaderboard's height. Narrower screens (an iPad upright, phones): one column, Contracts, leaderboard,
-          news. */}
+      {/* Wide screens (xl), in three columns:
+          - Contracts and leaderboard: Contracts (two columns) with Latest news under it, the leaderboard beside both;
+          - leaderboard without Contracts: Latest news (two columns) beside the leaderboard, or the leaderboard alone
+            across the width;
+          - Contracts without the leaderboard: Contracts, then Latest news, both across the width.
+          Every card keeps its own height (items-start), so a short card is not stretched to its neighbour's height.
+          Narrower screens (an iPad upright, phones): one column, Contracts, leaderboard, news. */}
       {(contracts || leaderboard) && (
-        <div className="grid items-start gap-4 sm:gap-6 xl:grid-cols-3 xl:grid-rows-[auto_1fr]">
+        <div
+          className={`grid items-start gap-4 sm:gap-6 xl:grid-cols-3 ${contracts && leaderboard && news ? 'xl:grid-rows-[auto_1fr]' : ''}`}
+        >
           {contracts && <ContractsWidget className={leaderboard ? 'xl:col-span-2' : 'xl:col-span-3'} />}
-          {leaderboard && <LeaderboardWidget className={contracts ? 'xl:row-span-2' : 'xl:col-span-2'} />}
+          {leaderboard && (
+            <LeaderboardWidget
+              className={contracts ? (news ? 'xl:row-span-2' : '') : news ? 'xl:order-last' : 'xl:col-span-3'}
+            />
+          )}
           {news && (
-            <div className={contracts && leaderboard ? 'xl:col-span-2' : 'xl:col-span-3'}>
+            <div className={contracts && !leaderboard ? 'xl:col-span-3' : 'xl:col-span-2'}>
               <LatestNews />
             </div>
           )}

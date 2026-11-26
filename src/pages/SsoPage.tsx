@@ -47,7 +47,7 @@ export function SsoPage() {
           className="flex items-center justify-center gap-2 min-h-11 rounded-lg bg-[#CC1F1F] px-4 py-2 text-sm font-medium text-white hover:bg-[#A01818]"
         >
           <LayoutGrid size={16} />
-          All apps
+          Go to Home
         </Link>
       </CardBody>
     </Card>
