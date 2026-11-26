@@ -4,7 +4,7 @@ import type { HeaderLink } from './AppHeader';
 // The bottom bar of every Nutri Partners app: the same file in each repository, like AppHeader.tsx (the source is
 // nutri_hub src/components/Footer.tsx). Who makes the app, the way back to the apps and to My profile, and the
 // version, written the way Apple writes it: the release number from package.json and the build (the short commit) in
-// brackets, e.g. "Version 1.2 (a667ecf)". Outside production a Dev badge. Screenshots and bug reports say which build.
+// brackets, e.g. "Version 26.1 (a667ecf)". Outside production a Dev badge. Screenshots and bug reports say which build.
 
 const PlainLink: HeaderLink = ({ href, ...props }) => <a href={href} {...props} />;
 
@@ -18,7 +18,7 @@ const footerLink =
 
 /** Vercel sets these at build time (system environment variables, exposed to Vite with the VITE_ prefix). */
 const BUILD = (import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA as string | undefined)?.slice(0, 7) || 'local';
-/** package.json "version" (vite.config.ts), shown like Apple's: 1.2.0 → 1.2, 1.2.1 stays, 2.0.0 → 2.0. */
+/** package.json "version" (vite.config.ts), shown like Apple's: 26.1.0 → 26.1, 26.1.1 stays. */
 const RELEASE = ((import.meta.env.VITE_APP_VERSION as string | undefined) || '0.0.0').replace(/^(\d+\.\d+)\.0$/, '$1');
 const VERSION = `${RELEASE} (${BUILD})`;
 const ENVIRONMENT = (import.meta.env.VITE_VERCEL_ENV as string | undefined) || 'development';
