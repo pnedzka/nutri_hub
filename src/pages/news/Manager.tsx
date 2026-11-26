@@ -10,7 +10,7 @@ import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import type { ManagedPost, ManagerResponse, NewsInteraction, PostStatus } from '../../../shared/newsApi';
 import { parseExport, type ImportRequest, type ImportResult } from '../../../shared/newsImport';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { formatDay } from './format';
 import { DraftBadge, PageHeader } from './ui';

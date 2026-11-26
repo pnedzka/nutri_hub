@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, History, KeyRound, UserRound, Users } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { History, KeyRound, UserRound, Users } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import { EVENT_LABELS, type ProfileEvent, type TeamMember } from '../../shared/profile.ts';
 import { APP_NAMES, isAppId, type AppId } from '../../shared/access.ts';
 import { AppPicker } from '../components/AppPicker';
@@ -16,6 +16,8 @@ import { usePeople } from '../lib/people';
 import { useToast } from '../lib/toast';
 import { Empty, ErrorNote, Loading } from './leave/ui';
 import type { UserRow } from './UsersPage';
+import { Pill } from '../components/Pill';
+import { PageHeader } from '../components/PageHeader';
 
 const appList = (value: unknown) =>
   Array.isArray(value) && value.length ? value.map((id) => (isAppId(id) ? APP_NAMES[id] : String(id))).join(', ') : 'none';
@@ -161,18 +163,16 @@ export function UserEditPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div>
-        <Link to="/users" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={14} /> Users
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900 [overflow-wrap:anywhere]">{user ? user.full_name || user.email : 'Edit account'}</h1>
+      <PageHeader title={user ? user.full_name || user.email : 'Edit account'} back={{ to: '/users', label: 'User management' }}>
         {user && (
-          <p className="text-sm text-gray-500 mt-1">
+          <>
             {user.email} · last sign-in {formatDateTime(user.last_sign_in_at)}
-            {user.status === 'deactivated' && <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">Deactivated</span>}
-          </p>
+            {user.status === 'deactivated' && (
+              <Pill className="ml-2">Deactivated</Pill>
+            )}
+          </>
         )}
-      </div>
+      </PageHeader>
       {error && <ErrorNote>{error}</ErrorNote>}
       {user === undefined && !error && <Loading />}
       {user === null && <ErrorNote>This account no longer exists.</ErrorNote>}

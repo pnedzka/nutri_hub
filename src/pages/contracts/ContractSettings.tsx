@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import { CONTRACTS_API, uploadTo } from './common';
 import { Section } from './ui';
+import { Loading } from '../../components/States';
 
 /**
  * The files the contracts need: the terms attached to every contract (OWS for sales, OWZ for purchases; contract
@@ -54,7 +55,7 @@ export function ContractSettings() {
           if (file && target.current) upload(file, target.current);
         }} />
       {!files ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <Loading compact />
       ) : !files.length ? (
         <p className="text-sm text-gray-500">There is nothing for you to set here.</p>
       ) : (

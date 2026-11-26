@@ -95,6 +95,7 @@ async function opens(page: Page, who: TestPerson, path: string, title: string) {
   const [width, viewport] = await page.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
   expect(width, 'no sideways scrolling').toBeLessThanOrEqual(viewport);
   expect(errors).toEqual([]);
+  if (process.env.SMOKE_SHOTS) await page.screenshot({ path: `${process.env.SMOKE_SHOTS}/${test.info().project.name}${path.replace(/\//g, '_')}.png` });
 }
 
 for (const [path, title] of PAGES) {

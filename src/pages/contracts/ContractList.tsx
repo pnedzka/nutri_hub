@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import { CONTRACTS_API, dateTime, shortDate } from './common';
 import { StatusPill } from './ui';
+import { EmptyState } from '../../components/States';
 
 const EMPTY: Record<ListScope, string> = {
   mine: 'You have no contracts yet. Generate the first one with “New contract”.',
@@ -93,7 +94,7 @@ export function ContractList({ scope }: { scope: ListScope }) {
         className="text-base sm:text-sm"
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {list && !list.items.length && <p className="py-8 text-center text-sm text-gray-500">{q ? 'No contracts match your search.' : EMPTY[scope]}</p>}
+      {list && !list.items.length && <EmptyState card>{q ? 'No contracts match your search.' : EMPTY[scope]}</EmptyState>}
       {list && list.items.length > 0 && (
         <ul className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
           {list.items.map((c) => (

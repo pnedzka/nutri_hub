@@ -1,5 +1,4 @@
-import { ArrowLeft } from 'lucide-react';
-import { Link, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import type { LeaveOverview } from '../../../shared/leaveApi';
 import { Approvals } from './Approvals';
 import { CalendarView } from './CalendarView';
@@ -8,6 +7,7 @@ import { MyLeave } from './MyLeave';
 import { ErrorNote, Loading } from './ui';
 import { useApi } from './useApi';
 import { ModuleTabs } from '../../components/ModuleTabs';
+import { PageHeader } from '../../components/PageHeader';
 
 export function LeavePage() {
   const { data, error, reload } = useApi<LeaveOverview>('/api/leave');
@@ -20,13 +20,7 @@ export function LeavePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={16} />
-          Home
-        </Link>
-        <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-gray-900">Leave</h1>
-      </div>
+      <PageHeader title="Leave" />
       <ModuleTabs label="Leave" tabs={tabs} />
       {error && <ErrorNote>{error}</ErrorNote>}
       <Routes>

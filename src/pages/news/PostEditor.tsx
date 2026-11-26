@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/toast';
 import { BODY_MAX, IMAGES_MAX, SUMMARY_MAX, TITLE_MAX } from '../../../shared/news';
 import type { AuthorsResponse, NewsPostDetail, NewsPostInput, PostStatus, ShownImage, UploadResponse } from '../../../shared/newsApi';
-import { ErrorNote, Loading } from '../leave/ui';
+import { ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { preparePhoto } from './images';
 import { DraftBadge, FormattedText, PageHeader } from './ui';

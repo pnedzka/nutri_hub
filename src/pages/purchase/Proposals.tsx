@@ -23,7 +23,7 @@ import { Card } from '../../components/Card';
 import { api } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { useToast } from '../../lib/toast';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { PURCHASE_API, dateAgo, day, money, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';

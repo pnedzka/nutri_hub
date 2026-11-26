@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Plus } from 'lucide-react';
-import { Link, Route, Routes, useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
+import { Route, Routes, useNavigate } from 'react-router-dom';
 import type { ComplaintSetup } from '../../../shared/complaintsApi.ts';
 import { Button } from '../../components/Button';
 import { api } from '../../lib/api';
@@ -9,6 +9,8 @@ import { ComplaintDetail } from './ComplaintDetail';
 import { ComplaintForm } from './ComplaintForm';
 import { ComplaintList } from './ComplaintList';
 import { ModuleTabs } from '../../components/ModuleTabs';
+import { PageHeader } from '../../components/PageHeader';
+import { ErrorNote } from '../../components/States';
 
 /**
  * Complaints: anyone with the permission registers a client's complaint from the sales contract number; the handler
@@ -35,22 +37,18 @@ export function ComplaintsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm text-gray-500 hover:text-gray-800">
-            <ArrowLeft size={16} />
-            Home
-          </Link>
-          <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-gray-900">Complaints</h1>
-        </div>
-        {setup && (
-          <Button className="min-h-11 sm:min-h-0 inline-flex items-center gap-1.5" onClick={() => navigate('/complaints/new')}>
-            <Plus size={16} />
-            New complaint
-          </Button>
-        )}
-      </div>
-      {error && <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      <PageHeader
+        title="Complaints"
+        actions={
+          setup && (
+            <Button className="min-h-11 sm:min-h-0 inline-flex items-center gap-1.5" onClick={() => navigate('/complaints/new')}>
+              <Plus size={16} />
+              New complaint
+            </Button>
+          )
+        }
+      />
+      {error && <ErrorNote>{error}</ErrorNote>}
       {setup && (
         <SetupContext.Provider value={setup}>
           <ModuleTabs label="Complaints" tabs={tabs} />

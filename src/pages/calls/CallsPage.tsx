@@ -1,6 +1,5 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react';
-import { AlertTriangle, ArrowLeft, CheckCircle2, Download, FileText, FileUp, PhoneCall, Upload, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, Download, FileText, FileUp, PhoneCall, Upload, X } from 'lucide-react';
 import type { CallsImportBody, CallsImportResult, CallsPeriod, CallsPreview, CallsReport, PersonCalls } from '../../../shared/callsApi.ts';
 import { byDepartment } from '../../../shared/calls.ts';
 import { formatDate } from '../../../shared/leave.ts';
@@ -10,9 +9,10 @@ import { Card, CardBody, CardHeader } from '../../components/Card';
 import { api } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { useToast } from '../../lib/toast';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { readInvoice } from './pdf';
+import { PageHeader } from '../../components/PageHeader';
 
 const CALLS_API = '/api/admin/users?resource=calls';
 
@@ -653,27 +653,21 @@ export function CallsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={16} />
-          Home
-        </Link>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-gray-900 sm:text-2xl">
-              <PhoneCall size={22} className="shrink-0 text-[#CC1F1F]" />
-              Phone calls analyser
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">Who called how much, from the monthly T-Mobile invoices.</p>
-          </div>
-          {hasInvoices && !importing && (
+      <PageHeader
+        title="Phone calls analyser"
+        icon={PhoneCall}
+        actions={
+          hasInvoices &&
+          !importing && (
             <Button className="min-h-11 shrink-0 sm:min-h-0" onClick={() => setImporting(true)} aria-label="Import invoices">
               <Upload size={16} />
               <span className="hidden sm:inline">Import invoices</span>
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      >
+        Who called how much, from the monthly T-Mobile invoices.
+      </PageHeader>
 
       {(importing || (data && !hasInvoices)) && <ImportCard onImported={imported} onClose={hasInvoices ? () => setImporting(false) : undefined} />}
 
