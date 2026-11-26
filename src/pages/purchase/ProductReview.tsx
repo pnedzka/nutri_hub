@@ -20,6 +20,7 @@ import { Empty, ErrorNote, Loading } from '../leave/ui';
 import { useApi } from '../leave/useApi';
 import { PURCHASE_API, percent, whole } from './format';
 import { Pager, Pill, ProductPicker, ProductStatus } from './ui';
+import { ALREADY_CLOSED } from '../../../shared/purchaseMessages.ts';
 
 // The filter fields and dropdowns share one height; the chevron and the rest come from src/index.css.
 const select =
@@ -236,8 +237,6 @@ const DECIDED_LABEL: Partial<Record<PurchaseAction['action'], string>> = {
 
 const emptyFilters: ReviewFilters = { type: null, category: null, maxConfidence: null, withOffers: false, q: null, page: 1 };
 
-/** The database's answer when the item was decided in the meantime (core._review_item: "Pozycja … jest już zamknięta"). */
-const ALREADY_CLOSED = /już zamknięta/;
 
 export function ProductReview() {
   const toast = useToast();

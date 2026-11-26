@@ -22,6 +22,7 @@ import {
 } from '../../../shared/leave';
 import type { LeaveOverview, LeaveRequestView, NewLeaveRequest } from '../../../shared/leaveApi';
 import { Empty, StatusBadge } from './ui';
+import { askConfirm } from '../../lib/confirm';
 
 export function BalanceSummary({ balance }: { balance: Balance }) {
   const rows: [string, number][] = [
@@ -152,7 +153,7 @@ function RequestItem({ request, onChange }: { request: LeaveRequestView; onChang
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const cancel = async () => {
-    if (!window.confirm('Cancel this request?')) return;
+    if (!(await askConfirm('Cancel this request?', { confirmLabel: 'Cancel request', cancelLabel: 'Keep it', danger: true }))) return;
     setBusy(true);
     try {
       await api('/api/leave', { method: 'PATCH', body: { id: request.id, action: 'cancel' } });

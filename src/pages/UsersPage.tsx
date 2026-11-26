@@ -16,6 +16,7 @@ import { useAuth } from '../lib/auth';
 import { formatDateTime } from '../lib/format';
 import { randomPassword } from '../lib/password';
 import { useToast } from '../lib/toast';
+import { askConfirm } from '../lib/confirm';
 
 export interface UserRow {
   id: string;
@@ -114,13 +115,13 @@ export function UsersPage() {
     const question = active
       ? `Reactivate the account ${u.email}?\n\nThe person can sign in again and gets back their apps.`
       : `Deactivate the account ${u.email}?\n\nUse this when someone leaves: they can no longer sign in (within an hour in apps that are already open) and disappear from Team. Their documents, leave and posts stay. You can reactivate the account later.`;
-    if (!confirm(question)) return;
+    if (!(await askConfirm(question))) return;
     await update(u.id, { active }, active ? `Account ${u.email} reactivated` : `Account ${u.email} deactivated`);
   };
 
   const sendLink = async (u: UserRow) => {
     const what = u.status === 'invited' ? 'the invitation again' : 'a link to set a new password';
-    if (!confirm(`Send ${what} to ${u.email}?`)) return;
+    if (!(await askConfirm(`Send ${what} to ${u.email}?`))) return;
     try {
       const { sent } = await api<{ sent: 'invite' | 'recovery' }>('/api/admin/users', { method: 'PATCH', body: { id: u.id, sendLink: true } });
       toast.success(sent === 'invite' ? `Invitation resent to ${u.email}` : `Password reset link sent to ${u.email}`);
@@ -131,7 +132,7 @@ export function UsersPage() {
   };
 
   const remove = async (u: UserRow) => {
-    if (!confirm(`Delete the account ${u.email}?\n\nThis cannot be undone. The person will lose access to the app.`)) return;
+    if (!(await askConfirm(`Delete the account ${u.email}?\n\nThis cannot be undone. The person will lose access to the app.`))) return;
     try {
       await api('/api/admin/users', { method: 'DELETE', body: { id: u.id } });
       toast.success(`Account ${u.email} deleted`);
@@ -156,7 +157,7 @@ export function UsersPage() {
   );
 
   const roleSelect = (u: UserRow) => !isAdmin ? (
-    <span className="text-sm text-gray-700">{u.role === 'admin' ? 'administrator' : 'user'}</span>
+    <span className="text-sm text-gray-700">{u.role === 'admin' ? 'Admin' : 'User'}</span>
   ) : (
     <select
       value={u.role}
@@ -165,8 +166,8 @@ export function UsersPage() {
       className="min-h-11 sm:min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
       aria-label={`Role of ${u.email}`}
     >
-      <option value="user">user</option>
-      <option value="admin">administrator</option>
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
     </select>
   );
 
@@ -212,7 +213,7 @@ export function UsersPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-            <ArrowLeft size={14} /> All apps
+            <ArrowLeft size={14} /> Home
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-sm text-gray-500 mt-1">

@@ -73,3 +73,30 @@ test('"Set a new password" shows the password in a window to copy, open until th
   await done.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+test('Deactivate asks in the hub\'s window: Cancel changes nothing, Deactivate sends the change', async ({ page }) => {
+  await backend.as(PARTNER);
+  await page.goto('/users');
+  const open = async () => {
+    const actions = page.getByRole('button', { name: `Actions for ${TRADER.email}` }).locator('visible=true');
+    await actions.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(100);
+    await actions.click();
+    await page.getByRole('menuitem', { name: 'Deactivate' }).click();
+    return page.getByRole('dialog', { name: `Deactivate the account ${TRADER.email}?` });
+  };
+  let dialog = await open();
+  await expect(dialog.getByText('Use this when someone leaves')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(backend.accountChanges).toHaveLength(0);
+
+  await expect(await open()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(backend.accountChanges).toHaveLength(0);
+
+  dialog = await open();
+  await dialog.getByRole('button', { name: 'Deactivate' }).click();
+  await expect.poll(() => backend.accountChanges[0]?.body).toEqual({ id: expect.any(String), active: false });
+});

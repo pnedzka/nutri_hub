@@ -90,7 +90,7 @@ export function NewUserPage() {
     }
   };
 
-  const back = isAdmin ? { to: '/users', label: 'Users' } : { to: '/', label: 'All apps' };
+  const back = isAdmin ? { to: '/users', label: 'Users' } : { to: '/', label: 'Home' };
 
   return (
     <div className="max-w-3xl space-y-6">

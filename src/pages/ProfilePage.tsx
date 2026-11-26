@@ -20,7 +20,7 @@ export function ProfilePage() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={14} /> All apps
+          <ArrowLeft size={14} /> Home
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">My profile</h1>
         <p className="text-sm text-gray-500 mt-1">Your colleagues see these details in Team.</p>

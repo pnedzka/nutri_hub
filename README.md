@@ -33,6 +33,11 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
 - Nasze aplikacje otwierają się w tej samej karcie. Logo i przycisk „All apps” („Wszystkie aplikacje”) w ich nagłówkach prowadzą z powrotem tutaj.
 - **Moduły centrum (od 20.10.2026):** News i Leave działają w samym centrum, bez osobnego logowania i projektu Vercel (decyzja właściciela: centrum stanie się intranetem). Szczegóły w „Moduły: News i Leave”.
 - **Stare linki wyszukiwania:** `nutripartners.vercel.app/?q=…` (dawniej HubSpot owner lookup) przekierowują na `whoisowner.vercel.app/?q=…`.
+- **Wspólne elementy interfejsu (audyt UI, 26.11.2026):**
+  - link nad tytułem modułu to „← Home” (prowadzi na dashboard); tytuł karty przeglądarki mówi, gdzie jesteś („Leave – Nutri Partners”, `src/lib/pageTitle.ts`, ustawia go `Layout`);
+  - pytania „czy na pewno” w oknie centrum zamiast `confirm()` przeglądarki: `askConfirm(tekst, opcje?)` z `src/lib/confirm.ts` (zwraca `Promise<boolean>`; tekst do pierwszej pustej linii to tytuł, reszta to opis; „Delete/Remove/Deactivate/Disconnect” dają czerwony przycisk), okno rysuje `src/components/ConfirmHost.tsx`. Nowe pytania pisać tak samo, bez `confirm()`;
+  - zakładki modułów (Leave, Contracts, Complaints, Purchase Manager) to `src/components/ModuleTabs.tsx`; na telefonie przewijają się w bok z cieniem po stronie, gdzie jest więcej, a aktywna zakładka sama się pokazuje (`src/components/ScrollRow.tsx`, też filtry w Notifications);
+  - role na liście kont: „Admin” / „User”, jak w belce.
 
 Ukrycie kafelka to tylko wygoda. O dostępie decydują same aplikacje i zasady RLS w Supabase.
 
@@ -152,6 +157,7 @@ Ekran Purchase Managera (Michał Roman) w projekcie Apex 2.0. Dane są w **centr
 - **Technicznie:** ekrany `src/pages/purchase/`, API `api/_lib/purchase.ts` wpięte w `api/admin/users.ts` (`?resource=purchase`, limit 12 funkcji; dostęp: `requireApp(…, 'purchase')`, nie tylko admini), typy i walidacja z testami w `shared/purchaseApi.ts`.
 - **Połączenie z bazą:** serwer woła tylko funkcje schematu `purchase_api` (`db/central/purchase_api.sql`, SECURITY DEFINER, wykonuje je tylko `service_role`) kluczem secret centralnej bazy. Zmienne (Production i Preview, ta sama baza): `CENTRAL_DB_URL` = `https://blbcudymvackpudywdyy.supabase.co`, `CENTRAL_DB_SECRET_KEY` = klucz secret `nutri-central-db`.
 - **Uruchomienie:** (1) `db/central/purchase_api.sql`, potem `db/central/purchase_undo.sql`, `db/central/bid_option_reject.sql`, `db/central/bid_all_offers.sql`, `db/central/offer_search.sql`, `db/central/offer_email.sql` `db/central/bid_card_ranking.sql`, `db/central/bid_card_notify.sql`, `db/central/bid_refresh.sql`, `db/central/bid_card_purchases.sql` `db/central/bid_search_cards.sql` , `db/central/bid_original_prices.sql`, `db/central/offer_spark_link.sql` i `db/central/bid_refresh_new_offers.sql` w SQL Editorze `nutri-central-db`; (2) Project Settings → Data API → Exposed schemas: dopisać `purchase_api`; (3) zmienne wyżej w Vercelu; (4) uprawnienie Purchase Manager w User management. Nowe konta nie dostają go domyślnie (`DEFAULT_APPS`).
+- **Komunikaty błędów po angielsku (od 26.11.2026):** baza (`purchase_api`, `core`) zgłasza błędy po polsku (`raise exception`, kod `P0001`); serwer tłumaczy je przed wysłaniem do przeglądarki (`shared/purchaseMessages.ts`, z testami; SQL bez zmian). Nowy komunikat w SQL = nowa reguła w tej tabeli, inaczej osoba zobaczy oryginał po polsku.
 
 ## Generator kontraktów (moduł „Contracts”, na produkcji w teście)
 

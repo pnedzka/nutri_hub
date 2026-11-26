@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { ConfirmHost } from './components/ConfirmHost';
 import { Toasts } from './components/Toasts';
 import { canEditProfiles, canUse, type AppId } from '../shared/access.ts';
 import { usesContracts } from '../shared/contractsApi.ts';
@@ -102,6 +103,7 @@ export default function App() {
   return (
     <>
       {content}
+      <ConfirmHost />
       <Toasts />
     </>
   );

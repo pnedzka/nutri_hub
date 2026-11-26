@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { pageTitle } from '../lib/pageTitle';
 import { useMyProfile, usePeople } from '../lib/people';
 import { AppHeader, type HeaderLink } from './AppHeader';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -19,6 +20,9 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => void load(), [load]);
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
+  useEffect(() => {
+    document.title = pageTitle(pathname);
+  }, [pathname]);
   return (
     <div className="min-h-screen flex flex-col">
       <AppHeader
