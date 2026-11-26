@@ -12,7 +12,7 @@ Strona startowa dla pracowników Nutri Partners i **jedyne miejsce zarządzania 
   - Document neutralizer: https://nutridocumentation-nxdi.vercel.app
   - E-mail signature generator: https://nutri-signatures.vercel.app
   - HubSpot owner lookup: https://whoisowner.vercel.app
-  - Commission calculator (kalkulator prowizji ICT i BDM, jedno logowanie): https://commissionanalyzer.vercel.app
+  - Commission calculator (kalkulator prowizji ICT i BDM): wycofany 26.11.2026, kafelek wyłączony (`commission` w `DEV_MODULES`), projekt Vercel wstrzymany
   - **News** (`/news`) i **Leave** (`/leave`): moduły samego centrum, opisane niżej.
   - **Team** (`/team`, wszyscy zalogowani): katalog pracowników ze zdjęciem, stanowiskiem, działem, biurem, e-mailem, telefonami i LinkedIn; wyszukiwanie i filtr biura. Konta dezaktywowane są ukryte.
     - **Org chart** (domyślna zakładka, gdy ktokolwiek ma przełożonego; `?view=chart|list`): drzewko „kto komu raportuje” z `profiles.manager_id` (ustawia admin w User management). Na komputerze wykres do przeciągania i przybliżania (Ctrl + scroll, przyciski, „Find me”), zwijane zespoły, kolor działu na karcie; na telefonie ta sama struktura jako rozwijana lista. Kliknięcie osoby: kontakty, linia przełożonych do góry i jej zespół. Korzenie: osoby bez przełożonego, które mają podwładnych albo są w dziale Board; reszta bez przełożonego jest w „Without a manager”. Wyszukiwarka przyciemnia pozostałych i rozwija zespoły nad znalezionymi. Logika i układ: `shared/orgChart.ts` (z testami), widok `src/pages/team/OrgChart.tsx`.
