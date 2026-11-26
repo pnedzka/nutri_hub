@@ -121,6 +121,21 @@ export interface ProposalOption {
   /** The e-mail the offer came from, for "Open in Spark" (db/central/offer_spark_link.sql); null when unknown. */
   messageId?: string | null;
   mailbox?: string | null;
+  /**
+   * The BID SELL that repeats this e-mail offer on WhatsApp (db/central/bid_sell_twins.sql): same product,
+   * price within 1%, posted up to 2 days after the e-mail. The card then shows one row instead of two.
+   */
+  bidSell?: OptionBidSell | null;
+}
+
+export interface OptionBidSell {
+  offerId: number;
+  offeredAt: string | null;
+  trader: string | null;
+  quantityKg: number | null;
+  location: string | null;
+  paymentTerms: string | null;
+  text: string | null;
 }
 
 /** supplier: the contact the offer came from (or another contact of that company); trader: who posted the BID SELL. */
