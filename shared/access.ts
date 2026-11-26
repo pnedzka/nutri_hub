@@ -8,7 +8,6 @@ export const APP_IDS = [
   'neutralizer',
   'signatures',
   'owner-lookup',
-  'commission',
   'news',
   'leave',
   'leave-admin',
@@ -29,7 +28,6 @@ export const APP_NAMES: Record<AppId, string> = {
   neutralizer: 'Document neutralizer',
   signatures: 'E-mail signature generator',
   'owner-lookup': 'HubSpot owner lookup',
-  commission: 'Commission calculator',
   news: 'News',
   leave: 'Leave',
   'leave-admin': 'Leave administration',
@@ -73,8 +71,7 @@ export function toApps(value: unknown): AppId[] {
  * management are hidden and their API answers 404. Releasing a module: add it to VITE_HUB_MODULES in Production,
  * or remove it from this list.
  */
-// Commission calculator: withdrawn from production on 26.11.2026 (owner's decision; its Vercel project is paused).
-export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls', 'contracts', 'complaints', 'commission'];
+export const DEV_MODULES: readonly ModuleId[] = ['news', 'leave', 'calls', 'contracts', 'complaints'];
 
 /** An app, or a tool of the hub that is not an app in profiles.apps (Phone calls analyser, administrators only). */
 export type ModuleId = AppId | 'calls';
