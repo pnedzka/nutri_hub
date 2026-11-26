@@ -16,7 +16,7 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { PURCHASE_API, percent, whole } from './format';
 import { Pager, Pill, ProductPicker, ProductStatus } from './ui';

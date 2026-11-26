@@ -104,7 +104,7 @@ export function CalendarWidget({ className }: { className?: string }) {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-xs text-gray-400">–</p>
+                    <p className="text-xs text-gray-500">–</p>
                   )}
                 </li>
               ))}

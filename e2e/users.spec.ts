@@ -16,7 +16,7 @@ const EDITOR: TestPerson = { ...ADMINISTRATION, apps: ['edit-users'] };
 test('with "Edit user profiles" a colleague\'s contact details and manager are changed in User management', async ({ page }) => {
   await backend.as(EDITOR);
   await page.goto('/users');
-  await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'User management' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Add user' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: /Role of/ })).toHaveCount(0);
 

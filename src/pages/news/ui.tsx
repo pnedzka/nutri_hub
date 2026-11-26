@@ -1,22 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { blocks, paragraphs, type Inline } from '../../../shared/news';
 
-export function PageHeader({ back, title, actions }: { back: { to: string; label: string }; title: string; actions?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        <Link to={back.to} className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={16} />
-          {back.label}
-        </Link>
-        <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-gray-900 break-words">{title}</h1>
-      </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </div>
-  );
-}
+export { PageHeader } from '../../components/PageHeader';
 
 /** Plain text with paragraphs, line breaks and clickable links (never HTML). */
 export function RichText({ text, className = '' }: { text: string; className?: string }) {

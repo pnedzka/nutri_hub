@@ -3,7 +3,7 @@ import { Card, CardBody } from '../../components/Card';
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import type { EditorsResponse } from '../../../shared/newsApi';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { PageHeader } from './ui';
 

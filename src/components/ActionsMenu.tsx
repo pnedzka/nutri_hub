@@ -125,7 +125,7 @@ export function ActionsMenu({ label, actions }: { label: string; actions: MenuAc
               <span className="mt-0.5 shrink-0">{action.icon}</span>
               <span className="min-w-0">
                 {action.label}
-                {action.disabledReason && <span className="block text-xs text-gray-400">{action.disabledReason}</span>}
+                {action.disabledReason && <span className="block text-xs text-gray-500">{action.disabledReason}</span>}
               </span>
             </button>
           ))}

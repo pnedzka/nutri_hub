@@ -1,22 +1,19 @@
 import type { ReactNode } from 'react';
 import { STATUS_LABELS, type ContractStatus } from '../../../shared/contractsApi.ts';
+import { Pill, type PillTone } from '../../components/Pill';
 
-const STATUS_TONE: Record<ContractStatus, string> = {
-  admin_review: 'bg-amber-50 text-amber-800 border-amber-200',
-  signature: 'bg-blue-50 text-blue-800 border-blue-200',
-  board: 'bg-purple-50 text-purple-800 border-purple-200',
-  signed: 'bg-green-50 text-green-800 border-green-200',
-  client_signed: 'bg-green-100 text-green-900 border-green-300',
-  returned: 'bg-red-50 text-red-700 border-red-200',
-  cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
+const STATUS_TONES: Record<ContractStatus, PillTone> = {
+  admin_review: 'amber',
+  signature: 'blue',
+  board: 'purple',
+  signed: 'green',
+  client_signed: 'greenStrong',
+  returned: 'red',
+  cancelled: 'muted',
 };
 
 export function StatusPill({ status }: { status: ContractStatus }) {
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_TONE[status]}`}>
-      {STATUS_LABELS[status]}
-    </span>
-  );
+  return <Pill tone={STATUS_TONES[status]}>{STATUS_LABELS[status]}</Pill>;
 }
 
 export function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {

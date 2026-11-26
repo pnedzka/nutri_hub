@@ -13,7 +13,7 @@ function Place({ index }: { index: number }) {
   const top = index < 3;
   return (
     <span
-      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${top ? 'bg-[#CC1F1F]/10 text-[#CC1F1F]' : 'text-gray-400'}`}
+      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${top ? 'bg-[#CC1F1F]/10 text-[#CC1F1F]' : 'text-gray-500'}`}
     >
       {index + 1}
     </span>

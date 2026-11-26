@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Ban, Check, Copy, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
+import { Ban, Check, Copy, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import { APP_NAMES, canEditProfiles, canUse, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
@@ -17,6 +17,8 @@ import { formatDateTime } from '../lib/format';
 import { randomPassword } from '../lib/password';
 import { useToast } from '../lib/toast';
 import { askConfirm } from '../lib/confirm';
+import { PageHeader } from '../components/PageHeader';
+import { Pill, type PillTone } from '../components/Pill';
 
 export interface UserRow {
   id: string;
@@ -34,11 +36,11 @@ export interface UserRow {
   manager_id: string | null;
 }
 
-const STATUS: Record<UserRow['status'], { label: string; className: string }> = {
-  active: { label: 'Active', className: 'bg-green-50 text-green-700' },
-  invited: { label: 'Invited', className: 'bg-amber-50 text-amber-700' },
-  created: { label: 'Never signed in', className: 'bg-gray-100 text-gray-600' },
-  deactivated: { label: 'Deactivated', className: 'bg-gray-200 text-gray-700' },
+const STATUS: Record<UserRow['status'], { label: string; tone: PillTone }> = {
+  active: { label: 'Active', tone: 'green' },
+  invited: { label: 'Invited', tone: 'amber' },
+  created: { label: 'Never signed in', tone: 'muted' },
+  deactivated: { label: 'Deactivated', tone: 'gray' },
 };
 
 /** The account's photo, name, e-mail and job title; the name is changed under Edit (the "⋯" menu). */
@@ -59,7 +61,7 @@ function UserName({ user }: { user: UserRow }) {
 function UserApps({ user }: { user: UserRow }) {
   if (user.role === 'admin') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#CC1F1F]/10 px-2 py-0.5 text-[11px] font-medium text-[#CC1F1F]">
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#CC1F1F]/10 px-2 py-0.5 text-xs font-medium text-[#CC1F1F]">
         <ShieldCheck size={12} /> All apps
       </span>
     );
@@ -68,7 +70,7 @@ function UserApps({ user }: { user: UserRow }) {
     <div className="flex flex-wrap items-center gap-1">
       {user.apps.length === 0 && <span className="text-xs text-amber-700">No apps</span>}
       {user.apps.filter((id) => available(id)).map((id) => (
-        <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{APP_NAMES[id]}</span>
+        <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{APP_NAMES[id]}</span>
       ))}
     </div>
   );
@@ -148,13 +150,11 @@ export function UsersPage() {
   const resetPassword = (u: UserRow) => setPasswordFor(u);
 
   const statusPill = (u: UserRow) => (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS[u.status].className}`}
-      title={u.last_sign_in_at ? `Last sign-in: ${formatDateTime(u.last_sign_in_at)}` : undefined}
-    >
+    <Pill tone={STATUS[u.status].tone} title={u.last_sign_in_at ? `Last sign-in: ${formatDateTime(u.last_sign_in_at)}` : undefined}>
       {STATUS[u.status].label}
-    </span>
+    </Pill>
   );
+
 
   const roleSelect = (u: UserRow) => !isAdmin ? (
     <span className="text-sm text-gray-700">{u.role === 'admin' ? 'Admin' : 'User'}</span>
@@ -210,27 +210,23 @@ export function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-            <ArrowLeft size={14} /> Home
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isAdmin
-              ? 'Accounts of the Nutri Partners apps. Contact details, photo and apps are under Edit ("⋯"); everyone can also change their own details in My profile.'
-              : 'Accounts of the Nutri Partners apps. Contact details, photo and manager are under Edit ("⋯"); roles, apps and passwords are changed by administrators.'}
-          </p>
-        </div>
-        {canAdd && (
-        <Link
-          to="/users/new"
-          className="inline-flex shrink-0 items-center justify-center gap-2 min-h-11 sm:min-h-10 rounded-lg bg-[#CC1F1F] px-4 py-2 text-sm font-medium text-white hover:bg-[#A01818] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2"
-        >
-          <UserPlus size={16} /> Add user
-        </Link>
-        )}
-      </div>
+      <PageHeader
+        title="User management"
+        actions={
+          canAdd && (
+            <Link
+              to="/users/new"
+              className="inline-flex shrink-0 items-center justify-center gap-2 min-h-11 sm:min-h-10 rounded-lg bg-[#CC1F1F] px-4 py-2 text-sm font-medium text-white hover:bg-[#A01818] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2"
+            >
+              <UserPlus size={16} /> Add user
+            </Link>
+          )
+        }
+      >
+        {isAdmin
+          ? 'Accounts of the Nutri Partners apps. Contact details, photo and apps are under Edit ("⋯"); everyone can also change their own details in My profile.'
+          : 'Accounts of the Nutri Partners apps. Contact details, photo and manager are under Edit ("⋯"); roles, apps and passwords are changed by administrators.'}
+      </PageHeader>
       <div className="grid grid-cols-1 gap-6 items-start">
         {canList && (
           <Card>

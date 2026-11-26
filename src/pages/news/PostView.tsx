@@ -10,7 +10,7 @@ import { useToast } from '../../lib/toast';
 import { COMMENT_MAX } from '../../../shared/news';
 import type { NewsComment, NewsInteraction, NewsPostDetail } from '../../../shared/newsApi';
 import type { Person } from '../../../shared/leaveApi';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { Gallery } from './Gallery';
 import { formatWhen } from './format';

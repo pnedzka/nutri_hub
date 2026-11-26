@@ -62,7 +62,7 @@ export function ContestWidget({ className }: { className?: string }) {
         {entries.map((entry, index) => (
           <li key={entry.id} className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${entry.id === me ? 'bg-[#CC1F1F]/5' : ''}`}>
             <span
-              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${index < 3 ? 'bg-[#CC1F1F]/10 text-[#CC1F1F]' : 'text-gray-400'}`}
+              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${index < 3 ? 'bg-[#CC1F1F]/10 text-[#CC1F1F]' : 'text-gray-500'}`}
             >
               {index + 1}
             </span>

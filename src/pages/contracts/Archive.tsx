@@ -17,6 +17,7 @@ import { Input } from '../../components/Input';
 import { api } from '../../lib/api';
 import { CONTRACTS_API, shortDate } from './common';
 import { Section } from './ui';
+import { Loading } from '../../components/States';
 
 // "Archive (intranet)": contracts from the old intranet, read only. They stay in the intranet's shape (see
 // shared/contractsArchive.ts); nothing here can be changed or signed.
@@ -187,7 +188,7 @@ export function ArchiveDetail() {
     </Link>
   );
   if (error) return <div className="space-y-3">{back}<p className="text-sm text-red-600">{error}</p></div>;
-  if (!contract) return <div className="space-y-3">{back}<p className="text-sm text-gray-500">Loading…</p></div>;
+  if (!contract) return <div className="space-y-3">{back}<Loading /></div>;
 
   const c = contract;
   const pay = c.paymentTerms;

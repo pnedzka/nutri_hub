@@ -7,6 +7,7 @@ import { api } from '../../lib/api';
 import { shortDate } from '../contracts/common';
 import { COMPLAINTS_API } from './common';
 import { StatusPill } from './StatusPill';
+import { EmptyState } from '../../components/States';
 
 const EMPTY: Record<ListScope, string> = {
   mine: 'No complaints concern you. Register one with “New complaint”.',
@@ -46,7 +47,7 @@ export function ComplaintList({ scope }: { scope: ListScope }) {
         className="text-base sm:text-sm"
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {list && !list.items.length && <p className="py-8 text-center text-sm text-gray-500">{q ? 'No complaints match your search.' : EMPTY[scope]}</p>}
+      {list && !list.items.length && <EmptyState card>{q ? 'No complaints match your search.' : EMPTY[scope]}</EmptyState>}
       {list && list.items.length > 0 && (
         <ul className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
           {list.items.map((c) => {

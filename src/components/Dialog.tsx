@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
+import { useFocusTrap } from '../lib/focusTrap';
 
 // A window over the page in the hub's style, instead of the browser's confirm() (whose text cannot be copied on
 // every device and which looks different in each browser). Escape and a click beside it close it; Tab stays inside;
@@ -7,37 +8,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 export function Dialog({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode }) {
   const titleId = useId();
   const box = useRef<HTMLDivElement>(null);
-  // The latest onClose, so a new function on every render does not move the focus again.
-  const close = useRef(onClose);
-  useEffect(() => {
-    close.current = onClose;
-  });
-  useEffect(() => {
-    const before = document.activeElement as HTMLElement | null;
-    const focusable = () =>
-      [...(box.current?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [])].filter((el) => !el.hasAttribute('disabled'));
-    (box.current?.querySelector<HTMLElement>('[data-autofocus]') ?? focusable()[0])?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close.current();
-      if (e.key !== 'Tab') return;
-      const items = focusable();
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      before?.focus?.();
-    };
-  }, []);
+  useFocusTrap(box, true, { onEscape: onClose });
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />

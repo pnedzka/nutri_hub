@@ -22,6 +22,8 @@ import { useToast } from '../../lib/toast';
 import { CONTRACTS_API, dateTime, shortDate, uploadTo, useSetup } from './common';
 import { Section, StatusPill } from './ui';
 import { contractPdfBlob, downloadContractPdf, downloadFile, fetchFile, saveBlobs } from './pdf';
+import { Loading } from '../../components/States';
+import { ErrorNote } from '../../components/States';
 
 interface Detail {
   contract: Contract;
@@ -311,8 +313,8 @@ export function ContractDetail() {
   }, [id]);
   useEffect(load, [load]);
 
-  if (error) return <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>;
-  if (!detail) return <p className="text-sm text-gray-500">Loading…</p>;
+  if (error) return <ErrorNote>{error}</ErrorNote>;
+  if (!detail) return <Loading />;
   const c = detail.contract;
   const { party, products, delivery, payment, documents } = c.data;
   const sale = c.type === 'S';
