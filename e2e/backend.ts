@@ -193,7 +193,12 @@ export async function startBackend(page: Page): Promise<Backend> {
     const url = new URL(request.url());
     if (url.searchParams.get('resource') === 'dashboard') return json(route, dashboard(url, me));
     if (url.searchParams.get('resource') === 'quotes') return json(route, { quotes: [{ text: 'Keep going.', author: 'Test Author' }], source: 'zenquotes' });
-    if (url.pathname === '/api/news') return json(route, { posts: [] });
+    if (url.pathname === '/api/news') {
+      return json(route, {
+        posts: [{ id: 'post-1', title: 'Team breakfast', excerpt: '', author: null, createdAt: '2026-11-20T08:00:00Z', cover: null, imageCount: 0, likeCount: 2, commentCount: 1, likedByMe: false }],
+        nextCursor: null, canPublish: false, isAdmin: false,
+      });
+    }
     if (url.pathname === '/api/people' && !url.searchParams.has('resource') && request.method() === 'GET') {
       return json(route, { people: backend.people, offices: [], me: userId(me) });
     }

@@ -61,3 +61,14 @@ test('@phone the calendar shows only the days with entries on a phone, all seven
   // Nothing sticks out of the page.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('the latest news are right under the greeting, before the other widgets', async ({ page }) => {
+  await backend.as(BOARD);
+  await page.goto('/');
+  const news = page.getByRole('region', { name: 'Latest news' });
+  await expect(news.getByText('Team breakfast')).toBeVisible();
+  await expect(calendar(page)).toBeVisible();
+  // The element right after the greeting card is Latest news.
+  const next = await page.getByRole('region', { name: 'Welcome' }).evaluate((el) => el.nextElementSibling?.getAttribute('aria-labelledby'));
+  expect(next).toBe('section-latest-news');
+});
