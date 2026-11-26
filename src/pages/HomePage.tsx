@@ -30,32 +30,18 @@ export function HomePage() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <WelcomeCard name={name} email={user.email} avatarUrl={profile?.avatarUrl ?? null} />
+      {/* Latest news right under the greeting, so new posts are seen as soon as the hub opens (owner's request,
+          26.11.2026). */}
+      {news && <LatestNews />}
       <ContestWidget />
-      {/* Wide screens (xl), in three columns:
-          - Contracts and leaderboard: Contracts (two columns) with Latest news under it, the leaderboard beside both;
-          - leaderboard without Contracts: Latest news (two columns) beside the leaderboard, or the leaderboard alone
-            across the width;
-          - Contracts without the leaderboard: Contracts, then Latest news, both across the width.
-          Every card keeps its own height (items-start), so a short card is not stretched to its neighbour's height.
-          Narrower screens (an iPad upright, phones): one column, Contracts, leaderboard, news. */}
+      {/* Wide screens (xl): Contracts (two columns) beside the leaderboard; either alone takes the whole width. Every
+          card keeps its own height (items-start). Narrower screens (an iPad upright, phones): one column. */}
       {(contracts || leaderboard) && (
-        <div
-          className={`grid items-start gap-4 sm:gap-6 xl:grid-cols-3 ${contracts && leaderboard && news ? 'xl:grid-rows-[auto_1fr]' : ''}`}
-        >
+        <div className="grid items-start gap-4 sm:gap-6 xl:grid-cols-3">
           {contracts && <ContractsWidget className={leaderboard ? 'xl:col-span-2' : 'xl:col-span-3'} />}
-          {leaderboard && (
-            <LeaderboardWidget
-              className={contracts ? (news ? 'xl:row-span-2' : '') : news ? 'xl:order-last' : 'xl:col-span-3'}
-            />
-          )}
-          {news && (
-            <div className={contracts && !leaderboard ? 'xl:col-span-3' : 'xl:col-span-2'}>
-              <LatestNews />
-            </div>
-          )}
+          {leaderboard && <LeaderboardWidget className={contracts ? '' : 'xl:col-span-3'} />}
         </div>
       )}
-      {news && !contracts && !leaderboard && <LatestNews />}
       {/* The week across the whole width (seven columns on wide screens, the days with entries on phones). */}
       {calendar && <CalendarWidget />}
       {!anyWidget && <AppTiles />}

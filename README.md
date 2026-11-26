@@ -52,6 +52,8 @@ Od 23.11.2026 (decyzja właściciela) strona główna to dashboard z widgetami, 
 
 Na górze karta powitalna (`src/pages/home/WelcomeCard.tsx`, od 24.11.2026, jak w starym intranecie): zdjęcie, „Welcome, <imię>! 👋” i losowy cytat, inny przy każdym wejściu. Cytaty pobierają się same: serwer centrum (`api/_lib/quotes.ts`, `GET /api/people?resource=quotes`) bierze z [ZenQuotes](https://zenquotes.io/) 50 cytatów z autorami, a Vercel trzyma je w cache 6 godzin, więc lista odświeża się sama kilka razy dziennie i nikt jej nie prowadzi. Odrzucamy zbyt długie i powtórzone (`cleanQuotes` w `shared/quotes.ts`). Pod cytatem jest autor i link do ZenQuotes, bo darmowe API prosi o podanie źródła. Gdy ZenQuotes nie odpowiada, karta bierze cytat z krótkiej listy zapasowej (`FALLBACK_QUOTES` w `shared/quotes.ts`). Stary intranet miał na sztywno 60 cytatów, jeden na dzień.
 
+Zaraz pod kartą powitalną jest „Latest news” (od 26.11.2026, prośba właściciela: nowe wpisy widać od razu po wejściu), potem konkurs, Contracts obok Sales leaderboard i Calendar.
+
 | Widget | Co pokazuje | Kto widzi |
 | --- | --- | --- |
 | Contracts | liczba kontraktów sprzedaży (S) i zakupu (P) w miesiącu, ich wartość w EUR, zmiana wobec poprzedniego miesiąca, ile czeka na akceptację | admini, działy Board i Administration |
