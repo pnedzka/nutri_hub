@@ -29,11 +29,12 @@ async function moduleStubs(page: Page) {
       });
     }
     if (url.pathname === '/api/leave/calendar') {
+      const month = url.searchParams.get('month') ?? '2026-11';
       return json(route, {
-        month: '2026-11', today: '2026-11-26', people, holidays: ['2026-11-11'],
+        month, today: `${month}-26`, people, holidays: [`${month}-11`],
         entries: [
-          { personId: 'p2', start: '2026-11-26', end: '2026-11-28', halfDay: false, status: 'approved', type: 'annual' },
-          { personId: 'p3', start: '2026-11-10', end: '2026-11-10', halfDay: true, status: 'pending', type: null },
+          { personId: 'p2', start: `${month}-26`, end: `${month}-28`, halfDay: false, status: 'approved', type: 'annual' },
+          { personId: 'p3', start: `${month}-10`, end: `${month}-10`, halfDay: true, status: 'pending', type: null },
         ],
       });
     }
@@ -107,3 +108,16 @@ for (const [path, title] of PAGES.filter(([p]) => ['/', '/news', '/leave', '/con
     await opens(page, TRADER_APPS, path, title);
   });
 }
+
+test('@phone the leave calendar starts at today, also when the month does not fit the screen', async ({ page }) => {
+  const backend = await startBackend(page);
+  await moduleStubs(page);
+  await backend.as(EVERYTHING);
+  await page.goto('/leave/calendar');
+  const grid = page.getByTestId('leave-calendar');
+  const today = grid.locator('th[data-today]');
+  await expect(today).toBeVisible();
+  const [box, cell] = [await grid.boundingBox(), await today.boundingBox()];
+  expect(cell!.x).toBeGreaterThanOrEqual(box!.x);
+  expect(cell!.x + cell!.width).toBeLessThanOrEqual(box!.x + box!.width);
+});

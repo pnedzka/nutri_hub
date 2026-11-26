@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { Card, CardBody } from '../../components/Card';
@@ -51,6 +51,17 @@ export function CalendarView() {
   const away = shown ? [...shown.entries].sort((a, b) => a.start.localeCompare(b.start)) : [];
   const nameOf = (id: string) => shown?.people.find((p) => p.id === id)?.name ?? 'Former user';
 
+  // On a phone the month does not fit (about 8 days are visible): start the grid at today, with the two days
+  // before it, instead of on the 1st (W4 of the UI audit, 26.11.2026).
+  const scroller = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const box = scroller.current;
+    const today = box?.querySelector<HTMLElement>('th[data-today]');
+    const names = box?.querySelector<HTMLElement>('th[data-names]');
+    if (!box || box.scrollWidth <= box.clientWidth) return;
+    box.scrollLeft = today && names ? Math.max(0, today.offsetLeft - names.offsetWidth - 2 * today.offsetWidth) : 0;
+  }, [shown]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -67,13 +78,13 @@ export function CalendarView() {
       {shown && (
         <>
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
+            <div ref={scroller} className="overflow-x-auto" data-testid="leave-calendar">
               <table className="border-collapse text-xs">
                 <thead>
                   <tr>
-                    <th className="sticky left-0 z-10 bg-white px-3 text-left font-medium text-gray-500">Person</th>
+                    <th data-names className="sticky left-0 z-10 bg-white px-3 text-left font-medium text-gray-500">Person</th>
                     {days.map((iso) => (
-                      <th key={iso} className={`px-0.5 py-1 text-center font-normal ${isOff(iso) ? 'text-gray-500' : 'text-gray-600'}`}>
+                      <th key={iso} data-today={iso === shown.today || undefined} className={`px-0.5 py-1 text-center font-normal ${isOff(iso) ? 'text-gray-500' : 'text-gray-600'}`}>
                         <div>{WEEKDAY_FORMAT.format(parseDate(iso)!)}</div>
                         <div className={iso === shown.today ? 'font-semibold text-gray-900' : ''}>{Number(iso.slice(8))}</div>
                       </th>
