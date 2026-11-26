@@ -6,7 +6,7 @@
 // use and passes it to the app in the address (#sso=…, see src/lib/sso.ts); the app turns it into its own session
 // with verifyOtp (type magiclink). generateLink sends no e-mail.
 
-import { APP_NAMES, canUse, isAppId, type AppId } from '../shared/access.js';
+import { APP_NAMES, canUse, isAppId, isAvailable, type AppId } from '../shared/access.js';
 import { requireUser } from './_lib/auth.js';
 import { appUrl, HttpError, handle, json, readJson } from './_lib/http.js';
 import { checkCron, runDaily } from './_lib/daily.js';
@@ -22,6 +22,7 @@ export function POST(request: Request): Promise<Response> {
     // The old intranet has its own accounts; News, Leave and Purchase Manager are parts of the hub and need no token,
     // and "Create user accounts" is a permission in the hub, not an app.
     if (!isAppId(body.app) || HUB_OWN.includes(body.app)) throw new HttpError(400, 'Unknown app.');
+    if (!isAvailable(body.app, process.env.VITE_HUB_MODULES)) throw new HttpError(404, `${APP_NAMES[body.app]} is not available.`);
     if (!canUse(profile, body.app)) throw new HttpError(403, `You don't have access to ${APP_NAMES[body.app]}. Ask your administrator.`);
 
     // The account's own address, not the copy in `profiles`, so the token can only sign in this account.
