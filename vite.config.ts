@@ -1,6 +1,10 @@
 import { defineConfig } from 'vitest/config'
+import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+
+// The release number shown in the footer ("Version 1.2 (a667ecf)"); raise it in package.json with each release.
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -10,6 +14,7 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV ?? ''),
     'import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA': JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? ''),
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
   },
   test: {
     include: ['src/**/*.test.ts', 'api/**/*.test.ts', 'shared/**/*.test.ts'],
