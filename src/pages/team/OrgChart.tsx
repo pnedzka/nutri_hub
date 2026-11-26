@@ -8,6 +8,7 @@ import type { Office, TeamMember } from '../../../shared/profile.ts';
 import { Avatar } from '../../components/Avatar';
 import { Card } from '../../components/Card';
 import { ContactLinks } from './contacts';
+import { useFocusTrap } from '../../lib/focusTrap';
 
 // Team → Org chart: who reports to whom, from the managers administrators set in User management.
 // Wide screens: a chart to drag and zoom, with curved lines from each manager to their team. Phones: the same tree as
@@ -77,12 +78,6 @@ export function OrgChart({ people, offices, me, isAdmin, matches }: Props) {
   const allOpen = shownCollapsed.size === 0;
   const toggleAll = () => setCollapsed(allOpen ? new Set(managers.filter((m) => !tree.roots.includes(m))) : new Set());
 
-  useEffect(() => {
-    if (!selected) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSelected(null);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selected]);
 
   if (!tree.hasManagers) {
     return (
@@ -410,7 +405,7 @@ function Canvas({ tree, byId, me, matches, path, selected, collapsed, onSelect, 
           {allOpen ? <ChevronsDownUp size={16} /> : <ChevronsUpDown size={16} />}
         </Control>
       </div>
-      <p className="pointer-events-none absolute bottom-4 right-4 text-xs text-gray-400">Drag or scroll to move · Ctrl + scroll to zoom</p>
+      <p className="pointer-events-none absolute bottom-4 right-4 text-xs text-gray-500">Drag or scroll to move · Ctrl + scroll to zoom</p>
     </div>
   );
 }
@@ -468,7 +463,7 @@ function ChartCard({ person, x, y, depth, team, hasReports, collapsed, isMe, isS
             <span className="block truncate text-sm font-semibold text-gray-900">{name}</span>
             <span className="block truncate text-xs text-gray-500">{person.jobTitle || person.department || person.email}</span>
           </span>
-          {isMe && <span className="self-start mt-2.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">You</span>}
+          {isMe && <span className="self-start mt-2.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 text-xs font-semibold leading-none text-white">You</span>}
         </button>
         {hasReports && (
           <button
@@ -543,7 +538,7 @@ function OutlineItem({ id, depth, ...props }: ViewProps & { id: string; depth: n
           <span className="min-w-0 flex-1">
             <span className={`block truncate text-sm font-semibold ${path.has(id) ? 'text-[#CC1F1F]' : 'text-gray-900'}`}>
               {name}
-              {id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-[10px] font-semibold text-white">You</span>}
+              {id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-xs font-semibold text-white">You</span>}
             </span>
             <span className="block truncate text-xs text-gray-500">{person.jobTitle || person.department || person.email}</span>
           </span>
@@ -585,10 +580,15 @@ function PersonPanel({ person, office, tree, byId, me, onSelect, onClose }: Pane
   const chain = chainOf(tree, person.id).map((id) => byId.get(id)!);
   const reports = (tree.reports.get(person.id) ?? []).map((id) => byId.get(id)!);
   const team = tree.teamSize.get(person.id) ?? 0;
+  // The focus moves into the panel and comes back to the person's card; on phones the sheet covers the chart, so
+  // Tab stays inside it.
+  const panel = useRef<HTMLElement>(null);
+  useFocusTrap(panel, true, { onEscape: onClose, trap: () => !window.matchMedia('(min-width: 768px)').matches });
   return (
     <>
       <div className="org-fade fixed inset-0 z-40 bg-black/30 md:hidden" onClick={onClose} aria-hidden="true" />
       <aside
+        ref={panel}
         aria-label={`About ${label(person)}`}
         className="org-panel fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl safe-bottom md:absolute md:inset-x-auto md:bottom-auto md:right-3 md:top-3 md:z-10 md:max-h-[calc(100%-1.5rem)] md:w-80 md:rounded-xl md:border md:border-gray-100 md:shadow-xl"
       >
@@ -609,7 +609,7 @@ function PersonPanel({ person, office, tree, byId, me, onSelect, onClose }: Pane
           </div>
           <h2 className="mt-3 font-semibold text-gray-900 [overflow-wrap:anywhere]">
             {label(person)}
-            {person.id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-[10px] font-semibold text-white">You</span>}
+            {person.id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-xs font-semibold text-white">You</span>}
           </h2>
           {(person.jobTitle || person.department) && <p className="text-sm text-gray-500">{[person.jobTitle, person.department].filter(Boolean).join(' · ')}</p>}
           {office && (

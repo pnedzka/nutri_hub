@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Ban, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
+import { Ban, Check, Copy, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import { APP_NAMES, canEditProfiles, canUse, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
@@ -7,13 +7,18 @@ import { available } from '../apps';
 import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
 import { Avatar } from '../components/Avatar';
 import { OfficesCard } from '../components/OfficesCard';
+import { Button } from '../components/Button';
 import { Card, CardHeader } from '../components/Card';
+import { Dialog } from '../components/Dialog';
 import { Input } from '../components/Input';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { formatDateTime } from '../lib/format';
 import { randomPassword } from '../lib/password';
 import { useToast } from '../lib/toast';
+import { askConfirm } from '../lib/confirm';
+import { PageHeader } from '../components/PageHeader';
+import { Pill, type PillTone } from '../components/Pill';
 
 export interface UserRow {
   id: string;
@@ -31,11 +36,11 @@ export interface UserRow {
   manager_id: string | null;
 }
 
-const STATUS: Record<UserRow['status'], { label: string; className: string }> = {
-  active: { label: 'Active', className: 'bg-green-50 text-green-700' },
-  invited: { label: 'Invited', className: 'bg-amber-50 text-amber-700' },
-  created: { label: 'Never signed in', className: 'bg-gray-100 text-gray-600' },
-  deactivated: { label: 'Deactivated', className: 'bg-gray-200 text-gray-700' },
+const STATUS: Record<UserRow['status'], { label: string; tone: PillTone }> = {
+  active: { label: 'Active', tone: 'green' },
+  invited: { label: 'Invited', tone: 'amber' },
+  created: { label: 'Never signed in', tone: 'muted' },
+  deactivated: { label: 'Deactivated', tone: 'gray' },
 };
 
 /** The account's photo, name, e-mail and job title; the name is changed under Edit (the "⋯" menu). */
@@ -56,7 +61,7 @@ function UserName({ user }: { user: UserRow }) {
 function UserApps({ user }: { user: UserRow }) {
   if (user.role === 'admin') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#CC1F1F]/10 px-2 py-0.5 text-[11px] font-medium text-[#CC1F1F]">
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#CC1F1F]/10 px-2 py-0.5 text-xs font-medium text-[#CC1F1F]">
         <ShieldCheck size={12} /> All apps
       </span>
     );
@@ -65,7 +70,7 @@ function UserApps({ user }: { user: UserRow }) {
     <div className="flex flex-wrap items-center gap-1">
       {user.apps.length === 0 && <span className="text-xs text-amber-700">No apps</span>}
       {user.apps.filter((id) => available(id)).map((id) => (
-        <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{APP_NAMES[id]}</span>
+        <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{APP_NAMES[id]}</span>
       ))}
     </div>
   );
@@ -112,13 +117,13 @@ export function UsersPage() {
     const question = active
       ? `Reactivate the account ${u.email}?\n\nThe person can sign in again and gets back their apps.`
       : `Deactivate the account ${u.email}?\n\nUse this when someone leaves: they can no longer sign in (within an hour in apps that are already open) and disappear from Team. Their documents, leave and posts stay. You can reactivate the account later.`;
-    if (!confirm(question)) return;
+    if (!(await askConfirm(question))) return;
     await update(u.id, { active }, active ? `Account ${u.email} reactivated` : `Account ${u.email} deactivated`);
   };
 
   const sendLink = async (u: UserRow) => {
     const what = u.status === 'invited' ? 'the invitation again' : 'a link to set a new password';
-    if (!confirm(`Send ${what} to ${u.email}?`)) return;
+    if (!(await askConfirm(`Send ${what} to ${u.email}?`))) return;
     try {
       const { sent } = await api<{ sent: 'invite' | 'recovery' }>('/api/admin/users', { method: 'PATCH', body: { id: u.id, sendLink: true } });
       toast.success(sent === 'invite' ? `Invitation resent to ${u.email}` : `Password reset link sent to ${u.email}`);
@@ -129,7 +134,7 @@ export function UsersPage() {
   };
 
   const remove = async (u: UserRow) => {
-    if (!confirm(`Delete the account ${u.email}?\n\nThis cannot be undone. The person will lose access to the app.`)) return;
+    if (!(await askConfirm(`Delete the account ${u.email}?\n\nThis cannot be undone. The person will lose access to the app.`))) return;
     try {
       await api('/api/admin/users', { method: 'DELETE', body: { id: u.id } });
       toast.success(`Account ${u.email} deleted`);
@@ -139,23 +144,20 @@ export function UsersPage() {
     }
   };
 
-  const resetPassword = (u: UserRow) => {
-    const password = randomPassword();
-    if (!confirm(`Set a new password for ${u.email}?\n\nNew password: ${password}\n\nWrite it down and pass it on to the user.`)) return;
-    void update(u.id, { password }, `New password for ${u.email}: ${password}`);
-  };
+  // "Set a new password": a window with the password to copy, open until the administrator closes it (not a confirm()
+  // and a toast that disappears after 4 s).
+  const [passwordFor, setPasswordFor] = useState<UserRow | null>(null);
+  const resetPassword = (u: UserRow) => setPasswordFor(u);
 
   const statusPill = (u: UserRow) => (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS[u.status].className}`}
-      title={u.last_sign_in_at ? `Last sign-in: ${formatDateTime(u.last_sign_in_at)}` : undefined}
-    >
+    <Pill tone={STATUS[u.status].tone} title={u.last_sign_in_at ? `Last sign-in: ${formatDateTime(u.last_sign_in_at)}` : undefined}>
       {STATUS[u.status].label}
-    </span>
+    </Pill>
   );
 
+
   const roleSelect = (u: UserRow) => !isAdmin ? (
-    <span className="text-sm text-gray-700">{u.role === 'admin' ? 'administrator' : 'user'}</span>
+    <span className="text-sm text-gray-700">{u.role === 'admin' ? 'Admin' : 'User'}</span>
   ) : (
     <select
       value={u.role}
@@ -164,8 +166,8 @@ export function UsersPage() {
       className="min-h-11 sm:min-h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#CC1F1F] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
       aria-label={`Role of ${u.email}`}
     >
-      <option value="user">user</option>
-      <option value="admin">administrator</option>
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
     </select>
   );
 
@@ -208,27 +210,23 @@ export function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-            <ArrowLeft size={14} /> All apps
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isAdmin
-              ? 'Accounts of the Nutri Partners apps. Contact details, photo and apps are under Edit ("⋯"); everyone can also change their own details in My profile.'
-              : 'Accounts of the Nutri Partners apps. Contact details, photo and manager are under Edit ("⋯"); roles, apps and passwords are changed by administrators.'}
-          </p>
-        </div>
-        {canAdd && (
-        <Link
-          to="/users/new"
-          className="inline-flex shrink-0 items-center justify-center gap-2 min-h-11 sm:min-h-10 rounded-lg bg-[#CC1F1F] px-4 py-2 text-sm font-medium text-white hover:bg-[#A01818] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2"
-        >
-          <UserPlus size={16} /> Add user
-        </Link>
-        )}
-      </div>
+      <PageHeader
+        title="User management"
+        actions={
+          canAdd && (
+            <Link
+              to="/users/new"
+              className="inline-flex shrink-0 items-center justify-center gap-2 min-h-11 sm:min-h-10 rounded-lg bg-[#CC1F1F] px-4 py-2 text-sm font-medium text-white hover:bg-[#A01818] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F] focus-visible:ring-offset-2"
+            >
+              <UserPlus size={16} /> Add user
+            </Link>
+          )
+        }
+      >
+        {isAdmin
+          ? 'Accounts of the Nutri Partners apps. Contact details, photo and apps are under Edit ("⋯"); everyone can also change their own details in My profile.'
+          : 'Accounts of the Nutri Partners apps. Contact details, photo and manager are under Edit ("⋯"); roles, apps and passwords are changed by administrators.'}
+      </PageHeader>
       <div className="grid grid-cols-1 gap-6 items-start">
         {canList && (
           <Card>
@@ -299,6 +297,72 @@ export function UsersPage() {
         )}
         {isAdmin && <OfficesCard />}
       </div>
+      {passwordFor && <NewPasswordDialog user={passwordFor} onClose={() => setPasswordFor(null)} />}
     </div>
+  );
+}
+
+/** Set a new password: the password is shown before and after it is set, with Copy, until the window is closed. */
+function NewPasswordDialog({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const toast = useToast();
+  const [password] = useState(randomPassword);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+    } catch {
+      toast.error('Could not copy', 'Select the password and copy it yourself.');
+    }
+  };
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api('/api/admin/users', { method: 'PATCH', body: { id: user.id, password } });
+      setSaved(true);
+    } catch (err) {
+      toast.error('Could not set the password', (err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Dialog
+      title={saved ? `New password set for ${user.email}` : `Set a new password for ${user.email}?`}
+      onClose={() => !saving && onClose()}
+      footer={
+        saved ? (
+          <Button data-autofocus onClick={onClose}>Done</Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button data-autofocus onClick={() => void save()} isLoading={saving}>
+              <KeyRound size={16} /> Set password
+            </Button>
+          </>
+        )
+      }
+    >
+      <p>
+        {saved
+          ? 'Pass it on to the user. It is not shown again after you close this window; the user can change it later.'
+          : 'The current password stops working. Copy the new one and pass it on to the user.'}
+      </p>
+      <div className="mt-4 flex items-stretch gap-2">
+        <input
+          readOnly
+          value={password}
+          aria-label="New password"
+          onFocus={(e) => e.currentTarget.select()}
+          className="min-w-0 flex-1 min-h-11 rounded-lg border border-gray-200 bg-gray-50 px-3 font-mono text-base sm:text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#CC1F1F]"
+        />
+        <Button variant="secondary" className="min-h-11" onClick={() => void copy()} aria-label="Copy password">
+          {copied ? <Check size={16} /> : <Copy size={16} />}
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </div>
+    </Dialog>
   );
 }

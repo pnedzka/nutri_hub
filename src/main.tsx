@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { legacyRedirect } from './lib/legacy';
 import { initMonitoring, onUncaughtError } from './lib/monitoring';
 
@@ -14,9 +15,11 @@ if (redirect) {
 } else {
   createRoot(document.getElementById('root')!, { onUncaughtError }).render(
     <StrictMode>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <ErrorBoundary where="app" fullPage>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ErrorBoundary>
     </StrictMode>,
   );
 }

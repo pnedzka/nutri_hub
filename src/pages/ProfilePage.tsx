@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
-import { ArrowLeft, UserRound } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { UserRound } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/Card';
 import { MailboxCard } from '../components/MailboxCard';
 import { ProfileForm } from '../components/ProfileForm';
 import { RoleBadge } from '../components/AppHeader';
 import { useAuth } from '../lib/auth';
 import { useMyProfile, usePeople } from '../lib/people';
-import { ErrorNote, Loading } from './leave/ui';
+import { ErrorNote, Loading } from '../components/States';
+import { PageHeader } from '../components/PageHeader';
 
 /** My profile: the signed-in person's photo and company contact details, shown in Team and used in signatures. */
 export function ProfilePage() {
@@ -18,13 +18,7 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div>
-        <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={14} /> All apps
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">My profile</h1>
-        <p className="text-sm text-gray-500 mt-1">Your colleagues see these details in Team.</p>
-      </div>
+      <PageHeader title="My profile">Your colleagues see these details in Team.</PageHeader>
       <Card>
         <CardHeader className="flex items-center gap-2">
           <UserRound size={16} className="text-[#CC1F1F]" />

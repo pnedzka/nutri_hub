@@ -8,6 +8,7 @@ import { ErrorNote, Loading } from '../pages/leave/ui';
 import { Button } from './Button';
 import { Card, CardBody, CardHeader } from './Card';
 import { Input } from './Input';
+import { askConfirm } from '../lib/confirm';
 
 const BASE = '/api/people?resource=mailbox';
 /** The API path: one's own mailbox, or (administrators) the mailbox of the account `userId`. */
@@ -186,7 +187,7 @@ export function MailboxCard({ admin = false, userId, owner }: { admin?: boolean;
 
   const disconnect = async () => {
     const question = other ? `Disconnect the mailbox of ${other}?` : 'Disconnect your mailbox?';
-    if (!confirm(`${question}\n\nNew e-mails will no longer be copied to the knowledge base. E-mails already copied stay there.`)) return;
+    if (!(await askConfirm(`${question}\n\nNew e-mails will no longer be copied to the knowledge base. E-mails already copied stay there.`))) return;
     setBusy(true);
     try {
       setStatus(await api<MailboxStatus>(path, { method: 'DELETE' }));

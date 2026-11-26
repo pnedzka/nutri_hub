@@ -3,6 +3,7 @@ import { ExternalLink, House, Menu, X } from 'lucide-react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { navSectionsFor, tileTarget, type AppTile } from '../apps';
 import { useAuth } from '../lib/auth';
+import { useFocusTrap } from '../lib/focusTrap';
 import { isSsoApp } from '../lib/sso';
 
 // The hub's side menu (decision of 23.11.2026): the apps moved here from the home page, which became a dashboard.
@@ -58,7 +59,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       </NavLink>
       {navSectionsFor(user).map((section) => (
         <div key={section.title}>
-          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">{section.title}</p>
+          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">{section.title}</p>
           <ul className="space-y-0.5">
             {section.apps.map((app) => (
               <li key={app.id}>
@@ -86,18 +87,12 @@ export function SideNav() {
 /** The bar with the menu button on phones and tablets, and the drawer it opens. */
 export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { pathname } = useLocation();
-  const closeRef = useRef<HTMLButtonElement>(null);
   // Close when a link changes the page, and with Escape.
   useEffect(() => {
     onOpenChange(false);
   }, [pathname, onOpenChange]);
-  useEffect(() => {
-    if (!open) return;
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onOpenChange(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onOpenChange]);
+  const drawer = useRef<HTMLDivElement>(null);
+  useFocusTrap(drawer, open, { onEscape: () => onOpenChange(false) });
   return (
     <>
       <div className="lg:hidden border-b border-gray-100 bg-white safe-x px-4 sm:px-6">
@@ -113,12 +108,12 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
         </button>
       </div>
       {open && (
-        <div className="lg:hidden fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Apps" id="mobile-nav">
+        <div ref={drawer} className="lg:hidden fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Apps" id="mobile-nav">
           <div className="absolute inset-0 bg-black/30" onClick={() => onOpenChange(false)} aria-hidden="true" />
           <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] overflow-y-auto bg-[#F5F5F5] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] shadow-xl">
             <div className="mb-3 flex justify-end">
               <button
-                ref={closeRef}
+                data-autofocus
                 type="button"
                 onClick={() => onOpenChange(false)}
                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-600 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F]"

@@ -3,23 +3,18 @@ import { ExternalLink, Mail, MessageSquare, Search } from 'lucide-react';
 import { sparkLink } from '../../../shared/spark.ts';
 import { eurAtNbp, formatPrice, type EmailOf, type PriceLike, type ProductHit } from '../../../shared/purchaseApi.ts';
 import { Button } from '../../components/Button';
+import { Pill as SharedPill } from '../../components/Pill';
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import { PURCHASE_API, sourceName, whole } from './format';
 import { useNbpRates } from './nbp';
 
+/** The hub's pill in the Purchase Manager's tones (the original gray here is the muted one). */
 export function Pill({ children, tone = 'gray', title }: { children: React.ReactNode; tone?: 'gray' | 'green' | 'amber' | 'red' | 'blue'; title?: string }) {
-  const tones = {
-    gray: 'bg-gray-50 text-gray-600 border-gray-200',
-    green: 'bg-green-50 text-green-800 border-green-200',
-    amber: 'bg-amber-50 text-amber-800 border-amber-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
-    blue: 'bg-blue-50 text-blue-800 border-blue-200',
-  };
   return (
-    <span title={title} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${tones[tone]}`}>
+    <SharedPill tone={tone === 'gray' ? 'muted' : tone} title={title}>
       {children}
-    </span>
+    </SharedPill>
   );
 }
 

@@ -300,3 +300,18 @@ test.describe('archive (intranet)', () => {
     await expect(page.getByText('Old Client SARL')).toHaveCount(0);
   });
 });
+
+test.describe('first tab', () => {
+  test('people who accept or sign start on To do, traders on their own contracts', async ({ page }) => {
+    await backend.as(ADMINISTRATION);
+    await page.goto('/contracts');
+    await expect(page.getByRole('link', { name: 'To do' })).toHaveAttribute('aria-current', 'page');
+    await page.getByRole('link', { name: 'My contracts' }).click();
+    await expect(page).toHaveURL(/\/contracts\/mine$/);
+
+    await backend.as(TRADER);
+    await page.goto('/contracts');
+    await expect(page.getByRole('link', { name: 'To do' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'My contracts' })).toHaveAttribute('aria-current', 'page');
+  });
+});

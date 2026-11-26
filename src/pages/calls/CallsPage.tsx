@@ -1,6 +1,5 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react';
-import { AlertTriangle, ArrowLeft, CheckCircle2, Download, FileText, FileUp, PhoneCall, Upload, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, Download, FileText, FileUp, PhoneCall, Upload, X } from 'lucide-react';
 import type { CallsImportBody, CallsImportResult, CallsPeriod, CallsPreview, CallsReport, PersonCalls } from '../../../shared/callsApi.ts';
 import { byDepartment } from '../../../shared/calls.ts';
 import { formatDate } from '../../../shared/leave.ts';
@@ -10,9 +9,10 @@ import { Card, CardBody, CardHeader } from '../../components/Card';
 import { api } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { useToast } from '../../lib/toast';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { readInvoice } from './pdf';
+import { PageHeader } from '../../components/PageHeader';
 
 const CALLS_API = '/api/admin/users?resource=calls';
 
@@ -375,7 +375,7 @@ function departmentSummary(people: PersonCalls[]): string {
 function PersonCard({ person: p, rank, most }: { person: PersonCalls; rank: number; most: number }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="mt-0.5 w-5 shrink-0 text-sm text-gray-400">{rank}</span>
+      <span className="mt-0.5 w-5 shrink-0 text-sm text-gray-500">{rank}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
           <p className="min-w-0 truncate font-medium text-gray-900">{p.name}</p>
@@ -458,7 +458,7 @@ function Ranking({ report }: { report: CallsReport }) {
               </tr>
               {group.people.map((p, index) => (
                 <tr key={p.profileId} className="hover:bg-gray-50/60">
-                  <td className={`${td} pl-6 text-gray-400`}>{index + 1}</td>
+                  <td className={`${td} pl-6 text-gray-500`}>{index + 1}</td>
                   <td className="min-w-44 px-3 py-3">
                     <p className="font-medium text-gray-900">{p.name}</p>
                     <p className="text-xs text-gray-500">{p.jobTitle ?? p.msisdn}</p>
@@ -472,7 +472,7 @@ function Ranking({ report }: { report: CallsReport }) {
                     </div>
                   </td>
                   {COLUMNS.map((c) => (
-                    <td key={c.label} className={`${td} text-right text-gray-700 last:pr-6 ${c.value(p) === 'on leave' ? 'text-gray-400' : ''}`}>
+                    <td key={c.label} className={`${td} text-right text-gray-700 last:pr-6 ${c.value(p) === 'on leave' ? 'text-gray-500' : ''}`}>
                       {c.value(p)}
                     </td>
                   ))}
@@ -520,7 +520,7 @@ function Comparison({ report }: { report: CallsReport }) {
                         –
                       </span>
                     ) : value === null ? (
-                      <span className="text-gray-400">leave</span>
+                      <span className="text-gray-500">leave</span>
                     ) : (
                       <span
                         className="inline-block min-w-12 rounded px-2 py-0.5 text-gray-900"
@@ -653,27 +653,21 @@ export function CallsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={16} />
-          All apps
-        </Link>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-xl font-semibold text-gray-900 sm:text-2xl">
-              <PhoneCall size={22} className="shrink-0 text-[#CC1F1F]" />
-              Phone calls analyser
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">Who called how much, from the monthly T-Mobile invoices.</p>
-          </div>
-          {hasInvoices && !importing && (
+      <PageHeader
+        title="Phone calls analyser"
+        icon={PhoneCall}
+        actions={
+          hasInvoices &&
+          !importing && (
             <Button className="min-h-11 shrink-0 sm:min-h-0" onClick={() => setImporting(true)} aria-label="Import invoices">
               <Upload size={16} />
               <span className="hidden sm:inline">Import invoices</span>
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      >
+        Who called how much, from the monthly T-Mobile invoices.
+      </PageHeader>
 
       {(importing || (data && !hasInvoices)) && <ImportCard onImported={imported} onClose={hasInvoices ? () => setImporting(false) : undefined} />}
 

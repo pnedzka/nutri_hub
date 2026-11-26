@@ -6,7 +6,7 @@ import { Card } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { api } from '../../lib/api';
 import type { NewsListResponse, NewsPostSummary } from '../../../shared/newsApi';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { formatDay } from './format';
 import { PageHeader } from './ui';
 import { useDebounced } from './useDebounced';
@@ -96,7 +96,7 @@ export function NewsList() {
   return (
     <div className="space-y-6">
       <PageHeader
-        back={{ to: '/', label: 'All apps' }}
+        back={{ to: '/', label: 'Home' }}
         title="News"
         actions={
           <>

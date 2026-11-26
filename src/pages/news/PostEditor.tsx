@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../lib/toast';
 import { BODY_MAX, IMAGES_MAX, SUMMARY_MAX, TITLE_MAX } from '../../../shared/news';
 import type { AuthorsResponse, NewsPostDetail, NewsPostInput, PostStatus, ShownImage, UploadResponse } from '../../../shared/newsApi';
-import { ErrorNote, Loading } from '../leave/ui';
+import { ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { preparePhoto } from './images';
 import { DraftBadge, FormattedText, PageHeader } from './ui';
@@ -136,7 +136,7 @@ function BodyEditor({ value, onChange }: { value: string; onChange: (value: stri
       </div>
       {preview ? (
         <div className="min-h-[240px] rounded-lg border border-gray-200 bg-white px-4 py-3">
-          {value.trim() ? <FormattedText text={value} className="text-[15px] leading-relaxed text-gray-800" /> : <p className="text-sm text-gray-400">Nothing to preview yet.</p>}
+          {value.trim() ? <FormattedText text={value} className="text-[15px] leading-relaxed text-gray-800" /> : <p className="text-sm text-gray-500">Nothing to preview yet.</p>}
         </div>
       ) : (
         <div className="rounded-lg border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-[#CC1F1F] focus-within:border-transparent">

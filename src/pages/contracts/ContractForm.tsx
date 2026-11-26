@@ -42,6 +42,7 @@ import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import { CONTRACTS_API, useSetup } from './common';
 import { Section } from './ui';
+import { Loading } from '../../components/States';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -460,7 +461,7 @@ export function ContractForm() {
     }
   }
 
-  if (!loaded) return <p className="text-sm text-gray-500">Loading…</p>;
+  if (!loaded) return <Loading />;
   const p = form.party;
   const d = form.delivery;
   const pay = form.payment;

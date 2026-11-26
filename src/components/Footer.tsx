@@ -53,9 +53,9 @@ export function Footer({
         </p>
         <nav aria-label={t.label} className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1">
           {nav}
-          <span className="inline-flex items-center gap-1.5 text-gray-400" title={`${t.version} ${COMMIT} (${ENVIRONMENT})`}>
+          <span className="inline-flex items-center gap-1.5 text-gray-500" title={`${t.version} ${COMMIT} (${ENVIRONMENT})`}>
             {ENVIRONMENT !== 'production' && (
-              <span className="rounded-full bg-amber-50 border border-amber-200 px-1.5 py-px text-[11px] font-medium text-amber-800">
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-1.5 py-px text-xs font-medium text-amber-800">
                 {ENVIRONMENT === 'preview' ? 'Dev' : t.local}
               </span>
             )}

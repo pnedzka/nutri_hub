@@ -23,7 +23,7 @@ import { Card } from '../../components/Card';
 import { api } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import { useToast } from '../../lib/toast';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { PURCHASE_API, dateAgo, day, money, kg, sourceName } from './format';
 import { OfferSearch } from './OfferSearch';
@@ -217,10 +217,10 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                           checked={option === o.id}
                           onChange={() => setOption(o.id)}
                         />
-                        <span className="text-xs text-gray-400">{o.rank}</span>
+                        <span className="text-xs text-gray-500">{o.rank}</span>
                       </label>
                     ) : (
-                      <span className="text-gray-400">{o.rank}</span>
+                      <span className="text-gray-500">{o.rank}</span>
                     )}
                   </td>
                   <td className={`${td} min-w-40`}>
@@ -426,13 +426,24 @@ export function Proposals() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">
-        Each BID BUY from Apex Bid with the {TOP_OPTIONS} best supplier offers for the same product (purchase prices only): offers close in time to
-        the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest. Click a column header to sort the offers, again to reverse the order. Copy BID SELL puts a ready WhatsApp message for the offer on the clipboard (without the supplier's name). Approve the offer you would
-        send to the sales rep, or reject the proposal. A green note means Apex Bid recorded a sale for the BID BUY. Last purchases shows what we paid for the product in our latest purchase contracts. If an offer is for a different product, remove it with ✕: offers with that name stop showing up
-        for this product, and the name goes to Products to review. To find an offer the card missed, search all offers and purchase contracts on the
-        card: approve the one you found, or add it to the card's product.
-      </p>
+      {/* One line, and the rest folded (on a phone the full text filled the first screen). */}
+      <div className="text-sm text-gray-600">
+        <p>
+          Each BID BUY from Apex Bid with the {TOP_OPTIONS} best supplier offers for the same product (purchase prices only). Approve the offer you
+          would send to the sales rep, or reject the proposal.
+        </p>
+        <details className="mt-1 group">
+          <summary className="inline-flex min-h-11 sm:min-h-0 cursor-pointer items-center text-sm font-medium text-[#CC1F1F] hover:underline">How it works</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>Offers close in time to the BID BUY, BID SELLs from Apex Bid, low prices and enough quantity rank higher. Show all brings the rest.</li>
+            <li>Click a column header to sort the offers, again to reverse the order.</li>
+            <li>Copy BID SELL puts a ready WhatsApp message for the offer on the clipboard (without the supplier&apos;s name).</li>
+            <li>A green note means Apex Bid recorded a sale for the BID BUY. Last purchases shows what we paid for the product in our latest purchase contracts.</li>
+            <li>If an offer is for a different product, remove it with ✕: offers with that name stop showing up for this product, and the name goes to Products to review.</li>
+            <li>To find an offer the card missed, search all offers and purchase contracts on the card: approve the one you found, or add it to the card&apos;s product.</li>
+          </ul>
+        </details>
+      </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Button size="sm" variant="secondary" className="min-h-11 sm:min-h-0" isLoading={checking} onClick={() => void checkApex()}>
           <RefreshCw className="h-4 w-4" aria-hidden="true" />
@@ -476,7 +487,7 @@ export function Proposals() {
                 }`}
               >
                 {f === 'all' ? 'All' : PROPOSAL_STATUS_NAMES[f]}
-                {data && <span className={active ? 'ml-1.5 text-white/80' : 'ml-1.5 text-gray-400'}>{count(f)}</span>}
+                {data && <span className={active ? 'ml-1.5 text-white/80' : 'ml-1.5 text-gray-500'}>{count(f)}</span>}
               </button>
             );
           })}

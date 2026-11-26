@@ -32,6 +32,8 @@ import { dateTime, shortDate, uploadTo } from '../contracts/common';
 import { Section } from '../contracts/ui';
 import { COMPLAINTS_API, useSetup } from './common';
 import { StatusPill } from './StatusPill';
+import { Loading } from '../../components/States';
+import { ErrorNote } from '../../components/States';
 
 interface Detail {
   complaint: Complaint;
@@ -415,8 +417,8 @@ export function ComplaintDetail() {
   }, [id]);
   useEffect(load, [load]);
 
-  if (error) return <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>;
-  if (!detail) return <p className="py-8 text-center text-sm text-gray-500">Loading…</p>;
+  if (error) return <ErrorNote>{error}</ErrorNote>;
+  if (!detail) return <Loading />;
   const c = detail.complaint;
   const active = c.status !== 'closed' && c.status !== 'cancelled' && c.status !== 'resolved';
 

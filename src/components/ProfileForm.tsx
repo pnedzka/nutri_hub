@@ -9,6 +9,7 @@ import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { Select } from './Field';
 import { Input } from './Input';
+import { askConfirm } from '../lib/confirm';
 
 type Draft = Required<Omit<ProfileInput, 'avatarPath' | 'officeId'>> & { officeId: string };
 
@@ -83,7 +84,7 @@ export function ProfileForm({ person, offices, onSaved, asAdmin = false }: { per
   };
 
   const removePhoto = async () => {
-    if (!confirm('Remove the photo?')) return;
+    if (!(await askConfirm('Remove the photo?'))) return;
     setPhotoBusy(true);
     try {
       await setPhoto(null);

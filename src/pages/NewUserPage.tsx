@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowLeft, CheckCircle2, KeyRound, Mail, ShieldCheck, UserPlus, UserRound } from 'lucide-react';
+import { CheckCircle2, KeyRound, Mail, ShieldCheck, UserPlus, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DEFAULT_APPS, grantableApps, type AppId, type Role } from '../../shared/access.ts';
 import { AppPicker } from '../components/AppPicker';
@@ -12,6 +12,7 @@ import { useAuth } from '../lib/auth';
 import { randomPassword } from '../lib/password';
 import { useToast } from '../lib/toast';
 import type { UserRow } from './UsersPage';
+import { PageHeader } from '../components/PageHeader';
 
 /** A choice shown as a card with a title and a line of explanation (a radio button). */
 function Choice({ name, checked, onSelect, title, children }: { name: string; checked: boolean; onSelect: () => void; title: string; children: ReactNode }) {
@@ -90,21 +91,15 @@ export function NewUserPage() {
     }
   };
 
-  const back = isAdmin ? { to: '/users', label: 'Users' } : { to: '/', label: 'All apps' };
+  const back = isAdmin ? { to: '/users', label: 'Users' } : { to: '/', label: 'Home' };
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <Link to={back.to} className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={14} /> {back.label}
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Add user</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {isAdmin
-            ? 'The person gets an e-mail with a link to set their password, and then sees only the apps you choose. You can change everything later under Edit.'
-            : 'Invite a new colleague: they get an e-mail with a link to set their password, and then see only the apps you choose (from the ones you have). Administrators change existing accounts.'}
-        </p>
-      </div>
+      <PageHeader title="Add user" back={back}>
+        {isAdmin
+          ? 'The person gets an e-mail with a link to set their password, and then sees only the apps you choose. You can change everything later under Edit.'
+          : 'Invite a new colleague: they get an e-mail with a link to set their password, and then see only the apps you choose (from the ones you have). Administrators change existing accounts.'}
+      </PageHeader>
 
       {created ? (
         <Card>

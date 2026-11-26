@@ -10,11 +10,12 @@ import { api } from '../../lib/api';
 import { useToast } from '../../lib/toast';
 import type { ManagedPost, ManagerResponse, NewsInteraction, PostStatus } from '../../../shared/newsApi';
 import { parseExport, type ImportRequest, type ImportResult } from '../../../shared/newsImport';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { useApi } from '../leave/useApi';
 import { formatDay } from './format';
 import { DraftBadge, PageHeader } from './ui';
 import { useDebounced } from './useDebounced';
+import { askConfirm } from '../../lib/confirm';
 
 type Filter = 'all' | PostStatus;
 
@@ -98,7 +99,7 @@ function Row({ post, reload }: { post: ManagedPost; reload: () => void }) {
   const [busy, setBusy] = useState(false);
 
   const setStatus = async (status: PostStatus) => {
-    if (status === 'published' && !post.publishedAt && !window.confirm('Publish this post? Everyone with access to News gets an e-mail.')) return;
+    if (status === 'published' && !post.publishedAt && !(await askConfirm('Publish this post?\n\nEveryone with access to News gets an e-mail.'))) return;
     setBusy(true);
     try {
       await interact({ action: 'set-status', postId: post.id, status });
@@ -112,7 +113,7 @@ function Row({ post, reload }: { post: ManagedPost; reload: () => void }) {
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete “${post.title}” with its photos, comments and likes?`)) return;
+    if (!(await askConfirm(`Delete “${post.title}” with its photos, comments and likes?`))) return;
     setBusy(true);
     try {
       await api(`/api/news/post?id=${encodeURIComponent(post.id)}`, { method: 'DELETE' });

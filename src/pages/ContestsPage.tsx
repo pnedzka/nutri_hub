@@ -8,9 +8,11 @@ import { Textarea } from '../components/Field';
 import { Input } from '../components/Input';
 import { api } from '../lib/api';
 import { useToast } from '../lib/toast';
-import { Empty, ErrorNote, Loading } from './leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../components/States';
 import { useApi } from './leave/useApi';
 import { formatEur } from './home/format';
+import { askConfirm } from '../lib/confirm';
+import { PageHeader } from '../components/PageHeader';
 
 // Sales contests (administrators): who takes part, for which days, what counts how much and the prize. The running
 // contest shows on the home page of its participants (ContestWidget); here administrators see every ranking.
@@ -131,7 +133,7 @@ function Results({ id }: { id: string }) {
     <ol className="space-y-1">
       {data.entries.map((entry, index) => (
         <li key={entry.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-          <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${index < 3 ? 'bg-[#CC1F1F]/10 text-[#CC1F1F]' : 'text-gray-400'}`}>
+          <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${index < 3 ? 'bg-[#CC1F1F]/10 text-[#CC1F1F]' : 'text-gray-500'}`}>
             {index + 1}
           </span>
           <Avatar name={entry.name} email="" url={entry.avatarUrl} size="sm" />
@@ -153,7 +155,7 @@ export function ContestsPage() {
   const [open, setOpen] = useState<string | null>(null);
 
   async function remove(contest: Contest) {
-    if (!confirm(`Delete the contest “${contest.name}”?\n\nIts ranking disappears from the home page. Contracts stay as they are.`)) return;
+    if (!(await askConfirm(`Delete the contest “${contest.name}”?\n\nIts ranking disappears from the home page. Contracts stay as they are.`))) return;
     try {
       await api(CONTESTS_API, { method: 'DELETE', body: { id: contest.id } });
       toast.success('Contest deleted');
@@ -165,24 +167,22 @@ export function ContestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="inline-flex items-center gap-2 text-2xl font-bold text-gray-900">
-            <Trophy size={22} className="text-[#CC1F1F]" aria-hidden="true" />
-            Sales contests
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            The running contest shows on its participants' home page. Points mix the number of contracts (sales and purchases) and their value in EUR, each
-            against the leader.
-          </p>
-        </div>
-        {!editing && data && (
-          <Button onClick={() => setEditing('new')}>
-            <Plus size={16} className="mr-1.5" />
-            New contest
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Sales contests"
+        icon={Trophy}
+        actions={
+          !editing &&
+          data && (
+            <Button onClick={() => setEditing('new')}>
+              <Plus size={16} className="mr-1.5" />
+              New contest
+            </Button>
+          )
+        }
+      >
+        The running contest shows on its participants' home page. Points mix the number of contracts (sales and purchases) and their value in EUR, each
+        against the leader.
+      </PageHeader>
       {error && <ErrorNote>{error}</ErrorNote>}
       {!data && !error && <Loading />}
       {data && editing && (
@@ -197,7 +197,7 @@ export function ContestsPage() {
           }}
         />
       )}
-      {data && !data.contests.length && !editing && <Empty>No contests yet.</Empty>}
+      {data && !data.contests.length && !editing && <Empty card>No contests yet.</Empty>}
       {data?.contests.map((contest) => (
         <Card key={contest.id}>
           <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">

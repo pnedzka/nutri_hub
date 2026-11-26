@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, LayoutGrid, MapPin, Network, Search, UsersRound } from 'lucide-react';
+import { LayoutGrid, MapPin, Network, Search, UsersRound } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Office, TeamMember } from '../../../shared/profile.ts';
 import { Avatar } from '../../components/Avatar';
@@ -8,9 +8,10 @@ import { Select } from '../../components/Field';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../lib/auth';
 import { usePeople } from '../../lib/people';
-import { Empty, ErrorNote, Loading } from '../leave/ui';
+import { EmptyState as Empty, ErrorNote, Loading } from '../../components/States';
 import { ContactLinks } from './contacts';
 import { OrgChart } from './OrgChart';
+import { PageHeader } from '../../components/PageHeader';
 
 type View = 'chart' | 'list';
 
@@ -78,17 +79,9 @@ export function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/" className="inline-flex items-center gap-1 min-h-11 sm:min-h-0 pointer-coarse:min-h-11 mb-2 text-sm text-gray-500 hover:text-gray-800">
-          <ArrowLeft size={14} /> All apps
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <UsersRound size={22} className="text-[#CC1F1F]" /> Team
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Who is who at Nutri Partners and who reports to whom. Your own details are in <Link to="/profile" className="text-[#CC1F1F] hover:underline">My profile</Link>.
-        </p>
-      </div>
+      <PageHeader title="Team" icon={UsersRound}>
+        Who is who at Nutri Partners and who reports to whom. Your own details are in <Link to="/profile" className="text-[#CC1F1F] hover:underline">My profile</Link>.
+      </PageHeader>
       <div className="inline-flex rounded-lg bg-gray-100 p-1" role="tablist" aria-label="Team view">
         <button type="button" role="tab" aria-selected={view === 'chart'} className={tabClass(view === 'chart')} onClick={() => setView('chart')}>
           <Network size={16} /> Org chart

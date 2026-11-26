@@ -45,7 +45,7 @@ export function WelcomeCard({ name, email, avatarUrl }: { name: string | null; e
             <figure className="mt-2 border-gray-200 sm:border-l-2 sm:pl-3">
               <blockquote className="text-sm italic text-gray-600 sm:text-base">“{state.quote.text}”</blockquote>
               {(state.quote.author || state.fetched) && (
-                <figcaption className="mt-1 text-xs text-gray-400">
+                <figcaption className="mt-1 text-xs text-gray-500">
                   {state.quote.author && <>— {state.quote.author}</>}
                   {state.fetched && (
                     <>
