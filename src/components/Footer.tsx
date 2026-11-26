@@ -3,7 +3,8 @@ import type { HeaderLink } from './AppHeader';
 
 // The bottom bar of every Nutri Partners app: the same file in each repository, like AppHeader.tsx (the source is
 // nutri_hub src/components/Footer.tsx). Who makes the app, the way back to the apps and to My profile, and the
-// version: the short commit, and outside production a Dev badge, so screenshots and bug reports say which build.
+// version, written the way Apple writes it: the release number from package.json and the build (the short commit) in
+// brackets, e.g. "Version 1.2 (a667ecf)". Outside production a Dev badge. Screenshots and bug reports say which build.
 
 const PlainLink: HeaderLink = ({ href, ...props }) => <a href={href} {...props} />;
 
@@ -16,7 +17,10 @@ const footerLink =
   'inline-flex items-center min-h-11 sm:min-h-0 pointer-coarse:min-h-11 px-2 -mx-2 sm:mx-0 sm:px-0 rounded hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CC1F1F]';
 
 /** Vercel sets these at build time (system environment variables, exposed to Vite with the VITE_ prefix). */
-const COMMIT = (import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA as string | undefined)?.slice(0, 7) || 'local';
+const BUILD = (import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA as string | undefined)?.slice(0, 7) || 'local';
+/** package.json "version" (vite.config.ts), shown like Apple's: 1.2.0 → 1.2, 1.2.1 stays, 2.0.0 → 2.0. */
+const RELEASE = ((import.meta.env.VITE_APP_VERSION as string | undefined) || '0.0.0').replace(/^(\d+\.\d+)\.0$/, '$1');
+const VERSION = `${RELEASE} (${BUILD})`;
 const ENVIRONMENT = (import.meta.env.VITE_VERCEL_ENV as string | undefined) || 'development';
 
 /** Quiet on purpose (small grey text), so it never competes with the content. Signed out, it shows no links. */
@@ -53,13 +57,13 @@ export function Footer({
         </p>
         <nav aria-label={t.label} className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1">
           {nav}
-          <span className="inline-flex items-center gap-1.5 text-gray-500" title={`${t.version} ${COMMIT} (${ENVIRONMENT})`}>
+          <span className="inline-flex items-center gap-1.5 text-gray-500" title={`${t.version} ${VERSION}, ${ENVIRONMENT}`}>
             {ENVIRONMENT !== 'production' && (
               <span className="rounded-full bg-amber-50 border border-amber-200 px-1.5 py-px text-xs font-medium text-amber-800">
                 {ENVIRONMENT === 'preview' ? 'Dev' : t.local}
               </span>
             )}
-            {t.version} {COMMIT}
+            {t.version} {VERSION}
           </span>
         </nav>
       </div>
