@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Ban, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Ban, Check, Copy, KeyRound, Mail, RotateCcw, Search, ShieldCheck, SquarePen, Trash2, UserPlus, Users } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import { APP_NAMES, canEditProfiles, canUse, type AppId, type Role } from '../../shared/access.ts';
 import type { TeamMember } from '../../shared/profile.ts';
@@ -7,7 +7,9 @@ import { available } from '../apps';
 import { ActionsMenu, type MenuAction } from '../components/ActionsMenu';
 import { Avatar } from '../components/Avatar';
 import { OfficesCard } from '../components/OfficesCard';
+import { Button } from '../components/Button';
 import { Card, CardHeader } from '../components/Card';
+import { Dialog } from '../components/Dialog';
 import { Input } from '../components/Input';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -139,11 +141,10 @@ export function UsersPage() {
     }
   };
 
-  const resetPassword = (u: UserRow) => {
-    const password = randomPassword();
-    if (!confirm(`Set a new password for ${u.email}?\n\nNew password: ${password}\n\nWrite it down and pass it on to the user.`)) return;
-    void update(u.id, { password }, `New password for ${u.email}: ${password}`);
-  };
+  // "Set a new password": a window with the password to copy, open until the administrator closes it (not a confirm()
+  // and a toast that disappears after 4 s).
+  const [passwordFor, setPasswordFor] = useState<UserRow | null>(null);
+  const resetPassword = (u: UserRow) => setPasswordFor(u);
 
   const statusPill = (u: UserRow) => (
     <span
@@ -299,6 +300,72 @@ export function UsersPage() {
         )}
         {isAdmin && <OfficesCard />}
       </div>
+      {passwordFor && <NewPasswordDialog user={passwordFor} onClose={() => setPasswordFor(null)} />}
     </div>
+  );
+}
+
+/** Set a new password: the password is shown before and after it is set, with Copy, until the window is closed. */
+function NewPasswordDialog({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const toast = useToast();
+  const [password] = useState(randomPassword);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+    } catch {
+      toast.error('Could not copy', 'Select the password and copy it yourself.');
+    }
+  };
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api('/api/admin/users', { method: 'PATCH', body: { id: user.id, password } });
+      setSaved(true);
+    } catch (err) {
+      toast.error('Could not set the password', (err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Dialog
+      title={saved ? `New password set for ${user.email}` : `Set a new password for ${user.email}?`}
+      onClose={() => !saving && onClose()}
+      footer={
+        saved ? (
+          <Button data-autofocus onClick={onClose}>Done</Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button data-autofocus onClick={() => void save()} isLoading={saving}>
+              <KeyRound size={16} /> Set password
+            </Button>
+          </>
+        )
+      }
+    >
+      <p>
+        {saved
+          ? 'Pass it on to the user. It is not shown again after you close this window; the user can change it later.'
+          : 'The current password stops working. Copy the new one and pass it on to the user.'}
+      </p>
+      <div className="mt-4 flex items-stretch gap-2">
+        <input
+          readOnly
+          value={password}
+          aria-label="New password"
+          onFocus={(e) => e.currentTarget.select()}
+          className="min-w-0 flex-1 min-h-11 rounded-lg border border-gray-200 bg-gray-50 px-3 font-mono text-base sm:text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#CC1F1F]"
+        />
+        <Button variant="secondary" className="min-h-11" onClick={() => void copy()} aria-label="Copy password">
+          {copied ? <Check size={16} /> : <Copy size={16} />}
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </div>
+    </Dialog>
   );
 }

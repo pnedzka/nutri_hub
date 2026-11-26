@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useMyProfile, usePeople } from '../lib/people';
 import { AppHeader, type HeaderLink } from './AppHeader';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Footer } from './Footer';
 import { NotificationBell } from './NotificationBell';
 import { MobileNav, SideNav } from './SideNav';
@@ -17,6 +18,7 @@ export function Layout({ children }: { children: ReactNode }) {
   // The photo in the header comes from Team (signed link); without it the initials show.
   useEffect(() => void load(), [load]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
   return (
     <div className="min-h-screen flex flex-col">
       <AppHeader
@@ -32,7 +34,12 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="flex-1 w-full max-w-[1400px] mx-auto flex">
         <SideNav />
         <main className="flex-1 min-w-0 safe-x sm:px-6 py-6 sm:py-12">
-          <div className="max-w-6xl mx-auto">{children}</div>
+          <div className="max-w-6xl mx-auto">
+            {/* A crash on one page keeps the header and the menu (and clears when another page opens). */}
+            <ErrorBoundary where="page" resetKey={pathname}>
+              {children}
+            </ErrorBoundary>
+          </div>
         </main>
       </div>
       <Footer appName="Apps" hubUrl="" Link={HubLink} />
