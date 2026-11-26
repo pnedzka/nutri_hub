@@ -375,7 +375,7 @@ function departmentSummary(people: PersonCalls[]): string {
 function PersonCard({ person: p, rank, most }: { person: PersonCalls; rank: number; most: number }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="mt-0.5 w-5 shrink-0 text-sm text-gray-400">{rank}</span>
+      <span className="mt-0.5 w-5 shrink-0 text-sm text-gray-500">{rank}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
           <p className="min-w-0 truncate font-medium text-gray-900">{p.name}</p>
@@ -458,7 +458,7 @@ function Ranking({ report }: { report: CallsReport }) {
               </tr>
               {group.people.map((p, index) => (
                 <tr key={p.profileId} className="hover:bg-gray-50/60">
-                  <td className={`${td} pl-6 text-gray-400`}>{index + 1}</td>
+                  <td className={`${td} pl-6 text-gray-500`}>{index + 1}</td>
                   <td className="min-w-44 px-3 py-3">
                     <p className="font-medium text-gray-900">{p.name}</p>
                     <p className="text-xs text-gray-500">{p.jobTitle ?? p.msisdn}</p>
@@ -472,7 +472,7 @@ function Ranking({ report }: { report: CallsReport }) {
                     </div>
                   </td>
                   {COLUMNS.map((c) => (
-                    <td key={c.label} className={`${td} text-right text-gray-700 last:pr-6 ${c.value(p) === 'on leave' ? 'text-gray-400' : ''}`}>
+                    <td key={c.label} className={`${td} text-right text-gray-700 last:pr-6 ${c.value(p) === 'on leave' ? 'text-gray-500' : ''}`}>
                       {c.value(p)}
                     </td>
                   ))}
@@ -520,7 +520,7 @@ function Comparison({ report }: { report: CallsReport }) {
                         –
                       </span>
                     ) : value === null ? (
-                      <span className="text-gray-400">leave</span>
+                      <span className="text-gray-500">leave</span>
                     ) : (
                       <span
                         className="inline-block min-w-12 rounded px-2 py-0.5 text-gray-900"

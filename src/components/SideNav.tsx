@@ -58,7 +58,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       </NavLink>
       {navSectionsFor(user).map((section) => (
         <div key={section.title}>
-          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">{section.title}</p>
+          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">{section.title}</p>
           <ul className="space-y-0.5">
             {section.apps.map((app) => (
               <li key={app.id}>

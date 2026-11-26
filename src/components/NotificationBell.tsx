@@ -34,7 +34,7 @@ export function NotificationRow({ item, onOpen }: { item: NotificationItem; onOp
       <span className="min-w-0 flex-1">
         <span className={`block text-sm [overflow-wrap:anywhere] ${unread ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{item.title}</span>
         {item.body && <span className="block text-xs text-gray-500 mt-0.5 line-clamp-2 [overflow-wrap:anywhere]">{item.body}</span>}
-        <span className="block text-xs text-gray-400 mt-1">{timeAgo(item.created_at)}</span>
+        <span className="block text-xs text-gray-500 mt-1">{timeAgo(item.created_at)}</span>
       </span>
       {unread && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#CC1F1F]" aria-label="Unread" />}
     </button>

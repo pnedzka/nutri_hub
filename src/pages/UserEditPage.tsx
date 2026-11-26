@@ -169,7 +169,7 @@ export function UserEditPage() {
         {user && (
           <p className="text-sm text-gray-500 mt-1">
             {user.email} · last sign-in {formatDateTime(user.last_sign_in_at)}
-            {user.status === 'deactivated' && <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-700">Deactivated</span>}
+            {user.status === 'deactivated' && <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">Deactivated</span>}
           </p>
         )}
       </div>

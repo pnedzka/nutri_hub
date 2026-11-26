@@ -410,7 +410,7 @@ function Canvas({ tree, byId, me, matches, path, selected, collapsed, onSelect, 
           {allOpen ? <ChevronsDownUp size={16} /> : <ChevronsUpDown size={16} />}
         </Control>
       </div>
-      <p className="pointer-events-none absolute bottom-4 right-4 text-xs text-gray-400">Drag or scroll to move · Ctrl + scroll to zoom</p>
+      <p className="pointer-events-none absolute bottom-4 right-4 text-xs text-gray-500">Drag or scroll to move · Ctrl + scroll to zoom</p>
     </div>
   );
 }
@@ -468,7 +468,7 @@ function ChartCard({ person, x, y, depth, team, hasReports, collapsed, isMe, isS
             <span className="block truncate text-sm font-semibold text-gray-900">{name}</span>
             <span className="block truncate text-xs text-gray-500">{person.jobTitle || person.department || person.email}</span>
           </span>
-          {isMe && <span className="self-start mt-2.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">You</span>}
+          {isMe && <span className="self-start mt-2.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 text-xs font-semibold leading-none text-white">You</span>}
         </button>
         {hasReports && (
           <button
@@ -543,7 +543,7 @@ function OutlineItem({ id, depth, ...props }: ViewProps & { id: string; depth: n
           <span className="min-w-0 flex-1">
             <span className={`block truncate text-sm font-semibold ${path.has(id) ? 'text-[#CC1F1F]' : 'text-gray-900'}`}>
               {name}
-              {id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-[10px] font-semibold text-white">You</span>}
+              {id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-xs font-semibold text-white">You</span>}
             </span>
             <span className="block truncate text-xs text-gray-500">{person.jobTitle || person.department || person.email}</span>
           </span>
@@ -609,7 +609,7 @@ function PersonPanel({ person, office, tree, byId, me, onSelect, onClose }: Pane
           </div>
           <h2 className="mt-3 font-semibold text-gray-900 [overflow-wrap:anywhere]">
             {label(person)}
-            {person.id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-[10px] font-semibold text-white">You</span>}
+            {person.id === me && <span className="ml-1.5 rounded-full bg-[#CC1F1F] px-1.5 py-0.5 align-middle text-xs font-semibold text-white">You</span>}
           </h2>
           {(person.jobTitle || person.department) && <p className="text-sm text-gray-500">{[person.jobTitle, person.department].filter(Boolean).join(' · ')}</p>}
           {office && (

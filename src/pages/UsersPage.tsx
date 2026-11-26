@@ -59,7 +59,7 @@ function UserName({ user }: { user: UserRow }) {
 function UserApps({ user }: { user: UserRow }) {
   if (user.role === 'admin') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-[#CC1F1F]/10 px-2 py-0.5 text-[11px] font-medium text-[#CC1F1F]">
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#CC1F1F]/10 px-2 py-0.5 text-xs font-medium text-[#CC1F1F]">
         <ShieldCheck size={12} /> All apps
       </span>
     );
@@ -68,7 +68,7 @@ function UserApps({ user }: { user: UserRow }) {
     <div className="flex flex-wrap items-center gap-1">
       {user.apps.length === 0 && <span className="text-xs text-amber-700">No apps</span>}
       {user.apps.filter((id) => available(id)).map((id) => (
-        <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700">{APP_NAMES[id]}</span>
+        <span key={id} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{APP_NAMES[id]}</span>
       ))}
     </div>
   );
@@ -149,7 +149,7 @@ export function UsersPage() {
 
   const statusPill = (u: UserRow) => (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS[u.status].className}`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[u.status].className}`}
       title={u.last_sign_in_at ? `Last sign-in: ${formatDateTime(u.last_sign_in_at)}` : undefined}
     >
       {STATUS[u.status].label}

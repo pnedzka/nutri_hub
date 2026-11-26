@@ -217,10 +217,10 @@ function ProposalCard({ proposal: p, onDecide }: { proposal: Proposal; onDecide:
                           checked={option === o.id}
                           onChange={() => setOption(o.id)}
                         />
-                        <span className="text-xs text-gray-400">{o.rank}</span>
+                        <span className="text-xs text-gray-500">{o.rank}</span>
                       </label>
                     ) : (
-                      <span className="text-gray-400">{o.rank}</span>
+                      <span className="text-gray-500">{o.rank}</span>
                     )}
                   </td>
                   <td className={`${td} min-w-40`}>
@@ -487,7 +487,7 @@ export function Proposals() {
                 }`}
               >
                 {f === 'all' ? 'All' : PROPOSAL_STATUS_NAMES[f]}
-                {data && <span className={active ? 'ml-1.5 text-white/80' : 'ml-1.5 text-gray-400'}>{count(f)}</span>}
+                {data && <span className={active ? 'ml-1.5 text-white/80' : 'ml-1.5 text-gray-500'}>{count(f)}</span>}
               </button>
             );
           })}

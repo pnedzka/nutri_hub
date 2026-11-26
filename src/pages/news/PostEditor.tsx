@@ -136,7 +136,7 @@ function BodyEditor({ value, onChange }: { value: string; onChange: (value: stri
       </div>
       {preview ? (
         <div className="min-h-[240px] rounded-lg border border-gray-200 bg-white px-4 py-3">
-          {value.trim() ? <FormattedText text={value} className="text-[15px] leading-relaxed text-gray-800" /> : <p className="text-sm text-gray-400">Nothing to preview yet.</p>}
+          {value.trim() ? <FormattedText text={value} className="text-[15px] leading-relaxed text-gray-800" /> : <p className="text-sm text-gray-500">Nothing to preview yet.</p>}
         </div>
       ) : (
         <div className="rounded-lg border border-gray-200 bg-white focus-within:ring-2 focus-within:ring-[#CC1F1F] focus-within:border-transparent">

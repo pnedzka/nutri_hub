@@ -73,7 +73,7 @@ export function CalendarView() {
                   <tr>
                     <th className="sticky left-0 z-10 bg-white px-3 text-left font-medium text-gray-500">Person</th>
                     {days.map((iso) => (
-                      <th key={iso} className={`px-0.5 py-1 text-center font-normal ${isOff(iso) ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <th key={iso} className={`px-0.5 py-1 text-center font-normal ${isOff(iso) ? 'text-gray-500' : 'text-gray-600'}`}>
                         <div>{WEEKDAY_FORMAT.format(parseDate(iso)!)}</div>
                         <div className={iso === shown.today ? 'font-semibold text-gray-900' : ''}>{Number(iso.slice(8))}</div>
                       </th>
